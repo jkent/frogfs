@@ -1,0 +1,44 @@
+menu "espfs"
+
+config ESPFS_IMAGEROOTDIR
+	string "Directory within project to build from"
+	default "fs/espfs"
+
+config ESPFS_USE_HEATSHRINK
+	bool "Compress using heatshrink"
+	default y
+
+config ESPFS_USE_GZIP
+	bool "Compress using gzip"
+	default y
+
+config ESPFS_USE_MINIFY_TOOLS
+	bool "Minify files using node.js tools"
+	default n
+
+config ESPFS_FETCH_MINIFY_TOOLS
+	bool "Download node.js tools using npm"
+	depends on ESPFS_USE_MINIFY_TOOLS
+	default y
+
+config ESPFS_BABEL_PATH
+	string "Path to babel"
+	depends on ESPFS_USE_MINIFY_TOOLS && !ESPFS_FETCH_MINIFY_TOOLS
+	default "babel"
+
+config ESPFS_HTMLMINIFIER_PATH
+	string "Path to html-minifier"
+	depends on ESPFS_USE_MINIFY_TOOLS && !ESPFS_FETCH_MINIFY_TOOLS
+	default "html-minifier"
+
+config ESPFS_UGLIFYJS_PATH
+	string "Path to uglifyjs"
+	depends on ESPFS_USE_MINIFY_TOOLS && !ESPFS_FETCH_MINIFY_TOOLS
+	default "uglifyjs"
+
+config ESPFS_UGLIFYCSS_PATH
+	string "Path to uglifycss"
+	depends on ESPFS_USE_MINIFY_TOOLS && !ESPFS_FETCH_MINIFY_TOOLS
+	default "uglifycss"
+
+endmenu

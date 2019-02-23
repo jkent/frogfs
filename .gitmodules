@@ -1,0 +1,3 @@
+[submodule "heatshrink"]
+	path = heatshrink
+	url = https://github.com/atomicobject/heatshrink.git
