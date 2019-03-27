@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <sys/fcntl.h>
 
-#include "esp_espfs.h"
-#include "image_espfs.h"
+#include "espfs_vfs.h"
+#include "espfs_image.h"
 
 
 static const char *TAG = "ESPFS";
