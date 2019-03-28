@@ -22,7 +22,7 @@ It's written for use with httpd, but doesn't need to be used as such.
 
 #ifdef ESPFS_HEATSHRINK
 #include "heatshrink_config_custom.h"
-#include "heatshrink/include/heatshrink_decoder.h"
+#include "heatshrink_decoder.h"
 #endif
 
 #include "esp_log.h"
