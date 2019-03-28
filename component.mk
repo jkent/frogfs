@@ -2,7 +2,7 @@ COMPONENT_ADD_INCLUDEDIRS := include
 COMPONENT_PRIV_INCLUDEDIRS := src heatshrink/src heatshrink/include
 COMPONENT_ADD_LDFLAGS += -limage-espfs
 COMPONENT_SRCDIRS := src heatshrink/src
-COMPONENT_OBJS := espfs.o espfs_vfs.o heatshrink/src/heatshrink_decoder.o
+COMPONENT_OBJS := src/espfs.o src/espfs_vfs.o heatshrink/src/heatshrink_decoder.o
 COMPONENT_EXTRA_CLEAN := mkespfsimage/*
 
 IMAGEROOTDIR := $(subst ",,$(CONFIG_ESPFS_IMAGEROOTDIR))
