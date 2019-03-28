@@ -1,7 +1,7 @@
 COMPONENT_ADD_INCLUDEDIRS := include
-COMPONENT_PRIV_INCLUDEDIRS := . heatshrink/src heatshrink/include
+COMPONENT_PRIV_INCLUDEDIRS := src heatshrink/src heatshrink/include
 COMPONENT_ADD_LDFLAGS += -limage-espfs
-COMPONENT_SRCDIRS := . heatshrink/src
+COMPONENT_SRCDIRS := src heatshrink/src
 COMPONENT_OBJS := espfs.o espfs_vfs.o heatshrink/src/heatshrink_decoder.o
 COMPONENT_EXTRA_CLEAN := mkespfsimage/*
 
@@ -69,10 +69,10 @@ else
 	cd $(PROJECT_PATH)/$(IMAGEROOTDIR) && find . | $(COMPONENT_BUILD_DIR)/mkespfsimage/mkespfsimage > $(COMPONENT_BUILD_DIR)/image.espfs
 endif
 
-libimage-espfs.a: image.espfs
+libimage-espfs.a: image.espfs $(COMPONENT_PATH)/src/image.espfs.ld
 	$(OBJCOPY) -I binary -O elf32-xtensa-le -B xtensa --rename-section .data=.rodata \
 		image.espfs image.espfs.o.tmp
-	$(CC) -nostdlib -Wl,-r image.espfs.o.tmp -o image.espfs.o -Wl,-T $(COMPONENT_PATH)/image.espfs.ld
+	$(CC) -nostdlib -Wl,-r image.espfs.o.tmp -o image.espfs.o -Wl,-T $(COMPONENT_PATH)/src/image.espfs.ld
 	$(AR) cru $@ image.espfs.o
 
 mkespfsimage/mkespfsimage: $(COMPONENT_PATH)/mkespfsimage
