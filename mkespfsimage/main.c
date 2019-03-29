@@ -25,7 +25,9 @@
 
 //Gzip
 #ifdef ESPFS_GZIP
-// If compiler complains about missing header, try running "sudo apt-get install zlib1g-dev"
+// If compiler complains about missing header,
+// try running "sudo apt-get install zlib1g-dev"
+// or on msys2/mingw32, try "pacman -S zlib-devel"
 // to install missing package.
 #include <zlib.h>
 #endif
@@ -339,7 +341,7 @@ int main(int argc, char **argv) {
 #endif
 		fprintf(stderr, "\nCompression level: 1 is worst but low RAM usage, higher is better compression \nbut uses more ram on decompression. -1 = compressors default.\n");
 #ifdef ESPFS_GZIP
-		fprintf(stderr, "\nGzipped extensions: list of comma separated, case sensitive file extensions \nthat will be gzipped. Defaults to 'html,css,js'\n");
+		fprintf(stderr, "\nGzipped extensions: list of comma separated, case sensitive file extensions \nthat will be gzipped. Defaults to 'html,css,js,svg'\n");
 #endif
 		exit(0);
 	}
