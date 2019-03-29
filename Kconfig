@@ -2,7 +2,7 @@ menu "espfs"
 
 config ESPFS_IMAGEROOTDIR
 	string "Directory within project to build from"
-	default "fs/espfs"
+	default "espfs"
 
 config ESPFS_USE_HEATSHRINK
 	bool "Compress using heatshrink"
