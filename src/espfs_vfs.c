@@ -27,11 +27,6 @@ static esp_err_t esp_espfs_init(const esp_vfs_espfs_conf_t *conf)
         return ESP_ERR_INVALID_STATE;
     }
 
-    EspFsInitResult result = espFsInit(image_espfs_start);
-    if (result != ESPFS_INIT_RESULT_OK) {
-        return ESP_FAIL;
-    }
-
     efs.max_files = conf->max_files;
     efs.files = calloc(conf->max_files, sizeof(EspFsFile *));
     if (efs.files == NULL) {
