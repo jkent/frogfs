@@ -1,5 +1,4 @@
-#ifndef ESPFS_H
-#define ESPFS_H
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,6 +21,4 @@ void espFsClose(EspFsFile *fh);
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif

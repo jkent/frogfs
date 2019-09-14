@@ -4,6 +4,9 @@
 #include <esp_vfs.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct {
     const char* base_path;
@@ -11,3 +14,7 @@ typedef struct {
 } esp_vfs_espfs_conf_t;
 
 esp_err_t esp_vfs_espfs_register(const esp_vfs_espfs_conf_t * conf);
+
+#ifdef __cplusplus
+}
+#endif
