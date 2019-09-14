@@ -12,7 +12,7 @@ typedef enum {
 
 typedef struct EspFsFile EspFsFile;
 
-EspFsInitResult espFsInit(void *flashAddress);
+EspFsInitResult espFsInit(const void *flashAddress);
 EspFsFile *espFsOpen(const char *fileName);
 int espFsFlags(EspFsFile *fh);
 int espFsRead(EspFsFile *fh, char *buff, int len);

@@ -19,8 +19,9 @@ It's written for use with httpd, but doesn't need to be used as such.
 
 #include "espfsformat.h"
 #include "espfs.h"
+#include "sdkconfig.h"
 
-#ifdef ESPFS_HEATSHRINK
+#if CONFIG_ESPFS_USE_HEATSHRINK
 #include "heatshrink_config_custom.h"
 #include "heatshrink_decoder.h"
 #endif
@@ -48,7 +49,7 @@ struct EspFsFile {
 #define readFlashUnaligned memcpy
 #define readFlashAligned(a,b,c) memcpy(a, (uint32_t*)b, c)
 
-EspFsInitResult espFsInit(void *flashAddress) {
+EspFsInitResult espFsInit(const void *flashAddress) {
 	// check if there is valid header at address
 	EspFsHeader testHeader;
 	readFlashUnaligned((char*)&testHeader, (char*)flashAddress, sizeof(EspFsHeader));
@@ -128,7 +129,7 @@ EspFsFile *espFsOpen(const char *fileName) {
 			r->posDecomp=0;
 			if (h.compression==COMPRESS_NONE) {
 				r->decompData=NULL;
-#ifdef ESPFS_HEATSHRINK
+#if CONFIG_ESPFS_USE_HEATSHRINK
 			} else if (h.compression==COMPRESS_HEATSHRINK) {
 				//File is compressed with Heatshrink.
 				char parm;
@@ -158,7 +159,7 @@ EspFsFile *espFsOpen(const char *fileName) {
 //Read len bytes from the given file into buff. Returns the actual amount of bytes read.
 int espFsRead(EspFsFile *fh, char *buff, int len) {
 	int flen;
-#ifdef ESPFS_HEATSHRINK
+#if CONFIG_ESPFS_USE_HEATSHRINK
 	int fdlen;
 #endif
 	if (fh==NULL) return 0;
@@ -180,7 +181,7 @@ int espFsRead(EspFsFile *fh, char *buff, int len) {
 		ESP_LOGD(TAG, "Done reading %d bytes, pos=%x", len, fh->posComp);
 #endif
 		return len;
-#ifdef ESPFS_HEATSHRINK
+#if CONFIG_ESPFS_USE_HEATSHRINK
 	} else if (fh->decompressor==COMPRESS_HEATSHRINK) {
 		readFlashUnaligned((char*)&fdlen, (char*)&fh->header->fileLenDecomp, 4);
 		int decoded=0;
@@ -301,7 +302,7 @@ int espFsSeek(EspFsFile *fh, long offset, int mode)
 //Close the file.
 void espFsClose(EspFsFile *fh) {
 	if (fh==NULL) return;
-#ifdef ESPFS_HEATSHRINK
+#if CONFIG_ESPFS_USE_HEATSHRINK
 	if (fh->decompressor==COMPRESS_HEATSHRINK) {
 		heatshrink_decoder *dec=(heatshrink_decoder *)fh->decompData;
 		heatshrink_decoder_free(dec);

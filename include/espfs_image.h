@@ -1,5 +1,6 @@
 #pragma once
 
-extern char image_espfs_start[];
-extern char image_espfs_end[];
-extern int image_espfs_size;
+#include <stdint.h>
+
+extern const char espfs_image_bin[];
+extern const unsigned int espfs_image_bin_len;
