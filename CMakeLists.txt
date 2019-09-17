@@ -57,9 +57,7 @@ if(npm_PACKAGES)
     endforeach(name)
 endif(npm_PACKAGES)
 
-
-add_custom_target(espfs_image
-    BYPRODUCTS "espfs_image_bin.h"
+add_custom_command(OUTPUT espfs_image_bin.h
     COMMAND ${CMAKE_COMMAND} -E env
         "CMAKE_CURRENT_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}"
         "CONFIG_ESPFS_PREPROCESS_FILES=${CONFIG_ESPFS_PREPROCESS_FILES}"
@@ -74,8 +72,8 @@ add_custom_target(espfs_image
         "CONFIG_ESPFS_UGLIFYJS_PATH=${CONFIG_ESPFS_UGLIFYJS_PATH}"
         "${COMPONENT_DIR}/build-image.py" "${PROJECT_DIR}/${CONFIG_ESPFS_IMAGEROOTDIR}"
     DEPENDS ${espfs_image_DEPENDS}
-    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-    COMMENT "Generating espfs image..."
+    VERBATIM
 )
 
+add_custom_target(espfs_image DEPENDS espfs_image_bin.h)
 add_dependencies(${COMPONENT_LIB} espfs_image)
