@@ -1,15 +1,22 @@
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include")
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
+
+if(CONFIG_ESPFS_LINK_BINARY)
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include")
+    list(APPEND espfs_SRCS "src/espfs_image.c")
+    list(APPEND espfs_PRIV_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/include")
+endif(CONFIG_ESPFS_LINK_BINARY)
 
 idf_component_register(
     SRCS "src/espfs_vfs.c"
          "src/espfs.c"
          "src/espfs_image.c"
          "heatshrink/src/heatshrink_decoder.c"
+         "${espfs_SRCS}"
     INCLUDE_DIRS "include"
     PRIV_INCLUDE_DIRS "src"
                       "heatshrink/src"
                       "heatshrink/include"
-                      "${CMAKE_CURRENT_BINARY_DIR}/include"
+                      "${espfs_PRIV_INCLUDE_DIRS}"
 )
 
 if(CONFIG_ESPFS_USE_BABEL)
@@ -41,23 +48,23 @@ externalproject_add(mkespfsimage
 
 set(espfs_image_DEPENDS mkespfsimage)
 if(npm_PACKAGES)
-    add_custom_target(node_modules
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/node_modules"
         COMMAND npm install --save-dev ${npm_PACKAGES}
         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     )
-    list(APPEND espfs_image_DEPENDS node_modules)
+    list(APPEND espfs_image_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/node_modules")
+
     foreach(name IN LISTS npm_BINARIES)
-        add_custom_target(npm_link_${name}
-            COMMAND mkdir -p bin/
+        add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/bin/${name}"
             COMMAND ln -fs ../node_modules/.bin/${name} bin/
             WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-            COMMENT "Updating ${name} node.js module..."
+            DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/node_modules"
         )
-        list(APPEND espfs_image_DEPENDS npm_link_${name})
+        list(APPEND espfs_image_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/bin/${name}")
     endforeach(name)
 endif(npm_PACKAGES)
 
-add_custom_command(OUTPUT espfs_image_bin.h
+add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/espfs_image.bin"
     COMMAND ${CMAKE_COMMAND} -E env
         "CMAKE_CURRENT_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}"
         "CONFIG_ESPFS_PREPROCESS_FILES=${CONFIG_ESPFS_PREPROCESS_FILES}"
@@ -70,10 +77,17 @@ add_custom_command(OUTPUT espfs_image_bin.h
         "CONFIG_ESPFS_HTMLMINIFIER_PATH=${CONFIG_ESPFS_HTMLMINIFIER_PATH}"
         "CONFIG_ESPFS_BABEL_PATH=${CONFIG_ESPFS_BABEL_PATH}"
         "CONFIG_ESPFS_UGLIFYJS_PATH=${CONFIG_ESPFS_UGLIFYJS_PATH}"
-        "${COMPONENT_DIR}/build-image.py" "${PROJECT_DIR}/${CONFIG_ESPFS_IMAGEROOTDIR}"
-    DEPENDS ${espfs_image_DEPENDS}
+        "${COMPONENT_DIR}/tools/build-image.py" "${PROJECT_DIR}/${CONFIG_ESPFS_IMAGEROOTDIR}"
+    DEPENDS ${espfs_image_DEPENDS} ${PROJECT_DIR}/${CONFIG_ESPFS_IMAGEROOTDIR}
     VERBATIM
 )
-
-add_custom_target(espfs_image DEPENDS espfs_image_bin.h)
+add_custom_target(espfs_image DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/espfs_image.bin")
 add_dependencies(${COMPONENT_LIB} espfs_image)
+
+add_custom_command(OUTPUT espfs_image_bin.h
+    COMMAND xxd -i espfs_image.bin include/espfs_image_bin.h
+    DEPENDS espfs_image.bin
+    VERBATIM
+)
+add_custom_target(espfs_image_bin_h DEPENDS espfs_image_bin.h)
+add_dependencies(${COMPONENT_LIB} espfs_image_bin_h)

@@ -134,4 +134,8 @@ config ESPFS_USE_GZIP
 	bool "Compress html, css, and js files using gzip"
 	default n
 
+config ESPFS_LINK_BINARY
+	bool "Link resulting espfs binary with firmware"
+	default y
+
 endmenu
