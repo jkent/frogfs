@@ -1,6 +1,5 @@
 COMPONENT_ADD_INCLUDEDIRS := include
 COMPONENT_PRIV_INCLUDEDIRS := src heatshrink/src heatshrink/include
-COMPONENT_ADD_LDFLAGS += -limage-espfs
 COMPONENT_SRCDIRS := src heatshrink/src
 COMPONENT_OBJS := src/espfs.o src/espfs_vfs.o heatshrink/src/heatshrink_decoder.o
 COMPONENT_EXTRA_CLEAN := mkespfsimage/*
@@ -9,6 +8,10 @@ IMAGEROOTDIR := $(subst ",,$(CONFIG_ESPFS_IMAGEROOTDIR))
 FILES := $(shell find $(PROJECT_PATH)/$(IMAGEROOTDIR) | sed -E 's/([[:space:]])/\\\1/g')
 
 COMPONENT_EXTRA_CLEAN += $(IMAGEROOTDIR)/*
+
+ifeq ("$(CONFIG_ESPFS_LINK_BINARY)","y")
+COMPONENT_OBJS += src/espfs_image.o
+endif
 
 ifeq ("$(CONFIG_ESPFS_USE_HEATSHRINK)","y")
 USE_HEATSHRINK := "yes"
@@ -24,71 +27,70 @@ else
 USE_GZIP_COMPRESSION := "no"
 endif
 
-IMAGE_PREREQ :=
-ifeq ("$(CONFIG_ESPFS_USE_MINIFY_TOOLS)","y")
-COMPONENT_EXTRA_CLEAN += $(IMAGEROOTDIR)/*
-BABEL ?= $(CONFIG_ESPFS_BABEL_PATH)
-HTMLMINIFIER ?= $(CONFIG_ESPFS_HTMLMINIFIER_PATH)
-UGLIFYJS ?= $(CONFIG_ESPFS_UGLIFYJS_PATH)
-UGLIFYCSS ?= $(CONFIG_ESPFS_UGLIFYCSS_PATH)
-ifeq ("$(CONFIG_ESPFS_FETCH_MINIFY_TOOLS)","y")
-COMPONENT_EXTRA_CLEAN += node_modules/*
-BABEL := node_modules/.bin/babel
-HTMLMINIFIER := node_modules/.bin/html-minifier
-UGLIFYJS := node_modules/.bin/uglifyjs
-UGLIFYCSS := node_modules/.bin/uglifycss
-IMAGE_PREREQ += $(BABEL) $(HTMLMINIFIER) $(UGLIFYJS) $(UGLIFYCSS)
-endif
+npm_BINARIES :=
+ifeq ("$(CONFIG_ESPFS_PREPROCESS_FILES)","y")
+npm_PACKAGES :=
+ifeq ("$(CONFIG_ESPFS_USE_BABEL)","y")
+npm_BINARIES += bin/babel
+npm_PACKAGES += @babel/core @babel/cli @babel/preset-env babel-preset-minify
+bin/babel: node_modules
+	mkdir -p bin
+	ln -fs ../node_modules/.bin/babel bin/
 endif
 
-libespfs.a: libimage-espfs.a
-
-image.espfs: $(FILES) $(IMAGE_PREREQ) mkespfsimage/mkespfsimage
-ifeq ("$(CONFIG_ESPFS_USE_MINIFY_TOOLS)","y")
-	rm -rf $(IMAGEROOTDIR)
-	mkdir -p $(IMAGEROOTDIR)
-	cp -r $(PROJECT_PATH)/$(IMAGEROOTDIR)/. $(IMAGEROOTDIR)
-	files=$$(find $(IMAGEROOTDIR) -type f \( -name \*.css -o -name \*.html -o -name \*.js \)); \
-	for file in $$files; do \
-		case "$$file" in \
-		*.min.css|*.min.js) continue ;; \
-		*.css) \
-			$(UGLIFYCSS) "$$file" > "$${file}.new"; \
-			mv "$${file}.new" "$$file";; \
-		*.html) \
-			$(HTMLMINIFIER) --collapse-whitespace --remove-comments --use-short-doctype --minify-css true --minify-js true "$$file" > "$${file}.new"; \
-			mv "$${file}.new" "$$file";; \
-		*.js) \
-			$(BABEL) --presets env "$$file" | $(UGLIFYJS) > "$${file}.new"; \
-			mv "$${file}.new" "$$file";; \
-		esac; \
-	done
-	awk "BEGIN {printf \"minify ratio was: %.2f%%\\n\", (`du -b -s $(IMAGEROOTDIR)/ | sed 's/\([0-9]*\).*/\1/'`/`du -b -s $(PROJECT_PATH)/$(IMAGEROOTDIR) | sed 's/\([0-9]*\).*/\1/'`)*100}"
-	cd $(IMAGEROOTDIR); find . | $(COMPONENT_BUILD_DIR)/mkespfsimage/mkespfsimage > $(COMPONENT_BUILD_DIR)/image.espfs
-else
-	cd $(PROJECT_PATH)/$(IMAGEROOTDIR) && find . | $(COMPONENT_BUILD_DIR)/mkespfsimage/mkespfsimage > $(COMPONENT_BUILD_DIR)/image.espfs
+ifeq ("$(CONFIG_ESPFS_USE_HTMLMINIFIER)","y")
+npm_BINARIES += bin/html-minifier
+npm_PACKAGES += html-minifier
+bin/html-minifier: node_modules
+	mkdir -p bin
+	ln -fs ../node_modules/.bin/html-minifier bin/
 endif
 
-libimage-espfs.a: image.espfs $(COMPONENT_PATH)/src/image.espfs.ld
-	$(OBJCOPY) -I binary -O elf32-xtensa-le -B xtensa --rename-section .data=.rodata \
-		image.espfs image.espfs.o.tmp
-	$(CC) -nostdlib -Wl,-r image.espfs.o.tmp -o image.espfs.o -Wl,-T $(COMPONENT_PATH)/src/image.espfs.ld
-	$(AR) cru $@ image.espfs.o
+ifeq ("$(CONFIG_ESPFS_USE_UGLIFYCSS)","y")
+npm_BINARIES += bin/uglifycss
+npm_PACKAGES += uglifycss
+bin/uglifycss: node_modules
+	mkdir -p bin
+	ln -fs ../node_modules/.bin/uglifycss bin/
+endif
+
+ifeq ("$(CONFIG_ESPFS_USE_UGLIFYJS)","y")
+npm_BINARIES += bin/uglifyjs
+npm_PACKAGES += uglify-js
+bin/uglifyjs: node_modules
+	mkdir -p bin
+	ln -fs ../node_modules/.bin/uglifyjs bin/
+endif
+
+node_modules:
+	npm install --save-dev $(npm_PACKAGES)
+endif
+
+espfs_image.bin: $(FILES) $(npm_BINARIES) mkespfsimage/mkespfsimage
+	BUILD_DIR="$(shell pwd)" \
+	CONFIG_ESPFS_PREPROCESS_FILES=$(CONFIG_ESPFS_PREPROCESS_FILES) \
+	CONFIG_ESPFS_CSS_MINIFY_UGLIFYCSS=$(CONFIG_ESPFS_CSS_MINIFY_UGLIFYCSS) \
+	CONFIG_ESPFS_HTML_MINIFY_HTMLMINIFIER=$(CONFIG_ESPFS_HTML_MINIFY_HTMLMINIFIER) \
+	CONFIG_ESPFS_JS_CONVERT_BABEL=$(CONFIG_ESPFS_JS_CONVERT_BABEL) \
+	CONFIG_ESPFS_JS_MINIFY_BABEL=$(CONFIG_ESPFS_JS_MINIFY_BABEL) \
+	CONFIG_ESPFS_JS_MINIFY_UGLIFYJS=$(CONFIG_ESPFS_JS_MINIFY_UGLIFYJS) \
+	CONFIG_ESPFS_UGLIFYCSS_PATH=$(CONFIG_ESPFS_UGLIFYCSS_PATH) \
+	CONFIG_ESPFS_HTMLMINIFIER_PATH=$(CONFIG_ESPFS_HTMLMINIFIER_PATH) \
+	CONFIG_ESPFS_BABEL_PATH=$(CONFIG_ESPFS_BABEL_PATH) \
+	CONFIG_ESPFS_UGLIFYJS_PATH=$(CONFIG_ESPFS_UGLIFYJS_PATH) \
+	$(COMPONENT_PATH)/tools/build-image.py "$(PROJECT_PATH)/$(CONFIG_ESPFS_IMAGEROOTDIR)"
+
+src/espfs_image.o: src/espfs_image.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+
+src/espfs_image.c: espfs_image.bin
+	mkdir -p src
+	xxd -i $< $@
+	sed -i '1s;^;const __attribute__((aligned(4))); ' $@
 
 mkespfsimage/mkespfsimage: $(COMPONENT_PATH)/mkespfsimage
 	mkdir -p $(COMPONENT_BUILD_DIR)/mkespfsimage
 	$(MAKE) -C $(COMPONENT_BUILD_DIR)/mkespfsimage -f $(COMPONENT_PATH)/mkespfsimage/Makefile \
 		USE_HEATSHRINK="$(USE_HEATSHRINK)" USE_GZIP_COMPRESSION="$(USE_GZIP_COMPRESSION)" BUILD_DIR=$(COMPONENT_BUILD_DIR)/mkespfsimage \
 		CC=$(HOSTCC) clean mkespfsimage
-
-node_modules/.bin/babel:
-	npm install --save-dev babel-cli babel-preset-env
-
-node_modules/.bin/html-minifier:
-	npm install --save-dev html-minifier
-
-node_modules/.bin/uglifycss:
-	npm install --save-dev uglifycss
-
-node_modules/.bin/uglifyjs:
-	npm install --save-dev uglify-js
+	ln -s ../mkespfsimage/mkespfsimage bin/

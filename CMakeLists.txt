@@ -1,22 +1,19 @@
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
 
 if(CONFIG_ESPFS_LINK_BINARY)
-    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include")
-    list(APPEND espfs_SRCS "src/espfs_image.c")
-    list(APPEND espfs_PRIV_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/include")
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/src")
+    list(APPEND espfs_SRCS "${CMAKE_CURRENT_BINARY_DIR}/src/espfs_image.c")
 endif(CONFIG_ESPFS_LINK_BINARY)
 
 idf_component_register(
     SRCS "src/espfs_vfs.c"
          "src/espfs.c"
-         "src/espfs_image.c"
          "heatshrink/src/heatshrink_decoder.c"
          "${espfs_SRCS}"
     INCLUDE_DIRS "include"
     PRIV_INCLUDE_DIRS "src"
                       "heatshrink/src"
                       "heatshrink/include"
-                      "${espfs_PRIV_INCLUDE_DIRS}"
 )
 
 if(CONFIG_ESPFS_USE_BABEL)
@@ -66,7 +63,7 @@ endif(npm_PACKAGES)
 
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/espfs_image.bin"
     COMMAND ${CMAKE_COMMAND} -E env
-        "CMAKE_CURRENT_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}"
+        "BUILD_DIR=${CMAKE_CURRENT_BINARY_DIR}"
         "CONFIG_ESPFS_PREPROCESS_FILES=${CONFIG_ESPFS_PREPROCESS_FILES}"
         "CONFIG_ESPFS_CSS_MINIFY_UGLIFYCSS=${CONFIG_ESPFS_CSS_MINIFY_UGLIFYCSS}"
         "CONFIG_ESPFS_HTML_MINIFY_HTMLMINIFIER=${CONFIG_ESPFS_HTML_MINIFY_HTMLMINIFIER}"
@@ -84,10 +81,12 @@ add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/espfs_image.bin"
 add_custom_target(espfs_image DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/espfs_image.bin")
 add_dependencies(${COMPONENT_LIB} espfs_image)
 
-add_custom_command(OUTPUT espfs_image_bin.h
-    COMMAND xxd -i espfs_image.bin include/espfs_image_bin.h
+add_custom_command(OUTPUT src/espfs_image.c
+    COMMAND xxd -i espfs_image.bin src/espfs_image.c
+    COMMAND sed -i "1s;^;const __attribute__((aligned(4))) ;" src/espfs_image.c
+
     DEPENDS espfs_image.bin
     VERBATIM
 )
-add_custom_target(espfs_image_bin_h DEPENDS espfs_image_bin.h)
-add_dependencies(${COMPONENT_LIB} espfs_image_bin_h)
+add_custom_target(espfs_image_c DEPENDS src/espfs_image.c)
+add_dependencies(${COMPONENT_LIB} espfs_image_c)
