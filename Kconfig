@@ -128,7 +128,7 @@ config ESPFS_UGLIFYJS_PATH
 
 config ESPFS_USE_HEATSHRINK
 	bool "Compress espfs image using heatshrink"
-	default y
+	default n
 
 config ESPFS_USE_GZIP
 	bool "Compress html, css, and js files using gzip"
