@@ -30,7 +30,13 @@ It's written for use with httpd, but doesn't need to be used as such.
 const static char* TAG = "espfs";
 
 // Define to enable more verbose output
-#undef VERBOSE_OUTPUT
+#undef VERBOSE
+
+#ifdef VERBOSE
+#define LOGD ESP_LOGD
+#else
+#define LOGD(...)
+#endif
 
 //ESP32, for now, stores memory locations here.
 static char* espFsData = NULL;
@@ -46,13 +52,10 @@ struct EspFsFile {
 };
 
 
-#define readFlashUnaligned memcpy
-#define readFlashAligned(a,b,c) memcpy(a, (uint32_t*)b, c)
-
 EspFsInitResult espFsInit(const void *flashAddress) {
 	// check if there is valid header at address
 	EspFsHeader testHeader;
-	readFlashUnaligned((char*)&testHeader, (char*)flashAddress, sizeof(EspFsHeader));
+	memcpy((char*)&testHeader, (char*)flashAddress, sizeof(EspFsHeader));
 	if (testHeader.magic != ESPFS_MAGIC) {
 		ESP_LOGE(TAG, "Esp magic: %x (should be %x)", testHeader.magic, ESPFS_MAGIC);
 		return ESPFS_INIT_RESULT_NO_IMAGE;
@@ -62,9 +65,6 @@ EspFsInitResult espFsInit(const void *flashAddress) {
 	return ESPFS_INIT_RESULT_OK;
 }
 
-//Copies len bytes over from dst to src, but does it using *only*
-//aligned 32-bit reads. Yes, it's no too optimized but it's short and sweet and it works.
-
 // Returns flags of opened file.
 int espFsFlags(EspFsFile *fh) {
 	if (fh == NULL) {
@@ -73,74 +73,68 @@ int espFsFlags(EspFsFile *fh) {
 	}
 
 	int8_t flags;
-	readFlashUnaligned((char*)&flags, (char*)&fh->header->flags, 1);
+	memcpy((char*)&flags, (char*)&fh->header->flags, 1);
 	return (int)flags;
 }
 
-//Open a file and return a pointer to the file desc struct.
+// Open a file and return a pointer to the file desc struct.
 EspFsFile *espFsOpen(const char *fileName) {
 	if (espFsData == NULL) {
 		ESP_LOGE(TAG, "Call espFsInit first");
 		return NULL;
 	}
-	char *p=espFsData;
+	char *p = espFsData;
 	char *hpos;
 	char namebuf[256];
 	EspFsHeader h;
 	EspFsFile *r;
-	//Strip first initial slash
-	//We should not strip any next slashes otherwise there is potential security risk when mapped authentication handler will not invoke (ex. ///security.html)
+	// Strip first initial slash
+	// We should not strip any next slashes otherwise there is potential
+	// security risk when mapped authentication handler will not invoke
+	// (ex. ///security.html)
 	if(fileName[0]=='/') fileName++;
-	//Go find that file!
+	// Go find that file!
 	while(1) {
 		hpos=p;
-		//Grab the next file header.
-		readFlashAligned((uintptr_t*)&h, (uintptr_t)p, sizeof(EspFsHeader));
+		// Grab the next file header.
+		memcpy((uintptr_t*)&h, (uintptr_t*)p, sizeof(EspFsHeader));
 
-		if (h.magic!=ESPFS_MAGIC) {
+		if (h.magic != ESPFS_MAGIC) {
 			ESP_LOGE(TAG, "Magic mismatch. EspFS image broken.");
 			return NULL;
 		}
-		if (h.flags&FLAG_LASTFILE) {
-#ifdef VERBOSE_OUTPUT
-			ESP_LOGD(TAG, "End of image");
-#endif
+		if (h.flags & FLAG_LASTFILE) {
+			LOGD(TAG, "End of image");
 			return NULL;
 		}
-		//Grab the name of the file.
-		p+=sizeof(EspFsHeader);
-		readFlashAligned((uint32_t*)&namebuf, (uintptr_t)p, sizeof(namebuf));
-#ifdef VERBOSE_OUTPUT
-		ESP_LOGD(TAG, "Found file '%s'. Namelen=%x fileLenComp=%x, compr=%d flags=%d",
+		// Grab the name of the file.
+		p += sizeof(EspFsHeader);
+		memcpy((uint32_t*)&namebuf, (uintptr_t*)p, sizeof(namebuf));
+		LOGD(TAG, "Found file '%s'. Namelen=%x fileLenComp=%x, compr=%d flags=%d",
 				namebuf, (unsigned int)h.nameLen, (unsigned int)h.fileLenComp, h.compression, h.flags);
-#endif
-		if (strcmp(namebuf, fileName)==0) {
-			//Yay, this is the file we need!
-			p+=h.nameLen; //Skip to content.
-			r=(EspFsFile *)malloc(sizeof(EspFsFile)); //Alloc file desc mem
-#ifdef VERBOSE_OUTPUT
-			ESP_LOGD(TAG, "Alloc %p", r);
-#endif
-			if (r==NULL) return NULL;
+		if (strcmp(namebuf, fileName) == 0) {
+			// Yay, this is the file we need!
+			p += h.nameLen; //Skip to content.
+			r = (EspFsFile *)malloc(sizeof(EspFsFile)); // Alloc file desc mem
+			LOGD(TAG, "Alloc %p", r);
+			if (r == NULL) return NULL;
 			r->header=(EspFsHeader *)hpos;
-			r->decompressor=h.compression;
-			r->posComp=p;
-			r->posStart=p;
-			r->posDecomp=0;
-			if (h.compression==COMPRESS_NONE) {
-				r->decompData=NULL;
+			r->decompressor = h.compression;
+			r->posComp = p;
+			r->posStart = p;
+			r->posDecomp = 0;
+			if (h.compression == COMPRESS_NONE) {
+				r->decompData = NULL;
 #if CONFIG_ESPFS_USE_HEATSHRINK
-			} else if (h.compression==COMPRESS_HEATSHRINK) {
-				//File is compressed with Heatshrink.
+			} else if (h.compression == COMPRESS_HEATSHRINK) {
+				// File is compressed with Heatshrink.
 				char parm;
 				heatshrink_decoder *dec;
-				//Decoder params are stored in 1st byte.
-				readFlashUnaligned(&parm, r->posComp, 1);
+				// Decoder params are stored in 1st byte.
+				memcpy(&parm, r->posComp, 1);
 				r->posComp++;
-#ifdef VERBOSE_OOTPUT
-				ESP_LOGD(TAG, "Heatshrink compressed file; decode parms = %x", parm);
-#endif
-				dec=heatshrink_decoder_alloc(16, (parm>>4)&0xf, parm&0xf);
+				LOGD(TAG, "Heatshrink compressed file; decode parms = %x", parm);
+				dec = heatshrink_decoder_alloc(16, (parm >> 4) & 0xf, parm & 0xf);
 				r->decompData=dec;
 #endif
 			} else {
@@ -150,47 +144,43 @@ EspFsFile *espFsOpen(const char *fileName) {
 			}
 			return r;
 		}
-		//We don't need this file. Skip name and file
-		p+=h.nameLen+h.fileLenComp;
-		if ((uintptr_t)p&3) p+=4-((uintptr_t)p&3); //align to next 32bit val
+		// We don't need this file. Skip name and file
+		p += h.nameLen + h.fileLenComp;
+		if ((uintptr_t)p & 3) {
+		    p += 4 - ((uintptr_t)p & 3); // align to next 32bit val
+		}
 	}
 }
 
-//Read len bytes from the given file into buff. Returns the actual amount of bytes read.
+// Read len bytes from the given file into buff. Returns the actual amount of bytes read.
 int espFsRead(EspFsFile *fh, char *buff, int len) {
 	int flen;
 #if CONFIG_ESPFS_USE_HEATSHRINK
 	int fdlen;
 #endif
-	if (fh==NULL) return 0;
+	if (fh == NULL) return 0;
 
-	readFlashUnaligned((char*)&flen, (char*)&fh->header->fileLenComp, 4);
-	//Cache file length.
-	//Do stuff depending on the way the file is compressed.
-	if (fh->decompressor==COMPRESS_NONE) {
+	memcpy((char*)&flen, (char*)&fh->header->fileLenComp, 4);
+	// Cache file length.
+	// Do stuff depending on the way the file is compressed.
+	if (fh->decompressor == COMPRESS_NONE) {
 		int toRead;
-		toRead=flen-(fh->posComp-fh->posStart);
-		if (len>toRead) len=toRead;
-#ifdef VERBOSE_OUTPUT
-		ESP_LOGD(TAG, "Reading %d bytes from %x", len, (unsigned int)fh->posComp);
-#endif
-		readFlashUnaligned(buff, fh->posComp, len);
-		fh->posDecomp+=len;
-		fh->posComp+=len;
-#ifdef VERBOSE_OUTPUT
-		ESP_LOGD(TAG, "Done reading %d bytes, pos=%x", len, fh->posComp);
-#endif
+		toRead = flen-(fh->posComp-fh->posStart);
+		if (len>toRead) len = toRead;
+		LOGD(TAG, "Reading %d bytes from %x", len, (unsigned int)fh->posComp);
+		memcpy(buff, fh->posComp, len);
+		fh->posDecomp += len;
+		fh->posComp += len;
+		LOGD(TAG, "Done reading %d bytes, pos=%x", len, fh->posComp);
 		return len;
 #if CONFIG_ESPFS_USE_HEATSHRINK
 	} else if (fh->decompressor==COMPRESS_HEATSHRINK) {
-		readFlashUnaligned((char*)&fdlen, (char*)&fh->header->fileLenDecomp, 4);
-		int decoded=0;
+		memcpy((char*)&fdlen, (char*)&fh->header->fileLenDecomp, 4);
+		int decoded = 0;
 		size_t elen, rlen;
 		char ebuff[16];
-		heatshrink_decoder *dec=(heatshrink_decoder *)fh->decompData;
-#ifdef VERBOSE_OUTPUT
-		ESP_LOGD(TAG, "Alloc %p", dec);
-#endif
+		heatshrink_decoder *dec = (heatshrink_decoder *)fh->decompData;
+		LOGD(TAG, "Alloc %p", dec);
 		if (fh->posDecomp == fdlen) {
 			return 0;
 		}
@@ -199,30 +189,26 @@ int espFsRead(EspFsFile *fh, char *buff, int len) {
 		// This means even when there is no input data (elen==0) try to poll decoder until
 		// posDecomp equals decompressed file length
 
-		while(decoded<len) {
-			//Feed data into the decompressor
-			//ToDo: Check ret val of heatshrink fns for errors
-			elen=flen-(fh->posComp - fh->posStart);
+		while(decoded < len) {
+			// Feed data into the decompressor
+			// ToDo: Check ret val of heatshrink fns for errors
+			elen = flen - (fh->posComp - fh->posStart);
 			if (elen>0) {
-				readFlashUnaligned(ebuff, fh->posComp, 16);
-				heatshrink_decoder_sink(dec, (uint8_t *)ebuff, (elen>16)?16:elen, &rlen);
-				fh->posComp+=rlen;
+				memcpy(ebuff, fh->posComp, 16);
+				heatshrink_decoder_sink(dec, (uint8_t *)ebuff, (elen > 16) ? 16 : elen, &rlen);
+				fh->posComp += rlen;
 			}
-			//Grab decompressed data and put into buff
-			heatshrink_decoder_poll(dec, (uint8_t *)buff, len-decoded, &rlen);
-			fh->posDecomp+=rlen;
-			buff+=rlen;
-			decoded+=rlen;
+			// Grab decompressed data and put into buff
+			heatshrink_decoder_poll(dec, (uint8_t *)buff, len - decoded, &rlen);
+			fh->posDecomp += rlen;
+			buff += rlen;
+			decoded += rlen;
 
-#ifdef VERBOSE_OUTPUT
-			ESP_LOGD(TAG, "Elen %d rlen %d d %d pd %ld fdl %d\n",elen,rlen,decoded, fh->posDecomp, fdlen);
-#endif
+			LOGD(TAG, "Elen %d rlen %d d %d pd %ld fdl %d\n", elen, rlen, decoded, fh->posDecomp, fdlen);
 
 			if (elen == 0) {
 				if (fh->posDecomp == fdlen) {
-#ifdef VERBOSE_OUTPUT
-					ESP_LOGD(TAG, "Decoder finish");
-#endif
+					LOGD(TAG, "Decoder finish");
 					heatshrink_decoder_finish(dec);
 				}
 				return decoded;
@@ -234,10 +220,12 @@ int espFsRead(EspFsFile *fh, char *buff, int len) {
 	return 0;
 }
 
-//Seek in the file.
+// Seek in the file.
 int espFsSeek(EspFsFile *fh, long offset, int mode)
 {
-	if (fh==NULL) return -1;
+	if (fh == NULL) {
+		return -1;
+	}
 
 	if (mode == SEEK_SET) {
 		if (offset < 0) {
@@ -299,22 +287,17 @@ int espFsSeek(EspFsFile *fh, long offset, int mode)
 	return fh->posDecomp;
 }
 
-//Close the file.
+// Close the file.
 void espFsClose(EspFsFile *fh) {
-	if (fh==NULL) return;
+	if (fh == NULL) return;
 #if CONFIG_ESPFS_USE_HEATSHRINK
-	if (fh->decompressor==COMPRESS_HEATSHRINK) {
-		heatshrink_decoder *dec=(heatshrink_decoder *)fh->decompData;
+	if (fh->decompressor == COMPRESS_HEATSHRINK) {
+		heatshrink_decoder *dec = (heatshrink_decoder *)fh->decompData;
 		heatshrink_decoder_free(dec);
-#ifdef VERBOSE_OUTPUT
-		ESP_LOGD(TAG, "Freed %p", dec);
-#endif
+		LOGD(TAG, "Freed %p", dec);
 	}
 #endif
 
-#ifdef VERBOSE_OUTPUT
-	ESP_LOGD(TAG, "Freed %p", fh);
-#endif
-
+	LOGD(TAG, "Freed %p", fh);
 	free(fh);
 }
