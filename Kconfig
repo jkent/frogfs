@@ -131,7 +131,7 @@ config ESPFS_USE_HEATSHRINK
 	default n
 
 config ESPFS_USE_GZIP
-	bool "Compress html, css, and js files using gzip"
+	bool "Compress html, css, js, and svg files using gzip"
 	default n
 
 config ESPFS_LINK_BINARY
