@@ -12,21 +12,25 @@ It's written for use with httpd, but doesn't need to be used as such.
 //simplifies debugging, but needs some slightly different headers. The #ifdef takes
 //care of that.
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "esp_log.h"
+#include "esp_partition.h"
+#include "esp_spi_flash.h"
+#include "sdkconfig.h"
+
 #include "espfsformat.h"
 #include "espfs.h"
-#include "sdkconfig.h"
 
 #if CONFIG_ESPFS_USE_HEATSHRINK
 #include "heatshrink_config_custom.h"
 #include "heatshrink_decoder.h"
 #endif
 
-#include "esp_log.h"
 const static char* TAG = "espfs";
 
 // Define to enable more verbose output
@@ -38,9 +42,12 @@ const static char* TAG = "espfs";
 #define LOGD(...)
 #endif
 
-//ESP32, for now, stores memory locations here.
-static char* espFsData = NULL;
-
+struct EspFs {
+	const void *memAddr;
+	spi_flash_mmap_handle_t mmapHandle;
+	size_t length;
+	size_t numFiles;
+};
 
 struct EspFsFile {
 	EspFsHeader *header;
@@ -52,42 +59,94 @@ struct EspFsFile {
 };
 
 
-EspFsInitResult espFsInit(const void *flashAddress) {
-	// check if there is valid header at address
-	EspFsHeader testHeader;
-	memcpy((char*)&testHeader, (char*)flashAddress, sizeof(EspFsHeader));
-	if (testHeader.magic != ESPFS_MAGIC) {
-		ESP_LOGE(TAG, "Esp magic: %x (should be %x)", testHeader.magic, ESPFS_MAGIC);
-		return ESPFS_INIT_RESULT_NO_IMAGE;
+EspFs* espFsInit(const char *partLabel, const void* memAddr)
+{
+	spi_flash_mmap_handle_t mmapHandle = 0;
+
+	if (!memAddr) {
+		esp_partition_subtype_t subtype = partLabel ?
+				ESP_PARTITION_SUBTYPE_ANY : ESP_PARTITION_SUBTYPE_DATA_ESPHTTPD;
+		const esp_partition_t* partition = esp_partition_find_first(
+				ESP_PARTITION_TYPE_DATA, subtype, partLabel);
+		if (!partition) {
+			return NULL;
+		}
+
+		esp_err_t err = esp_partition_mmap(partition, 0, partition->size,
+				SPI_FLASH_MMAP_DATA, &memAddr, &mmapHandle);
+		if (err) {
+			return NULL;
+		}
 	}
 
-	espFsData = (char *)flashAddress;
-	return ESPFS_INIT_RESULT_OK;
+	const EspFsHeader *h = memAddr;
+	if (h->magic != ESPFS_MAGIC) {
+		/* TODO: err message here */
+		if (mmapHandle) {
+			spi_flash_munmap(mmapHandle);
+		}
+		return NULL;
+	}
+
+	EspFs* fs = malloc(sizeof(EspFs));
+	if (!fs) {
+		if (mmapHandle) {
+			spi_flash_munmap(mmapHandle);
+		}
+		return NULL;
+	}
+
+	uint32_t entry_length = sizeof(*h) + h->nameLen + h->fileLenComp;
+	fs->length = entry_length;
+	fs->numFiles = 0;
+
+	do {
+		fs->numFiles++;
+		h = (void*)h + entry_length;
+		entry_length = sizeof(*h) + h->nameLen + h->fileLenComp;
+		if (entry_length % 4) {
+			entry_length += 4 - (entry_length % 4);
+		}
+		fs->length += entry_length;
+	} while (!(h->flags & FLAG_LASTFILE));
+
+	fs->memAddr = memAddr;
+	fs->mmapHandle = mmapHandle;
+	return fs;
+}
+
+void espFsDeinit(EspFs* fs)
+{
+	if (fs->mmapHandle) {
+		spi_flash_munmap(fs->mmapHandle);
+	}
+	free(fs);
 }
 
 // Returns flags of opened file.
-int espFsFlags(EspFsFile *fh) {
+int espFsFlags(EspFsFile *fh)
+{
 	if (fh == NULL) {
-		ESP_LOGE(TAG, "File handle not ready");
+		ESP_LOGE(TAG, "Invalid file handle");
 		return -1;
 	}
 
-	int8_t flags;
-	memcpy((char*)&flags, (char*)&fh->header->flags, 1);
-	return (int)flags;
+	return fh->header->flags;
 }
 
 // Open a file and return a pointer to the file desc struct.
-EspFsFile *espFsOpen(const char *fileName) {
-	if (espFsData == NULL) {
-		ESP_LOGE(TAG, "Call espFsInit first");
+EspFsFile *espFsOpen(EspFs* fs, const char *fileName)
+{
+	if (!fs) {
+		ESP_LOGE(TAG, "fs is null");
 		return NULL;
 	}
-	char *p = espFsData;
-	char *hpos;
+
+	char *p = (char *)fs->memAddr;
 	char namebuf[256];
-	EspFsHeader h;
+	EspFsHeader *h;
 	EspFsFile *r;
+
 	// Strip first initial slash
 	// We should not strip any next slashes otherwise there is potential
 	// security risk when mapped authentication handler will not invoke
@@ -95,15 +154,12 @@ EspFsFile *espFsOpen(const char *fileName) {
 	if(fileName[0]=='/') fileName++;
 	// Go find that file!
 	while(1) {
-		hpos=p;
-		// Grab the next file header.
-		memcpy((uintptr_t*)&h, (uintptr_t*)p, sizeof(EspFsHeader));
-
-		if (h.magic != ESPFS_MAGIC) {
+		h = (EspFsHeader*)p;
+		if (h->magic != ESPFS_MAGIC) {
 			ESP_LOGE(TAG, "Magic mismatch. EspFS image broken.");
 			return NULL;
 		}
-		if (h.flags & FLAG_LASTFILE) {
+		if (h->flags & FLAG_LASTFILE) {
 			LOGD(TAG, "End of image");
 			return NULL;
 		}
@@ -111,22 +167,22 @@ EspFsFile *espFsOpen(const char *fileName) {
 		p += sizeof(EspFsHeader);
 		memcpy((uint32_t*)&namebuf, (uintptr_t*)p, sizeof(namebuf));
 		LOGD(TAG, "Found file '%s'. Namelen=%x fileLenComp=%x, compr=%d flags=%d",
-				namebuf, (unsigned int)h.nameLen, (unsigned int)h.fileLenComp, h.compression, h.flags);
+				namebuf, (unsigned int)h->nameLen, (unsigned int)h->fileLenComp, h->compression, h->flags);
 		if (strcmp(namebuf, fileName) == 0) {
 			// Yay, this is the file we need!
-			p += h.nameLen; //Skip to content.
+			p += h->nameLen; //Skip to content.
 			r = (EspFsFile *)malloc(sizeof(EspFsFile)); // Alloc file desc mem
 			LOGD(TAG, "Alloc %p", r);
 			if (r == NULL) return NULL;
-			r->header=(EspFsHeader *)hpos;
-			r->decompressor = h.compression;
+			r->header = h;
+			r->decompressor = h->compression;
 			r->posComp = p;
 			r->posStart = p;
 			r->posDecomp = 0;
-			if (h.compression == COMPRESS_NONE) {
+			if (h->compression == COMPRESS_NONE) {
 				r->decompData = NULL;
 #if CONFIG_ESPFS_USE_HEATSHRINK
-			} else if (h.compression == COMPRESS_HEATSHRINK) {
+			} else if (h->compression == COMPRESS_HEATSHRINK) {
 				// File is compressed with Heatshrink.
 				char parm;
 				heatshrink_decoder *dec;
@@ -138,14 +194,14 @@ EspFsFile *espFsOpen(const char *fileName) {
 				r->decompData=dec;
 #endif
 			} else {
-				ESP_LOGE(TAG, "Invalid compression: %d", h.compression);
+				ESP_LOGE(TAG, "Invalid compression: %d", h->compression);
 				free(r);
 				return NULL;
 			}
 			return r;
 		}
 		// We don't need this file. Skip name and file
-		p += h.nameLen + h.fileLenComp;
+		p += h->nameLen + h->fileLenComp;
 		if ((uintptr_t)p & 3) {
 		    p += 4 - ((uintptr_t)p & 3); // align to next 32bit val
 		}
@@ -153,7 +209,8 @@ EspFsFile *espFsOpen(const char *fileName) {
 }
 
 // Read len bytes from the given file into buff. Returns the actual amount of bytes read.
-int espFsRead(EspFsFile *fh, char *buff, int len) {
+int espFsRead(EspFsFile *fh, char *buff, int len)
+{
 	int flen;
 #if CONFIG_ESPFS_USE_HEATSHRINK
 	int fdlen;
@@ -288,7 +345,8 @@ int espFsSeek(EspFsFile *fh, long offset, int mode)
 }
 
 // Close the file.
-void espFsClose(EspFsFile *fh) {
+void espFsClose(EspFsFile *fh)
+{
 	if (fh == NULL) return;
 #if CONFIG_ESPFS_USE_HEATSHRINK
 	if (fh->decompressor == COMPRESS_HEATSHRINK) {

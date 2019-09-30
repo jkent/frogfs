@@ -1,5 +1,12 @@
 menu "espfs"
 
+config ESPFS_MAX_PARTITIONS
+	int "Maximum Number of Partitions"
+	default 3
+	range 1 10
+	help
+		Define maximum number of partitions that can be mounted.
+
 config ESPFS_IMAGEROOTDIR
 	string "Directory within project to build from"
 	default "espfs"

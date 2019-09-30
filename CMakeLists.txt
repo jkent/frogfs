@@ -14,6 +14,7 @@ idf_component_register(
     PRIV_INCLUDE_DIRS "src"
                       "heatshrink/src"
                       "heatshrink/include"
+    REQUIRES "spi_flash"
 )
 
 if(CONFIG_ESPFS_USE_BABEL)

@@ -4,16 +4,12 @@
 extern "C" {
 #endif
 
-typedef enum {
-	ESPFS_INIT_RESULT_OK,
-	ESPFS_INIT_RESULT_NO_IMAGE,
-	ESPFS_INIT_RESULT_BAD_ALIGN,
-} EspFsInitResult;
-
+typedef struct EspFs EspFs;
 typedef struct EspFsFile EspFsFile;
 
-EspFsInitResult espFsInit(const void *flashAddress);
-EspFsFile *espFsOpen(const char *fileName);
+EspFs* espFsInit(const char *partLabel, const void* memAddr);
+void espFsDeinit(EspFs* fs);
+EspFsFile* espFsOpen(EspFs* fs, const char *fileName);
 int espFsFlags(EspFsFile *fh);
 int espFsRead(EspFsFile *fh, char *buff, int len);
 int espFsSeek(EspFsFile *fh, long offset, int mode);

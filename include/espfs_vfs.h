@@ -10,6 +10,8 @@ extern "C" {
 
 typedef struct {
     const char* base_path;
+    const char* partition_label;
+    const void* memory_address;
     size_t max_files;
 } esp_vfs_espfs_conf_t;
 
