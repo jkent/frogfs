@@ -24,8 +24,8 @@ os.chdir(BUILD_DIR)
 os.environ["PATH"] += os.pathsep + str(Path(BUILD_DIR).joinpath('bin'))
 
 if CONFIG_ESPFS_PREPROCESS_FILES == 'y':
-    dest = Path(BUILD_DIR).joinpath('espfs')
-    shutil.rmtree(dest, ignore_errors=True)
+    build = Path(BUILD_DIR).joinpath('espfs')
+    shutil.rmtree(build, ignore_errors=True)
     for root, _, files in os.walk(ESPFS_IMAGEROOTDIR):
         dest = Path(root).relative_to(ESPFS_IMAGEROOTDIR)
         if dest == Path('.'):
@@ -69,7 +69,7 @@ if CONFIG_ESPFS_PREPROCESS_FILES == 'y':
                             subprocess.check_call([CONFIG_ESPFS_UGLIFYJS_PATH], stdin=infile, stdout=f)
             else:
                 shutil.copy2(source, dest)
-    ESPFS_IMAGEROOTDIR = dest
+    ESPFS_IMAGEROOTDIR = build
 
 os.chdir(ESPFS_IMAGEROOTDIR)
 
@@ -87,4 +87,4 @@ with open(str(espfs_image_path), 'wb') as f:
 
 os.chdir(BUILD_DIR)
 os.makedirs('include', exist_ok=True)
-subprocess.check_call(['xxd', '-i', 'espfs_image.bin', 'include/espfs_image_bin.h'])
+subprocess.check_call(['xxd', '-i', 'espfs_image.bin', 'include/espfs_image_bin.h']
