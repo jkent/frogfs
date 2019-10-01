@@ -80,7 +80,8 @@ for root, _, files in os.walk(ESPFS_IMAGEROOTDIR):
     for filename in files:
         filelist.append(str(path.joinpath(filename)))
 
-with open(Path(BUILD_DIR).joinpath('espfs_image.bin'), 'wb') as f:
+espfs_image_path = Path(BUILD_DIR).joinpath('espfs_image.bin')
+with open(str(espfs_image_path), 'wb') as f:
     mkespfsimage = subprocess.Popen(['mkespfsimage'], stdin=subprocess.PIPE, stdout=f)
     mkespfsimage.communicate(('\n'.join(filelist) + '\n').encode('utf-8'))
 
