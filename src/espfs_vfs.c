@@ -139,6 +139,7 @@ static int vfs_espfs_close(void* ctx, int fd)
 esp_err_t esp_vfs_espfs_register(const esp_vfs_espfs_conf_t* conf)
 {
     assert(conf->base_path);
+    assert(conf->fs);
     const esp_vfs_t vfs = {
         .flags = ESP_VFS_FLAG_CONTEXT_PTR,
         .write_p = &vfs_espfs_write,
@@ -160,12 +161,7 @@ esp_err_t esp_vfs_espfs_register(const esp_vfs_espfs_conf_t* conf)
         return ESP_ERR_NO_MEM;
     }
 
-    efs->fs = espFsInit(conf->partition_label, conf->memory_address);
-    if (!efs->fs) {
-        free(efs);
-        return ESP_ERR_INVALID_STATE;
-    }
-
+    efs->fs = conf->fs;
     efs->max_files = conf->max_files;
     efs->files = calloc(conf->max_files, sizeof(EspFsFile*));
     if (efs->files == NULL) {

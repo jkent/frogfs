@@ -4,14 +4,16 @@
 #include <esp_vfs.h>
 #include <stdint.h>
 
+#include <espfs.h>
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef struct {
     const char* base_path;
-    const char* partition_label;
-    const void* memory_address;
+    EspFs *fs;
     size_t max_files;
 } esp_vfs_espfs_conf_t;
 

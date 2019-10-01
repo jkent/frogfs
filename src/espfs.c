@@ -33,14 +33,6 @@ It's written for use with httpd, but doesn't need to be used as such.
 
 const static char* TAG = "espfs";
 
-// Define to enable more verbose output
-#undef VERBOSE
-
-#ifdef VERBOSE
-#define LOGD ESP_LOGD
-#else
-#define LOGD(...)
-#endif
 
 struct EspFs {
 	const void *memAddr;
@@ -152,6 +144,8 @@ EspFsFile *espFsOpen(EspFs* fs, const char *fileName)
 	// security risk when mapped authentication handler will not invoke
 	// (ex. ///security.html)
 	if(fileName[0]=='/') fileName++;
+	ESP_LOGD(TAG, "looking for file '%s'.", fileName);
+
 	// Go find that file!
 	while(1) {
 		h = (EspFsHeader*)p;
@@ -160,19 +154,19 @@ EspFsFile *espFsOpen(EspFs* fs, const char *fileName)
 			return NULL;
 		}
 		if (h->flags & FLAG_LASTFILE) {
-			LOGD(TAG, "End of image");
+			ESP_LOGD(TAG, "End of image");
 			return NULL;
 		}
 		// Grab the name of the file.
 		p += sizeof(EspFsHeader);
 		memcpy((uint32_t*)&namebuf, (uintptr_t*)p, sizeof(namebuf));
-		LOGD(TAG, "Found file '%s'. Namelen=%x fileLenComp=%x, compr=%d flags=%d",
-				namebuf, (unsigned int)h->nameLen, (unsigned int)h->fileLenComp, h->compression, h->flags);
 		if (strcmp(namebuf, fileName) == 0) {
+			ESP_LOGD(TAG, "Found file '%s'. Namelen=%x fileLenComp=%x, compr=%d flags=%d",
+					namebuf, (unsigned int)h->nameLen, (unsigned int)h->fileLenComp, h->compression, h->flags);
 			// Yay, this is the file we need!
 			p += h->nameLen; //Skip to content.
 			r = (EspFsFile *)malloc(sizeof(EspFsFile)); // Alloc file desc mem
-			LOGD(TAG, "Alloc %p", r);
+			ESP_LOGV(TAG, "Alloc %p", r);
 			if (r == NULL) return NULL;
 			r->header = h;
 			r->decompressor = h->compression;
@@ -189,7 +183,7 @@ EspFsFile *espFsOpen(EspFs* fs, const char *fileName)
 				// Decoder params are stored in 1st byte.
 				memcpy(&parm, r->posComp, 1);
 				r->posComp++;
-				LOGD(TAG, "Heatshrink compressed file; decode parms = %x", parm);
+				ESP_LOGD(TAG, "Heatshrink compressed file; decode parms = %x", parm);
 				dec = heatshrink_decoder_alloc(16, (parm >> 4) & 0xf, parm & 0xf);
 				r->decompData=dec;
 #endif
@@ -222,13 +216,13 @@ int espFsRead(EspFsFile *fh, char *buff, int len)
 	// Do stuff depending on the way the file is compressed.
 	if (fh->decompressor == COMPRESS_NONE) {
 		int toRead;
-		toRead = flen-(fh->posComp-fh->posStart);
+		toRead = flen - (fh->posComp - fh->posStart);
 		if (len>toRead) len = toRead;
-		LOGD(TAG, "Reading %d bytes from %x", len, (unsigned int)fh->posComp);
+		ESP_LOGV(TAG, "Reading %d bytes from %x", len, (unsigned int)fh->posComp);
 		memcpy(buff, fh->posComp, len);
 		fh->posDecomp += len;
 		fh->posComp += len;
-		LOGD(TAG, "Done reading %d bytes, pos=%x", len, fh->posComp);
+		ESP_LOGV(TAG, "Done reading %d bytes, pos=%x", len, (unsigned int)fh->posComp);
 		return len;
 #if CONFIG_ESPFS_USE_HEATSHRINK
 	} else if (fh->decompressor==COMPRESS_HEATSHRINK) {
@@ -237,7 +231,7 @@ int espFsRead(EspFsFile *fh, char *buff, int len)
 		size_t elen, rlen;
 		char ebuff[16];
 		heatshrink_decoder *dec = (heatshrink_decoder *)fh->decompData;
-		LOGD(TAG, "Alloc %p", dec);
+		ESP_LOGV(TAG, "Alloc %p", dec);
 		if (fh->posDecomp == fdlen) {
 			return 0;
 		}
@@ -261,11 +255,11 @@ int espFsRead(EspFsFile *fh, char *buff, int len)
 			buff += rlen;
 			decoded += rlen;
 
-			LOGD(TAG, "Elen %d rlen %d d %d pd %ld fdl %d\n", elen, rlen, decoded, fh->posDecomp, fdlen);
+			ESP_LOGV(TAG, "Elen %d rlen %d d %d pd %d fdl %d", elen, rlen, decoded, fh->posDecomp, fdlen);
 
 			if (elen == 0) {
 				if (fh->posDecomp == fdlen) {
-					LOGD(TAG, "Decoder finish");
+					ESP_LOGD(TAG, "Decoder finish");
 					heatshrink_decoder_finish(dec);
 				}
 				return decoded;
@@ -352,10 +346,10 @@ void espFsClose(EspFsFile *fh)
 	if (fh->decompressor == COMPRESS_HEATSHRINK) {
 		heatshrink_decoder *dec = (heatshrink_decoder *)fh->decompData;
 		heatshrink_decoder_free(dec);
-		LOGD(TAG, "Freed %p", dec);
+		ESP_LOGV(TAG, "Freed %p", dec);
 	}
 #endif
 
-	LOGD(TAG, "Freed %p", fh);
+	ESP_LOGV(TAG, "Freed %p", fh);
 	free(fh);
 }
