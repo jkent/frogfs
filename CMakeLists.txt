@@ -42,6 +42,7 @@ externalproject_add(mkespfsimage
     CMAKE_ARGS
         "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}"
         "-DUSE_HEATSHRINK=${CONFIG_ESPFS_USE_HEATSHRINK}"
+        "-DUSE_GZIP_COMPRESSION=${CONFIG_ESPFS_USE_GZIP}"
 )
 
 set(espfs_image_DEPENDS mkespfsimage)
