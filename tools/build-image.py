@@ -87,4 +87,4 @@ with open(str(espfs_image_path), 'wb') as f:
 
 os.chdir(BUILD_DIR)
 os.makedirs('include', exist_ok=True)
-subprocess.check_call(['xxd', '-i', 'espfs_image.bin', 'include/espfs_image_bin.h']
+subprocess.check_call(['xxd', '-i', 'espfs_image.bin', 'include/espfs_image_bin.h'])
