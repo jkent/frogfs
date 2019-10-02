@@ -25,6 +25,8 @@ It's written for use with httpd, but doesn't need to be used as such.
 
 #include "espfsformat.h"
 #include "espfs.h"
+#include "espfs_priv.h"
+
 
 #if CONFIG_ESPFS_USE_HEATSHRINK
 #include "heatshrink_config_custom.h"
@@ -32,23 +34,6 @@ It's written for use with httpd, but doesn't need to be used as such.
 #endif
 
 const static char* TAG = "espfs";
-
-
-struct EspFs {
-	const void *memAddr;
-	spi_flash_mmap_handle_t mmapHandle;
-	size_t length;
-	size_t numFiles;
-};
-
-struct EspFsFile {
-	EspFsHeader *header;
-	char decompressor;
-	int32_t posDecomp;
-	char *posStart;
-	char *posComp;
-	void *decompData;
-};
 
 
 EspFs* espFsInit(const char *partLabel, const void* memAddr)

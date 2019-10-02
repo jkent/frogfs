@@ -10,6 +10,7 @@
 #include "sdkconfig.h"
 
 #include "espfs_image.h"
+#include "espfs_priv.h"
 #include "espfs_vfs.h"
 
 static const char *TAG = "ESPFS";
@@ -73,8 +74,26 @@ static int vfs_espfs_fstat(void* ctx, int fd, struct stat* st)
         return -1;
     }
 
+    EspFsFile *fp = efs->files[fd];
+    st->st_size = fp->header->fileLenDecomp;
     st->st_mode = S_IFCHR;
+    st->st_spare4[0] = ESPFS_MAGIC;
+    st->st_spare4[1] = fp->header->flags;
     return 0;
+}
+
+
+static int vfs_espfs_close(void* ctx, int fd);
+static int vfs_espfs_stat(void* ctx, const char* path, struct stat* st)
+{
+    int fd = vfs_espfs_open(ctx, path, O_RDONLY, 0);
+    if (fd < 0) {
+        return -1;
+    }
+
+    int ret = vfs_espfs_fstat(ctx, fd, st);
+    vfs_espfs_close(ctx, fd);
+    return ret;
 }
 
 
@@ -148,6 +167,7 @@ esp_err_t esp_vfs_espfs_register(const esp_vfs_espfs_conf_t* conf)
         .open_p = &vfs_espfs_open,
         .close_p = &vfs_espfs_close,
         .fstat_p = &vfs_espfs_fstat,
+        .stat_p = &vfs_espfs_stat,
     };
 
     int index;
