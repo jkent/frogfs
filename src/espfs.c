@@ -338,9 +338,14 @@ int espFsSeek(EspFsFile *fh, long offset, int mode)
 	return fh->posDecomp;
 }
 
+bool espFsIsCompressed(EspFsFile *fh)
+{
+	return (fh->header->compression != COMPRESS_NONE);
+}
+
 int espFsAccess(EspFsFile *fh, void **buf)
 {
-	if (fh->header->compression != COMPRESS_NONE) {
+	if (espFsIsCompressed(fh)) {
 		return -1;
 	}
 	*buf = fh->posStart;
