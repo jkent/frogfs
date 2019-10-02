@@ -6,10 +6,16 @@
 extern "C" {
 #endif
 
+struct EspFsConfig {
+    const void* memAddr;
+    const char* partLabel;
+};
+
+typedef struct EspFsConfig EspFsConfig;
 typedef struct EspFs EspFs;
 typedef struct EspFsFile EspFsFile;
 
-EspFs* espFsInit(const char *partLabel, const void* memAddr);
+EspFs* espFsInit(EspFsConfig* conf);
 void espFsDeinit(EspFs* fs);
 EspFsFile* espFsOpen(EspFs* fs, const char *fileName);
 int espFsFlags(EspFsFile *fh);

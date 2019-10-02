@@ -36,15 +36,16 @@ It's written for use with httpd, but doesn't need to be used as such.
 const static char* TAG = "espfs";
 
 
-EspFs* espFsInit(const char *partLabel, const void* memAddr)
+EspFs* espFsInit(EspFsConfig* conf)
 {
 	spi_flash_mmap_handle_t mmapHandle = 0;
+	const void* memAddr = conf->memAddr;
 
 	if (!memAddr) {
-		esp_partition_subtype_t subtype = partLabel ?
+		esp_partition_subtype_t subtype = conf->partLabel ?
 				ESP_PARTITION_SUBTYPE_ANY : ESP_PARTITION_SUBTYPE_DATA_ESPHTTPD;
 		const esp_partition_t* partition = esp_partition_find_first(
-				ESP_PARTITION_TYPE_DATA, subtype, partLabel);
+				ESP_PARTITION_TYPE_DATA, subtype, conf->partLabel);
 		if (!partition) {
 			return NULL;
 		}
@@ -58,7 +59,7 @@ EspFs* espFsInit(const char *partLabel, const void* memAddr)
 
 	const EspFsHeader *h = memAddr;
 	if (h->magic != ESPFS_MAGIC) {
-		/* TODO: err message here */
+		ESP_LOGE(TAG, "Magic not found at %p", h);
 		if (mmapHandle) {
 			spi_flash_munmap(mmapHandle);
 		}
@@ -67,6 +68,7 @@ EspFs* espFsInit(const char *partLabel, const void* memAddr)
 
 	EspFs* fs = malloc(sizeof(EspFs));
 	if (!fs) {
+		ESP_LOGE(TAG, "Unable to allocate EspFs");
 		if (mmapHandle) {
 			spi_flash_munmap(mmapHandle);
 		}
