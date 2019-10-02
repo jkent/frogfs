@@ -347,6 +347,11 @@ int espFsAccess(EspFsFile *fh, void **buf)
 	return fh->header->fileLenComp;
 }
 
+int espFsFilesize(EspFsFile *fh)
+{
+	return fh->header->fileLenDecomp;
+}
+
 // Close the file.
 void espFsClose(EspFsFile *fh)
 {
