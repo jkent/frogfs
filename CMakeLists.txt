@@ -54,7 +54,7 @@ if(npm_PACKAGES)
 
     foreach(name IN LISTS npm_BINARIES)
         add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/bin/${name}"
-            COMMAND ln -fs ../node_modules/.bin/${name} bin/
+            COMMAND ln -fs "../node_modules/.bin/${name}" bin/
             WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
             DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/node_modules"
         )
@@ -103,7 +103,7 @@ add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/espfs_image.bin"
         "CONFIG_ESPFS_BABEL_PATH=${CONFIG_ESPFS_BABEL_PATH}"
         "CONFIG_ESPFS_UGLIFYJS_PATH=${CONFIG_ESPFS_UGLIFYJS_PATH}"
         "${COMPONENT_DIR}/tools/build-image.py" "${PROJECT_DIR}/${CONFIG_ESPFS_IMAGEROOTDIR}"
-    DEPENDS ${espfs_image_DEPENDS} ${PROJECT_DIR}/${CONFIG_ESPFS_IMAGEROOTDIR}
+    DEPENDS "${espfs_image_DEPENDS}" "${PROJECT_DIR}/${CONFIG_ESPFS_IMAGEROOTDIR}"
     VERBATIM
 )
 add_custom_target(espfs_image DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/espfs_image.bin")
