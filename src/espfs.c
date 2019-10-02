@@ -338,6 +338,15 @@ int espFsSeek(EspFsFile *fh, long offset, int mode)
 	return fh->posDecomp;
 }
 
+int espFsAccess(EspFsFile *fh, void **buf)
+{
+	if (fh->header->compression != COMPRESS_NONE) {
+		return -1;
+	}
+	*buf = fh->posStart;
+	return fh->header->fileLenComp;
+}
+
 // Close the file.
 void espFsClose(EspFsFile *fh)
 {
