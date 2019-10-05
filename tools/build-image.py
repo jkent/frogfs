@@ -39,43 +39,43 @@ if CONFIG_ESPFS_PREPROCESS_FILES == 'y':
             destfile = Path(dest).joinpath(filename)
             ext = ''.join(source.suffixes)
             if ext == '.css' and CONFIG_ESPFS_CSS_MINIFY_UGLIFYCSS == 'y':
-                with open(destfile, 'w') as f:
-                    subprocess.check_call([CONFIG_ESPFS_UGLIFYCSS_PATH, source], stdout=f)
+                with open(str(destfile), 'w') as f:
+                    subprocess.check_call([CONFIG_ESPFS_UGLIFYCSS_PATH, str(source)], stdout=f)
             elif ext in ['.html', '.htm'] and CONFIG_ESPFS_HTML_MINIFY_HTMLMINIFIER == 'y':
-                with open(destfile, 'w') as f:
+                with open(str(destfile), 'w') as f:
                     subprocess.check_call([CONFIG_ESPFS_HTMLMINIFIER_PATH,
                         '--collapse-whitespace', '--remove-comments',
                         '--use-short-doctype', '--minify-css true',
-                        '--minify-js', 'true', source], stdout=f)
+                        '--minify-js', 'true', str(source)], stdout=f)
             elif ext == '.js' and (CONFIG_ESPFS_JS_CONVERT_BABEL == 'y' or \
                     CONFIG_ESPFS_JS_MINIFY_BABEL == 'y' or \
                     CONFIG_ESPFS_JS_MINIFY_UGLIFYJS == 'y'):
-                with open(destfile, 'w') as f:
+                with open(str(destfile), 'w') as f:
                     if CONFIG_ESPFS_JS_CONVERT_BABEL == 'y' and CONFIG_ESPFS_JS_MINIFY_BABEL == 'y':
                         subprocess.check_call([CONFIG_ESPFS_BABEL_PATH, '--presets',
-                            '@babel/preset-env,minify', source], stdout=f)
+                            '@babel/preset-env,minify', str(source)], stdout=f)
                     elif CONFIG_ESPFS_JS_CONVERT_BABEL == 'y' and CONFIG_ESPFS_JS_MINIFY_UGLIFYJS == 'y':
                         babel = subprocess.check_call([CONFIG_ESPFS_BABEL_PATH, '--presets',
-                            '@babel/preset-env', source], stdout=subprocess.PIPE)
+                            '@babel/preset-env', str(source)], stdout=subprocess.PIPE)
                         subprocess.check_call([CONFIG_ESPFS_UGLIFYJS_PATH], stdin=babel.stdout, stdout=f)
                     elif CONFIG_ESPFS_JS_CONVERT_BABEL == 'y':
                         subprocess.check_call([CONFIG_ESPFS_BABEL_PATH, '--presets',
-                            '@babel/preset-env', source], stdout=f)
+                            '@babel/preset-env', str(source)], stdout=f)
                     elif CONFIG_ESPFS_JS_MINIFY_BABEL == 'y':
                         subprocess.check_call([CONFIG_ESPFS_BABEL_PATH, '--presets',
-                            'minify', source], stdout=f)
+                            'minify', str(source)], stdout=f)
                     elif CONFIG_ESPFS_JS_MINIFY_UGLIFYJS == 'y':
-                        with open(source, 'r') as infile:
+                        with open(str(source), 'r') as infile:
                             subprocess.check_call([CONFIG_ESPFS_UGLIFYJS_PATH], stdin=infile, stdout=f)
             else:
-                shutil.copy2(source, dest)
+                shutil.copy2(str(source), str(dest))
     ESPFS_IMAGEROOTDIR = build
 
-os.chdir(ESPFS_IMAGEROOTDIR)
+os.chdir(str(ESPFS_IMAGEROOTDIR))
 
 filelist = []
-for root, _, files in os.walk(ESPFS_IMAGEROOTDIR):
-    path = Path(root).relative_to(ESPFS_IMAGEROOTDIR)
+for root, _, files in os.walk(str(ESPFS_IMAGEROOTDIR)):
+    path = Path(root).relative_to(str(ESPFS_IMAGEROOTDIR))
     filelist.append(str(path))
     for filename in files:
         filelist.append(str(path.joinpath(filename)))
