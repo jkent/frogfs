@@ -76,15 +76,26 @@ EspFs* espFsInit(EspFsConfig* conf)
 	}
 
 	uint32_t entry_length = sizeof(*h) + h->nameLen + h->fileLenComp;
+	if (entry_length & 3) {
+		entry_length += 4 - (entry_length & 3);
+	}
 	fs->length = entry_length;
 	fs->numFiles = 0;
 
 	do {
 		fs->numFiles++;
 		h = (void*)h + entry_length;
+		if (h->magic != ESPFS_MAGIC) {
+			ESP_LOGE(TAG, "Magic not found while walking EspFs");
+			free(fs);
+			if (mmapHandle) {
+				spi_flash_munmap(mmapHandle);
+			}
+			return NULL;
+		}
 		entry_length = sizeof(*h) + h->nameLen + h->fileLenComp;
-		if (entry_length % 4) {
-			entry_length += 4 - (entry_length % 4);
+		if (entry_length & 3) {
+			entry_length += 4 - (entry_length & 3);
 		}
 		fs->length += entry_length;
 	} while (!(h->flags & FLAG_LASTFILE));
