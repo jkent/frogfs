@@ -200,6 +200,64 @@ EspFsFile *espFsOpen(EspFs* fs, const char *fileName)
 	}
 }
 
+int espFsStat(EspFs* fs, const char *fileName, EspFsStat *s)
+{
+	if (!fs) {
+		ESP_LOGE(TAG, "fs is null");
+		return 0;
+	}
+
+	char *p = (char *)fs->memAddr;
+	EspFsHeader *h;
+
+	if(fileName[0]=='/') fileName++;
+	ESP_LOGD(TAG, "looking for file '%s'.", fileName);
+
+	size_t fileNameLen = strlen(fileName);
+	size_t dirNameLen;
+	char dirName[256];
+	if (fileName[fileNameLen - 1] != '/') {
+		strlcpy(dirName, fileName, sizeof(dirName) - 2);
+	    strcat(dirName, "/");
+		dirNameLen = fileNameLen + 1;
+	} else {
+		strlcpy(dirName, fileName, sizeof(dirName) - 1);
+		dirNameLen = fileNameLen + 1;
+	}
+
+	s->type = ESPFS_TYPE_MISSING;
+	s->size = 0;
+	s->flags = 0;
+
+	while(1) {
+		h = (EspFsHeader*)p;
+		if (h->magic != ESPFS_MAGIC) {
+			ESP_LOGE(TAG, "Magic mismatch. EspFS image broken.");
+			return 0;
+		}
+		if (h->flags & FLAG_LASTFILE) {
+			ESP_LOGD(TAG, "End of image");
+			return 0;
+		}
+		p += sizeof(EspFsHeader);
+		if (strcmp((const char *)p, fileName) == 0) {
+			s->type = ESPFS_TYPE_FILE;
+			s->size = h->fileLenDecomp;
+			s->flags = h->flags;
+			return 1;
+		}
+		if (strncmp((const char *)p, dirName, dirNameLen)) {
+			s->type = ESPFS_TYPE_DIR;
+		}
+		p += h->nameLen + h->fileLenComp;
+		if ((uintptr_t)p & 3) {
+		    p += 4 - ((uintptr_t)p & 3); // align to next 32bit val
+		}
+	}
+
+	return s->type != ESPFS_TYPE_MISSING;
+}
+
 // Read len bytes from the given file into buff. Returns the actual amount of bytes read.
 int espFsRead(EspFsFile *fh, char *buff, int len)
 {
