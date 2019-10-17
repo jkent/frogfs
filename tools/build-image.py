@@ -25,7 +25,7 @@ os.environ["PATH"] += os.pathsep + str(Path(BUILD_DIR).joinpath('bin'))
 
 if CONFIG_ESPFS_PREPROCESS_FILES == 'y':
     build = Path(BUILD_DIR).joinpath('espfs')
-    shutil.rmtree(build, ignore_errors=True)
+    shutil.rmtree(str(build), ignore_errors=True)
     for root, _, files in os.walk(ESPFS_IMAGEROOTDIR):
         dest = Path(root).relative_to(ESPFS_IMAGEROOTDIR)
         if dest == Path('.'):
@@ -33,7 +33,7 @@ if CONFIG_ESPFS_PREPROCESS_FILES == 'y':
         else:
             dest = Path(BUILD_DIR).joinpath('espfs', dest)
         if not dest.exists():
-            os.mkdir(dest)
+            os.mkdir(str(dest))
         for filename in files:
             source = Path(root).joinpath(filename)
             destfile = Path(dest).joinpath(filename)
@@ -86,5 +86,6 @@ with open(str(espfs_image_path), 'wb') as f:
     mkespfsimage.communicate(('\n'.join(filelist) + '\n').encode('utf-8'))
 
 os.chdir(BUILD_DIR)
-os.makedirs('include', exist_ok=True)
+if not os.path.exists('include'):
+    os.makedirs('include')
 subprocess.check_call(['xxd', '-i', 'espfs_image.bin', 'include/espfs_image_bin.h'])
