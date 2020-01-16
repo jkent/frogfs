@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
@@ -21,23 +20,23 @@ CONFIG_ESPFS_BABEL_PATH = os.environ.get('CONFIG_ESPFS_BABEL_PATH') or 'babel'
 CONFIG_ESPFS_UGLIFYJS_PATH = os.environ.get('CONFIG_ESPFS_UGLIFYJS_PATH') or 'uglifyjs'
 
 os.chdir(BUILD_DIR)
-os.environ["PATH"] += os.pathsep + str(Path(BUILD_DIR).joinpath('bin'))
+os.environ["PATH"] += os.pathsep + str(os.path.join(BUILD_DIR, 'bin'))
 
 if CONFIG_ESPFS_PREPROCESS_FILES == 'y':
-    build = Path(BUILD_DIR).joinpath('espfs')
+    build = os.path.join(BUILD_DIR, 'espfs')
     shutil.rmtree(build, ignore_errors=True)
     for root, _, files in os.walk(ESPFS_IMAGEROOTDIR):
-        dest = Path(root).relative_to(ESPFS_IMAGEROOTDIR)
-        if dest == Path('.'):
-            dest = Path(BUILD_DIR).joinpath('espfs')
+        dest = os.path.relpath(root, ESPFS_IMAGEROOTDIR)
+        if dest == '.':
+            dest = build
         else:
-            dest = Path(BUILD_DIR).joinpath('espfs', dest)
-        if not dest.exists():
+            dest = os.path.join(build, dest)
+        if not os.path.isdir(dest):
             os.mkdir(dest)
         for filename in files:
-            source = Path(root).joinpath(filename)
-            destfile = Path(dest).joinpath(filename)
-            ext = ''.join(source.suffixes)
+            source = os.path.join(root, filename)
+            destfile = os.path.join(dest, filename)
+            _, ext = os.path.splitext(source)
             if ext == '.css' and CONFIG_ESPFS_CSS_MINIFY_UGLIFYCSS == 'y':
                 with open(destfile, 'w') as f:
                     subprocess.check_call([CONFIG_ESPFS_UGLIFYCSS_PATH, source], stdout=f)
@@ -75,12 +74,12 @@ os.chdir(ESPFS_IMAGEROOTDIR)
 
 filelist = []
 for root, _, files in os.walk(ESPFS_IMAGEROOTDIR):
-    path = Path(root).relative_to(ESPFS_IMAGEROOTDIR)
-    filelist.append(str(path))
+    path = os.path.relpath(root, ESPFS_IMAGEROOTDIR)
+    filelist.append(path)
     for filename in files:
-        filelist.append(str(path.joinpath(filename)))
+        filelist.append(os.path.join(path, filename))
 
-espfs_image_path = Path(BUILD_DIR).joinpath('espfs_image.bin')
+espfs_image_path = os.path.join(BUILD_DIR, 'espfs_image.bin')
 with open(str(espfs_image_path), 'wb') as f:
     mkespfsimage = subprocess.Popen(['mkespfsimage'], stdin=subprocess.PIPE, stdout=f)
     mkespfsimage.communicate(('\n'.join(filelist) + '\n').encode('utf-8'))
