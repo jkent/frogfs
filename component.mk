@@ -5,6 +5,7 @@ COMPONENT_OBJS := src/espfs.o src/espfs_vfs.o heatshrink/src/heatshrink_decoder.
 COMPONENT_EXTRA_CLEAN := mkespfsimage/*
 
 IMAGEROOTDIR := $(subst ",,$(CONFIG_ESPFS_IMAGEROOTDIR))
+MKESPFSIMAGE_BIN := mkespfsimage/mkespfsimage
 FILES := $(shell find $(PROJECT_PATH)/$(IMAGEROOTDIR) | sed -E 's/([[:space:]])/\\\1/g')
 
 COMPONENT_EXTRA_CLEAN += $(IMAGEROOTDIR)/*
@@ -93,4 +94,10 @@ mkespfsimage/mkespfsimage: $(COMPONENT_PATH)/mkespfsimage
 	$(MAKE) -C $(COMPONENT_BUILD_DIR)/mkespfsimage -f $(COMPONENT_PATH)/mkespfsimage/Makefile \
 		USE_HEATSHRINK="$(USE_HEATSHRINK)" USE_GZIP_COMPRESSION="$(USE_GZIP_COMPRESSION)" BUILD_DIR=$(COMPONENT_BUILD_DIR)/mkespfsimage \
 		CC=$(HOSTCC) clean mkespfsimage
-	ln -s ../mkespfsimage/mkespfsimage bin/
+	mkdir -p bin
+	if [ -f $(MKESPFSIMAGE_BIN) ]; then \
+        ln -s ../$(MKESPFSIMAGE_BIN) bin/; \
+    fi
+	if [ -f $(MKESPFSIMAGE_BIN).exe ]; then \
+        ln -s ../$(MKESPFSIMAGE_BIN).exe bin/; \
+    fi

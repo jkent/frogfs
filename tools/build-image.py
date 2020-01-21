@@ -85,5 +85,12 @@ with open(str(espfs_image_path), 'wb') as f:
     mkespfsimage.communicate(('\n'.join(filelist) + '\n').encode('utf-8'))
 
 os.chdir(BUILD_DIR)
-os.makedirs('include', exist_ok=True)
+#os.makedirs('include', exist_ok=True)
+# python 2.7 doesn't understand exist_ok
+path = 'include'
+try: 
+    os.makedirs(path)
+except OSError:
+    if not os.path.isdir(path):
+        raise
 subprocess.check_call(['xxd', '-i', 'espfs_image.bin', 'include/espfs_image_bin.h'])

@@ -18,6 +18,7 @@ It's written for use with httpd, but doesn't need to be used as such.
 #include <stdlib.h>
 #include <string.h>
 
+//#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 #include "esp_log.h"
 #include "esp_partition.h"
 #include "esp_spi_flash.h"
@@ -35,13 +36,29 @@ It's written for use with httpd, but doesn't need to be used as such.
 
 const static char* TAG = "espfs";
 
+static uint32_t get_next_aligned(uint32_t offset) {
+	uint32_t aligned = offset;
+	if ((uintptr_t)offset & 3)
+	{
+		aligned += 4 - ((uintptr_t)offset & 3); // align to next 32bit val
+	}
+	return aligned;
+}
 
-EspFs* espFsInit(EspFsConfig* conf)
-{
-	spi_flash_mmap_handle_t mmapHandle = 0;
+EspFs *espFsInit(EspFsConfig *conf) {
 	const void* memAddr = conf->memAddr;
+	
+	EspFs *fs = malloc(sizeof(EspFs));
+	if (!fs)
+	{
+		ESP_LOGE(TAG, "Unable to allocate EspFs");
+		espFsDeinit(fs);
+		return NULL;
+	}
 
-	if (!memAddr) {
+	ESP_LOGD(TAG, "espFsInit() begin");
+	fs->mmapHandle = 0;
+	if (!memAddr) { // no espfs memory addresss supplied, so must be a partition
 		esp_partition_subtype_t subtype = conf->partLabel ?
 				ESP_PARTITION_SUBTYPE_ANY : ESP_PARTITION_SUBTYPE_DATA_ESPHTTPD;
 		const esp_partition_t* partition = esp_partition_find_first(
@@ -50,8 +67,9 @@ EspFs* espFsInit(EspFsConfig* conf)
 			return NULL;
 		}
 
+		ESP_LOGD(TAG, "esp_partition_mmap() begin");
 		esp_err_t err = esp_partition_mmap(partition, 0, partition->size,
-				SPI_FLASH_MMAP_DATA, &memAddr, &mmapHandle);
+										   SPI_FLASH_MMAP_DATA, &memAddr, &fs->mmapHandle);
 		if (err) {
 			return NULL;
 		}
@@ -60,46 +78,42 @@ EspFs* espFsInit(EspFsConfig* conf)
 	const EspFsHeader *h = memAddr;
 	if (h->magic != ESPFS_MAGIC) {
 		ESP_LOGE(TAG, "Magic not found at %p", h);
-		if (mmapHandle) {
-			spi_flash_munmap(mmapHandle);
-		}
+		espFsDeinit(fs);
 		return NULL;
 	}
+	ESP_LOGD(TAG, "Magic found at %p", h);
 
-	EspFs* fs = malloc(sizeof(EspFs));
-	if (!fs) {
-		ESP_LOGE(TAG, "Unable to allocate EspFs");
-		if (mmapHandle) {
-			spi_flash_munmap(mmapHandle);
-		}
-		return NULL;
-	}
-
-	uint32_t entry_length = sizeof(*h) + h->nameLen + h->fileLenComp;
+	uintptr_t entry_length = get_next_aligned(sizeof(*h) + h->nameLen + h->fileLenComp);
 	fs->length = entry_length;
 	fs->numFiles = 0;
-
-	do {
+// todo: there must be at least one file or runaway
+	while (!(h->flags & FLAG_LASTFILE))
+	{
 		fs->numFiles++;
 		h = (void*)h + entry_length;
-		entry_length = sizeof(*h) + h->nameLen + h->fileLenComp;
-		if (entry_length % 4) {
-			entry_length += 4 - (entry_length % 4);
+		if (h->magic != ESPFS_MAGIC)
+		{
+			ESP_LOGE(TAG, "Magic not found at %p", h);
+			espFsDeinit(fs);
+			return NULL;
 		}
+		entry_length = get_next_aligned(sizeof(*h) + h->nameLen + h->fileLenComp);
 		fs->length += entry_length;
-	} while (!(h->flags & FLAG_LASTFILE));
-
+		ESP_LOGD(TAG, "espFsInit() found %d files", fs->numFiles);
+	}
 	fs->memAddr = memAddr;
-	fs->mmapHandle = mmapHandle;
+	ESP_LOGD(TAG, "espFsInit() done");
 	return fs;
 }
 
 void espFsDeinit(EspFs* fs)
 {
-	if (fs->mmapHandle) {
+	if (fs && fs->mmapHandle) {
 		spi_flash_munmap(fs->mmapHandle);
 	}
-	free(fs);
+	if (fs) {
+		free(fs);
+	}
 }
 
 // Returns flags of opened file.
@@ -182,10 +196,7 @@ EspFsFile *espFsOpen(EspFs* fs, const char *fileName)
 			return r;
 		}
 		// We don't need this file. Skip name and file
-		p += h->nameLen + h->fileLenComp;
-		if ((uintptr_t)p & 3) {
-		    p += 4 - ((uintptr_t)p & 3); // align to next 32bit val
-		}
+		p += get_next_aligned(h->nameLen + h->fileLenComp);
 	}
 }
 
