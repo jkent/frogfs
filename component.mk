@@ -9,7 +9,7 @@ BINEXT :=
 ifeq ($(OS),WindowsNT)
 BINEXT := .exe
 endif
-MKESPFSIMAGE_BIN := mkespfsimage/mkespfsimage$(BINEXT)
+MKESPFSIMAGE := mkespfsimage$(BINEXT)
 FILES := $(shell find $(PROJECT_PATH)/$(IMAGEROOTDIR) | sed -E 's/([[:space:]])/\\\1/g')
 
 COMPONENT_EXTRA_CLEAN += $(IMAGEROOTDIR)/*
@@ -54,7 +54,7 @@ node_modules:
 	npm install --save-dev $(npm_PACKAGES)
 endif
 
-espfs_image.bin: $(FILES) node_modules $(MKESPFSIMAGE_BIN)
+espfs_image.bin: $(FILES) node_modules mkespfsimage/$(MKESPFSIMAGE)
 	BUILD_DIR="$(shell pwd)" \
 	CONFIG_ESPFS_PREPROCESS_FILES=$(CONFIG_ESPFS_PREPROCESS_FILES) \
 	CONFIG_ESPFS_CSS_MINIFY_UGLIFYCSS=$(CONFIG_ESPFS_CSS_MINIFY_UGLIFYCSS) \
@@ -76,10 +76,8 @@ src/espfs_image.c: espfs_image.bin
 	xxd -i $< $@
 	sed -i '1s;^;const __attribute__((aligned(4))); ' $@
 
-$(MKESPFSIMAGE_BIN): $(COMPONENT_PATH)/mkespfsimage
+mkespfsimage/$(MKESPFSIMAGE): $(COMPONENT_PATH)/mkespfsimage
 	mkdir -p $(COMPONENT_BUILD_DIR)/mkespfsimage
 	$(MAKE) -C $(COMPONENT_BUILD_DIR)/mkespfsimage -f $(COMPONENT_PATH)/mkespfsimage/Makefile \
 		USE_HEATSHRINK="$(USE_HEATSHRINK)" USE_GZIP_COMPRESSION="$(USE_GZIP_COMPRESSION)" BUILD_DIR=$(COMPONENT_BUILD_DIR)/mkespfsimage \
 		CC=$(HOSTCC) clean mkespfsimage
-	mkdir -p bin
-	ln -s ../$(MKESPFSIMAGE_BIN) bin/mkespfsimage$(BINEXT)

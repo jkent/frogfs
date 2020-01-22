@@ -32,7 +32,7 @@ if CONFIG_ESPFS_UGLIFYJS_PATH == 'uglifyjs':
     CONFIG_ESPFS_UGLIFYJS_PATH = os.path.join(BUILD_DIR, 'node_modules/uglify-js/bin/uglifyjs')
 
 os.chdir(BUILD_DIR)
-os.environ["PATH"] += os.pathsep + os.path.join(BUILD_DIR, 'bin')
+os.environ["PATH"] += os.pathsep + os.path.join(BUILD_DIR, 'mkespfsimage')
 
 if CONFIG_ESPFS_PREPROCESS_FILES == 'y':
     build = os.path.join(BUILD_DIR, 'espfs')
