@@ -5,10 +5,11 @@ COMPONENT_OBJS := src/espfs.o src/espfs_vfs.o heatshrink/src/heatshrink_decoder.
 COMPONENT_EXTRA_CLEAN := mkespfsimage/*
 
 IMAGEROOTDIR := $(subst ",,$(CONFIG_ESPFS_IMAGEROOTDIR))
-MKESPFSIMAGE_BIN := mkespfsimage/mkespfsimage
+BINEXT :=
 ifeq ($(OS),WindowsNT)
-MKESPFSIMAGE_BIN := $(MKESPFSIMAGE_BIN).exe
+BINEXT := .exe
 endif
+MKESPFSIMAGE_BIN := mkespfsimage/mkespfsimage$(BINEXT)
 FILES := $(shell find $(PROJECT_PATH)/$(IMAGEROOTDIR) | sed -E 's/([[:space:]])/\\\1/g')
 
 COMPONENT_EXTRA_CLEAN += $(IMAGEROOTDIR)/*
@@ -31,46 +32,29 @@ else
 USE_GZIP_COMPRESSION := "no"
 endif
 
-npm_BINARIES :=
 ifeq ("$(CONFIG_ESPFS_PREPROCESS_FILES)","y")
 npm_PACKAGES :=
 ifeq ("$(CONFIG_ESPFS_USE_BABEL)","y")
-npm_BINARIES += bin/babel
 npm_PACKAGES += @babel/core @babel/cli @babel/preset-env babel-preset-minify
-bin/babel: node_modules
-	mkdir -p bin
-	ln -fs ../node_modules/.bin/babel bin/
 endif
 
 ifeq ("$(CONFIG_ESPFS_USE_HTMLMINIFIER)","y")
-npm_BINARIES += bin/html-minifier
 npm_PACKAGES += html-minifier
-bin/html-minifier: node_modules
-	mkdir -p bin
-	ln -fs ../node_modules/.bin/html-minifier bin/
 endif
 
 ifeq ("$(CONFIG_ESPFS_USE_UGLIFYCSS)","y")
-npm_BINARIES += bin/uglifycss
 npm_PACKAGES += uglifycss
-bin/uglifycss: node_modules
-	mkdir -p bin
-	ln -fs ../node_modules/.bin/uglifycss bin/
 endif
 
 ifeq ("$(CONFIG_ESPFS_USE_UGLIFYJS)","y")
-npm_BINARIES += bin/uglifyjs
 npm_PACKAGES += uglify-js
-bin/uglifyjs: node_modules
-	mkdir -p bin
-	ln -fs ../node_modules/.bin/uglifyjs bin/
 endif
 
 node_modules:
 	npm install --save-dev $(npm_PACKAGES)
 endif
 
-espfs_image.bin: $(FILES) $(npm_BINARIES) mkespfsimage/mkespfsimage
+espfs_image.bin: $(FILES) node_modules $(MKESPFSIMAGE_BIN)
 	BUILD_DIR="$(shell pwd)" \
 	CONFIG_ESPFS_PREPROCESS_FILES=$(CONFIG_ESPFS_PREPROCESS_FILES) \
 	CONFIG_ESPFS_CSS_MINIFY_UGLIFYCSS=$(CONFIG_ESPFS_CSS_MINIFY_UGLIFYCSS) \
@@ -92,10 +76,10 @@ src/espfs_image.c: espfs_image.bin
 	xxd -i $< $@
 	sed -i '1s;^;const __attribute__((aligned(4))); ' $@
 
-mkespfsimage/mkespfsimage: $(COMPONENT_PATH)/mkespfsimage
+$(MKESPFSIMAGE_BIN): $(COMPONENT_PATH)/mkespfsimage
 	mkdir -p $(COMPONENT_BUILD_DIR)/mkespfsimage
 	$(MAKE) -C $(COMPONENT_BUILD_DIR)/mkespfsimage -f $(COMPONENT_PATH)/mkespfsimage/Makefile \
 		USE_HEATSHRINK="$(USE_HEATSHRINK)" USE_GZIP_COMPRESSION="$(USE_GZIP_COMPRESSION)" BUILD_DIR=$(COMPONENT_BUILD_DIR)/mkespfsimage \
 		CC=$(HOSTCC) clean mkespfsimage
 	mkdir -p bin
-	ln -s ../$(MKESPFSIMAGE_BIN) bin/
+	ln -s ../$(MKESPFSIMAGE_BIN) bin/mkespfsimage$(BINEXT)
