@@ -356,6 +356,7 @@ int main(int argc, char **argv) {
 			realName=fileName;
 			if (fileName[0]=='.') realName++;
 			if (realName[0]=='/') realName++;
+			if (realName[0]=='\\') realName++;
 			f=open(fileName, O_RDONLY|O_BINARY);
 			if (f>0) {
 				char *compName = "unknown";
