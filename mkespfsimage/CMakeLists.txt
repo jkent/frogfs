@@ -27,4 +27,4 @@ if (USE_GZIP_COMPRESSION)
     target_link_libraries(mkespfsimage ${ZLIB_LIBRARIES})
 endif (USE_GZIP_COMPRESSION)
 
-install(TARGETS mkespfsimage RUNTIME DESTINATION "bin")
+install(TARGETS mkespfsimage RUNTIME DESTINATION "mkespfsimage")
