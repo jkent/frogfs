@@ -114,7 +114,7 @@ add_dependencies(${COMPONENT_LIB} espfs_image)
 
 add_custom_command(OUTPUT src/espfs_image.c
     COMMAND xxd -i espfs_image.bin src/espfs_image.c
-    COMMAND sed -i "1s;^;const __attribute__((aligned(4))) ;" src/espfs_image.c
+    COMMAND sed -i '' "1s;^;const __attribute__((aligned(4))) ;" src/espfs_image.c
 
     DEPENDS espfs_image.bin
     VERBATIM
