@@ -229,7 +229,6 @@ int handleFile(int f, char *name, int compression, int level, char **compName) {
 		cdat=fdat;
 		flags=0;
 	}
-
 	//Fill header data
 	h.magic=('E'<<0)+('S'<<8)+('f'<<16)+('s'<<24);
 	h.flags=flags;
@@ -241,6 +240,9 @@ int handleFile(int f, char *name, int compression, int level, char **compName) {
 	h.fileLenDecomp=htoxl(size);
 
 	write(1, &h, sizeof(EspFsHeader));
+	for (size_t i = 0; name[i]; i++ ) {
+		if (name[i] == '\\') name[i] = '/';
+	}
 	write(1, name, nameLen);
 	while (nameLen&3) {
 		write(1, "\000", 1);
