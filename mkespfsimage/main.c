@@ -229,7 +229,7 @@ int handleFile(int f, char *name, int compression, int level, char **compName) {
 		cdat=fdat;
 		flags=0;
 	}
-	
+
 	//Fill header data
 	h.magic=('E'<<0)+('S'<<8)+('f'<<16)+('s'<<24);
 	h.flags=flags;
