@@ -52,6 +52,8 @@ endif
 
 node_modules:
 	npm install --save-dev $(npm_PACKAGES)
+else
+node_modules:
 endif
 
 espfs_image.bin: $(FILES) node_modules mkespfsimage/$(MKESPFSIMAGE)
