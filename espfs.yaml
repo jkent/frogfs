@@ -1,0 +1,23 @@
+tools:
+  heatshrink:
+    level: 9
+  gzip:
+    level: 9
+  babel-convert:
+    npm:
+    - '@babel/core'
+    - '@babel/cli'
+    - '@babel/preset-env'
+    command: npx babel --no-babelrc --presets @babel/preset-env
+  babel-minify:
+    npm: babel-preset-minify
+    command: npx babel --no-babelrc --presets minify
+  html-minifier:
+    npm: html-minifier
+    command: npx html-minifier
+  uglifycss:
+    npm: uglifycss
+    command: npx uglifycss
+  uglifyjs:
+    npm: uglify-js
+    command: npx uglifyjs
