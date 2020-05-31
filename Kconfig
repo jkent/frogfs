@@ -1,5 +1,9 @@
 menu "espfs"
 
+config ESPFS_PRESENT
+	bool
+	default y
+
 config ESPFS_MAX_PARTITIONS
 	int "Maximum Number of Partitions"
 	default 3
