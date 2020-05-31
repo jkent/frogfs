@@ -41,16 +41,23 @@ def add_file(config, root, filename, actions):
     flags = 0
     if 'gzip' in actions:
         flags |= FLAG_GZIP
-        processed_data = gzip.compress(processed_data)
+        tool = config['tools']['gzip']
+        level = min(max(tool.get('level', 9), 0), 9)
+        processed_data = gzip.compress(processed_data, level)
 
     if 'heatshrink' in actions:
         compression = COMPRESS_HEATSHRINK
-        compressed_data = heatshrink2.compress(processed_data)
+        tool = config['tools']['heatshrink']
+        level = min(max(tool.get('level', 9), 0), 9) // 2
+        window_sizes, lookahead_sizes = [5, 6, 8, 11, 13],  [3, 3, 4, 4, 4]
+        window_sz2, lookahead_sz2 = window_sizes[level], lookahead_sizes[level]
+        header = bytes([window_sz2 << 4 | lookahead_sz2])
+        compressed_data = header + heatshrink2.compress(processed_data, window_sz2=window_sz2, lookahead_sz2=lookahead_sz2)
     else:
         compression = COMPRESS_NONE
         compressed_data = processed_data
 
-    if len(compressed_data) >= len(initial_data):
+    if len(compressed_data) >= len(processed_data):
         compression = COMPRESS_NONE
         compressed_data = processed_data
 
