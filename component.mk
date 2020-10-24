@@ -19,7 +19,7 @@ requirements.stamp:
 	touch requirements.stamp
 
 espfs_image.bin: $(FILES) requirements.stamp
-	PROJECT_DIR=${PROJECT_DIR} python "${COMPONENT_PATH}/tools/mkespfsimage.py" "${PROJECT_DIR}/${CONFIG_ESPFS_IMAGEROOTDIR}" espfs_image.bin
+	PROJECT_DIR=${PROJECT_PATH} python "${COMPONENT_PATH}/tools/mkespfsimage.py" "${PROJECT_PATH}/${CONFIG_ESPFS_IMAGEROOTDIR}" espfs_image.bin
 
 src/espfs_image.o: src/espfs_image.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
