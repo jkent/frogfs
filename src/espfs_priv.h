@@ -1,12 +1,15 @@
 #pragma once
 
 #include <stddef.h>
-#include "esp_partition.h"
-#include "espfsformat.h"
+#include "libespfs/format.h"
 
 struct EspFs {
 	const void *memAddr;
+#if defined(CONFIG_IDF_TARGET_ESP32) || \
+    defined(CONFIG_IDF_TARGET_ESP32S2) || \
+	defined(CONFIG_IDF_TARGET_ESP32S3)
 	spi_flash_mmap_handle_t mmapHandle;
+#endif
 	size_t length;
 	size_t numFiles;
 };

@@ -1,17 +1,13 @@
-menu "espfs"
-
-config ESPFS_PRESENT
-	bool
-	default y
+menu "libespfs"
 
 config ESPFS_MAX_PARTITIONS
 	int "Maximum Number of Partitions"
-	default 3
+	default 1
 	range 1 10
 	help
 		Define maximum number of partitions that can be mounted.
 
-config ESPFS_IMAGEROOTDIR
+config ESPFS_IMAGE_ROOT
 	string "Directory within project to build from"
 	default "espfs"
 
@@ -19,8 +15,8 @@ config ESPFS_USE_HEATSHRINK
 	bool "Use heatshrink decompressor"
 	default y
 
-config ESPFS_LINK_BINARY
-	bool "Link resulting espfs binary with firmware"
+config ESPFS_EMBED_BINARY
+	bool "Embed resulting espfs in firmware image"
 	default y
 
 endmenu

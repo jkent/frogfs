@@ -1,3 +1,0 @@
-process:
-  '*' : [heatshrink]
-  '*.js' : [babel-convert, uglifyjs]

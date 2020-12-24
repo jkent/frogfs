@@ -15,7 +15,7 @@ def main():
     transtab = str.maketrans('-.', '__')
     varname = os.path.basename(args.INFILE).translate(transtab)
 
-    source = f'const __attribute__((aligned(4))) unsigned char {varname}[] = {{\n'
+    source = f'#include <stddef.h>\n#include <stdint.h>\n\nconst __attribute__((aligned(4))) uint8_t {varname}[] = {{\n'
 
     data_len = len(data)
     n = 0
@@ -36,7 +36,7 @@ def main():
             break
     source += '};\n'
 
-    source += f'unsigned int {varname}_len = {data_len};\n'
+    source += f'size_t {varname}_len = {data_len};\n'
 
     with open(args.OUTPUT, 'wb') as f:
         f.write(source.encode())

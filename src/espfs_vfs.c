@@ -1,7 +1,6 @@
 #include <esp_err.h>
 #include <esp_log.h>
 #include <esp_vfs.h>
-#include <espfs.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/fcntl.h>
@@ -9,9 +8,10 @@
 #include "esp_partition.h"
 #include "sdkconfig.h"
 
-#include "espfs_image.h"
 #include "espfs_priv.h"
-#include "espfs_vfs.h"
+#include "libespfs/espfs.h"
+#include "libespfs/image.h"
+#include "libespfs/vfs.h"
 
 static const char *TAG = "ESPFS";
 

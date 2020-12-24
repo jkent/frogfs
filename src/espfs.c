@@ -19,17 +19,18 @@ It's written for use with httpd, but doesn't need to be used as such.
 #include <string.h>
 
 #include "esp_log.h"
-#include "esp_partition.h"
-#include "esp_spi_flash.h"
-#include "sdkconfig.h"
+#if !defined(CONFIG_LINUX) && !defined(CONFIG_IDF_TARGET_ESP8266)
+# include "esp_partition.h"
+# include "esp_spi_flash.h"
+# include "sdkconfig.h"
+#endif
 
-#include "espfsformat.h"
-#include "espfs.h"
 #include "espfs_priv.h"
+#include "libespfs/format.h"
+#include "libespfs/espfs.h"
 
 
 #if CONFIG_ESPFS_USE_HEATSHRINK
-#include "heatshrink_config_custom.h"
 #include "heatshrink_decoder.h"
 #endif
 
@@ -38,10 +39,13 @@ const static char* TAG = "espfs";
 
 EspFs* espFsInit(EspFsConfig* conf)
 {
+#if !defined(CONFIG_LINUX) && !defined(CONFIG_IDF_TARGET_ESP8266)
 	spi_flash_mmap_handle_t mmapHandle = 0;
+#endif
 	const void* memAddr = conf->memAddr;
 
 	if (!memAddr) {
+#if !defined(CONFIG_LINUX) && !defined(CONFIG_IDF_TARGET_ESP8266)
 		esp_partition_subtype_t subtype = conf->partLabel ?
 				ESP_PARTITION_SUBTYPE_ANY : ESP_PARTITION_SUBTYPE_DATA_ESPHTTPD;
 		const esp_partition_t* partition = esp_partition_find_first(
@@ -55,24 +59,23 @@ EspFs* espFsInit(EspFsConfig* conf)
 		if (err) {
 			return NULL;
 		}
+#else
+		return NULL;
+#endif
 	}
+
+	EspFs* fs = NULL;
 
 	const EspFsHeader *h = (const EspFsHeader *)memAddr;
 	if (h->magic != ESPFS_MAGIC) {
 		ESP_LOGE(TAG, "Magic not found at %p", h);
-		if (mmapHandle) {
-			spi_flash_munmap(mmapHandle);
-		}
-		return NULL;
+		goto err;
 	}
 
-	EspFs* fs = malloc(sizeof(EspFs));
+	fs = malloc(sizeof(EspFs));
 	if (!fs) {
 		ESP_LOGE(TAG, "Unable to allocate EspFs");
-		if (mmapHandle) {
-			spi_flash_munmap(mmapHandle);
-		}
-		return NULL;
+		goto err;
 	}
 
 	uint32_t entry_length = sizeof(*h) + h->nameLen + h->fileLenComp;
@@ -87,11 +90,7 @@ EspFs* espFsInit(EspFsConfig* conf)
 		h = (void*)h + entry_length;
 		if (h->magic != ESPFS_MAGIC) {
 			ESP_LOGE(TAG, "Magic not found while walking EspFs");
-			free(fs);
-			if (mmapHandle) {
-				spi_flash_munmap(mmapHandle);
-			}
-			return NULL;
+			goto err;
 		}
 		entry_length = sizeof(*h) + h->nameLen + h->fileLenComp;
 		if (entry_length & 3) {
@@ -101,15 +100,30 @@ EspFs* espFsInit(EspFsConfig* conf)
 	} while (!(h->flags & FLAG_LASTFILE));
 
 	fs->memAddr = memAddr;
+#if !defined(CONFIG_LINUX) && !defined(CONFIG_IDF_TARGET_ESP8266)
 	fs->mmapHandle = mmapHandle;
+#endif
 	return fs;
+
+err:
+	if (fs) {
+		free(fs);
+	}
+#if !defined(CONFIG_LINUX) && !defined(CONFIG_IDF_TARGET_ESP8266)
+	if (mmapHandle) {
+		spi_flash_munmap(mmapHandle);
+	}
+#endif
+	return NULL;
 }
 
 void espFsDeinit(EspFs* fs)
 {
+#if !defined(CONFIG_LINUX) && !defined(CONFIG_IDF_TARGET_ESP8266)
 	if (fs->mmapHandle) {
 		spi_flash_munmap(fs->mmapHandle);
 	}
+#endif
 	free(fs);
 }
 
@@ -213,21 +227,23 @@ int espFsStat(EspFs* fs, const char *fileName, EspFsStat *s)
 	if(fileName[0]=='/') fileName++;
 	ESP_LOGD(TAG, "looking for file '%s'.", fileName);
 
+	memset(s, 0, sizeof(EspFsStat));
+
+	if(strlen(fileName) == 0) {
+		s->type = ESPFS_TYPE_DIR;
+		return 1;
+	}
+
 	size_t fileNameLen = strlen(fileName);
 	size_t dirNameLen;
 	char dirName[256];
-	if (fileName[fileNameLen - 1] != '/') {
-		strlcpy(dirName, fileName, sizeof(dirName) - 2);
-	    strcat(dirName, "/");
-		dirNameLen = fileNameLen + 1;
-	} else {
-		strlcpy(dirName, fileName, sizeof(dirName) - 1);
-		dirNameLen = fileNameLen + 1;
-	}
 
-	s->type = ESPFS_TYPE_MISSING;
-	s->size = 0;
-	s->flags = 0;
+	strncpy(dirName, fileName, sizeof(dirName));
+	dirName[sizeof(dirName) - 1] = '\0';
+	if (fileName[fileNameLen - 1] != '/') {
+		strncat(dirName, "/", sizeof(dirName) - 1);
+	}
+	dirNameLen = strlen(dirName);
 
 	while(1) {
 		h = (EspFsHeader*)p;
@@ -237,7 +253,7 @@ int espFsStat(EspFs* fs, const char *fileName, EspFsStat *s)
 		}
 		if (h->flags & FLAG_LASTFILE) {
 			ESP_LOGD(TAG, "End of image");
-			return 0;
+			break;
 		}
 		p += sizeof(EspFsHeader);
 		if (strcmp((const char *)p, fileName) == 0) {
@@ -246,7 +262,7 @@ int espFsStat(EspFs* fs, const char *fileName, EspFsStat *s)
 			s->flags = h->flags;
 			return 1;
 		}
-		if (strncmp((const char *)p, dirName, dirNameLen)) {
+		if (strncmp((const char *)p, dirName, dirNameLen) == 0) {
 			s->type = ESPFS_TYPE_DIR;
 		}
 		p += h->nameLen + h->fileLenComp;
@@ -274,11 +290,11 @@ int espFsRead(EspFsFile *fh, char *buff, int len)
 		int toRead;
 		toRead = flen - (fh->posComp - fh->posStart);
 		if (len>toRead) len = toRead;
-		ESP_LOGV(TAG, "Reading %d bytes from %x", len, (unsigned int)fh->posComp);
+		ESP_LOGV(TAG, "Reading %d bytes from %p", len, fh->posComp);
 		memcpy(buff, fh->posComp, len);
 		fh->posDecomp += len;
 		fh->posComp += len;
-		ESP_LOGV(TAG, "Done reading %d bytes, pos=%x", len, (unsigned int)fh->posComp);
+		ESP_LOGV(TAG, "Done reading %d bytes, pos=%p", len, fh->posComp);
 		return len;
 #if CONFIG_ESPFS_USE_HEATSHRINK
 	} else if (fh->decompressor==COMPRESS_HEATSHRINK) {

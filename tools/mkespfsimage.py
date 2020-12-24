@@ -27,7 +27,9 @@ def add_file(config, root, filename, actions):
     processed_data = initial_data
 
     for action in actions:
-        if action in ['gzip', 'heatshrink']:
+        if action == 'discard':
+            return b''
+        elif action in ['gzip', 'heatshrink']:
             pass
         elif action in config['tools']:
             tool = config['tools'][action]
@@ -95,11 +97,11 @@ def main():
     parser.add_argument('IMAGE')
     args = parser.parse_args()
 
-    with open(os.path.join(script_dir, '..', 'espfs.yaml')) as f:
+    with open(os.path.join(script_dir, '..', 'espfs_defaults.yaml')) as f:
         config = yaml.load(f.read(), Loader=yaml.SafeLoader)
 
     user_config = None
-    user_config_file = os.path.join(os.getenv('PROJECT_DIR', '.'), 'espfs.yaml')
+    user_config_file = os.path.join(args.ROOT, 'espfs.yaml')
     if os.path.exists(user_config_file):
         with open(user_config_file) as f:
             user_config = yaml.load(f.read(), Loader=yaml.SafeLoader)
@@ -143,7 +145,7 @@ def main():
         all_tools.update(tools)
 
     for tool in all_tools:
-        if tool in ['gzip', 'heatshrink']:
+        if tool in ['discard', 'gzip', 'heatshrink']:
             continue
         if 'npm' in config['tools'][tool]:
             npm = config['tools'][tool]['npm']

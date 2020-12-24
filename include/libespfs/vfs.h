@@ -4,7 +4,7 @@
 #include <esp_vfs.h>
 #include <stdint.h>
 
-#include <espfs.h>
+#include "libespfs/espfs.h"
 
 
 #ifdef __cplusplus

@@ -1,44 +1,52 @@
-if(CONFIG_ESPFS_LINK_BINARY)
-    list(APPEND espfs_SRCS "${CMAKE_CURRENT_BINARY_DIR}/src/espfs_image.c")
-endif(CONFIG_ESPFS_LINK_BINARY)
+cmake_minimum_required(VERSION 3.5)
+
+set(libespfs_SRCS
+  src/espfs.c
+  src/espfs_vfs.c
+  heatshrink/heatshrink_decoder.c)
+set(libespfs_INCLUDE_DIRS
+  heatshrink
+  include)
+set(libespfs_PRIV_INCLUDE_DIRS
+  src)
+set(libespfs_REQUIRES)
+set(libespfs_PRIV_REQUIRES
+  spi_flash)
+
+if(CONFIG_ESPFS_EMBED_BINARY)
+  set(libespfs_SRCS ${libespfs_SRCS}
+    ${CMAKE_CURRENT_BINARY_DIR}/espfsimage.c)
+endif()
 
 idf_component_register(
-    SRCS "src/espfs_vfs.c"
-         "src/espfs.c"
-         "heatshrink/heatshrink_decoder.c"
-         "${espfs_SRCS}"
-    INCLUDE_DIRS "include"
-    PRIV_INCLUDE_DIRS "src"
-                      "heatshrink"
-    REQUIRES "spi_flash"
+  SRCS ${libespfs_SRCS}
+  INCLUDE_DIRS ${libespfs_INCLUDE_DIRS}
+  PRIV_INCLUDE_DIRS ${libespfs_PRIV_INCLUDE_DIRS}
+  REQUIRES ${libespfs_REQUIRES}
+  PRIV_REQUIRES ${libespfs_PRIV_REQUIRES}
 )
 
 idf_build_get_property(python PYTHON)
 
 add_custom_command(
-    OUTPUT requirements.stamp
-    COMMAND "${python}" -m pip install -r "${COMPONENT_DIR}/requirements.txt"
-    COMMAND ${CMAKE_COMMAND} -E touch requirements.stamp
-)
-
-set(espfs_image_bin_DEPS "")
-if (EXISTS "${PROJECT_DIR}/espfs.yaml")
-    list(APPEND "${PROJECT_DIR}/espfs.yaml")
-endif()
-
-add_custom_command(
-    OUTPUT espfs_image.bin
-    COMMAND ${CMAKE_COMMAND} -E env PROJECT_DIR=${PROJECT_DIR} "${python}" "${COMPONENT_DIR}/tools/mkespfsimage.py" "${PROJECT_DIR}/${CONFIG_ESPFS_IMAGEROOTDIR}" espfs_image.bin
-    DEPENDS "${PROJECT_DIR}/${CONFIG_ESPFS_IMAGEROOTDIR}" requirements.stamp ${espfs_image_bin_DEPS}
-    COMMENT "Building espfs image"
-    USES_TERMINAL
-    VERBATIM
+  OUTPUT requirements.stamp
+  COMMAND "${python}" -m pip install -r "${COMPONENT_DIR}/requirements.txt"
+  COMMAND ${CMAKE_COMMAND} -E touch requirements.stamp
 )
 
 add_custom_command(
-    OUTPUT src/espfs_image.c
-    COMMAND "${python}" "${COMPONENT_DIR}/tools/bin2c.py" espfs_image.bin src/espfs_image.c
-    DEPENDS espfs_image.bin
-    COMMENT "Generating espfs image C source"
-    VERBATIM
+  OUTPUT espfsimage.bin
+  COMMAND "${python}" "${COMPONENT_DIR}/tools/mkespfsimage.py" "${CMAKE_SOURCE_DIR}/${CONFIG_ESPFS_IMAGE_ROOT}" espfsimage.bin
+  DEPENDS "${CMAKE_SOURCE_DIR}/${CONFIG_ESPFS_IMAGE_ROOT}" requirements.stamp
+  COMMENT "Building espfsimage"
+  USES_TERMINAL
+  VERBATIM
+)
+
+add_custom_command(
+  OUTPUT espfsimage.c
+  COMMAND "${python}" "${COMPONENT_DIR}/tools/bin2c.py" espfsimage.bin espfsimage.c
+  DEPENDS espfsimage.bin
+  COMMENT "Generating espfs image C source"
+  VERBATIM
 )
