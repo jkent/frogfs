@@ -9,7 +9,9 @@ extern "C" {
 
 struct EspFsConfig {
     const void* memAddr;
+#if defined(CONFIG_ENABLE_FLASH_MMAP)
     const char* partLabel;
+#endif
 };
 
 enum EspFsStatType {
