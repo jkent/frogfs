@@ -13,7 +13,7 @@
 # https://www.stack.nl/~dimitri/doxygen/manual/config.html
 
 
-PROJECT_NAME = "libesphttpd Programming Guide"
+PROJECT_NAME = "libespfs Programming Guide"
 
 ## The 'INPUT' statement below is used as input by script 'gen-df-input.py'
 ## to automatically generate API reference list files heder_file.inc
@@ -22,7 +22,7 @@ PROJECT_NAME = "libesphttpd Programming Guide"
 
 INPUT = \
     ##
-    ## libesphttpd - API Reference
+    ## libespfs - API Reference
     ##
     ../include/libespfs/espfs.h
     ##

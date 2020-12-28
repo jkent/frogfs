@@ -17,8 +17,8 @@ from utils import call_with_python, run_cmd_get_output
 
 # -- Project information -----------------------------------------------------
 
-project = 'libesphttpd'
-copyright = '2020, libesphttpd contributors'
+project = 'libespfs'
+copyright = '2020, libespfs contributors'
 author = 'Jeff Kent <jeff@jkent.net>'
 
 # -- General configuration ------------------------------------------------
@@ -38,8 +38,8 @@ extensions = [
 # Doxygen regenerates files in 'xml/' directory every time,
 # but we copy files to 'xml_in/' only when they change, to speed up
 # incremental builds.
-breathe_projects = { "libesphttpd": "xml/" }
-breathe_default_project = "libesphttpd"
+breathe_projects = { "libespfs": "xml/" }
+breathe_default_project = "libespfs"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -212,7 +212,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index', 'ReadtheDocsTemplate.tex', 'libesphttpd User Manual',
+  ('index', 'ReadtheDocsTemplate.tex', 'libespfs User Manual',
    '', 'manual'),
 ]
 
@@ -242,7 +242,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'readthedocstemplate', 'libesphttpd User Manual',
+    ('index', 'readthedocstemplate', 'libespfs User Manual',
      [''], 1)
 ]
 
@@ -256,7 +256,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'ReadtheDocsTemplate', 'libesphttpd User Manual',
+  ('index', 'ReadtheDocsTemplate', 'libespfs User Manual',
    '', 'ReadtheDocsTemplate', 'One line description of project.',
    'Miscellaneous'),
 ]
