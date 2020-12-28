@@ -8,13 +8,12 @@
 
 #include "espfs_priv.h"
 #include "libespfs/espfs.h"
-#include "libespfs/vfs.h"
 
 
 typedef struct {
-    EspFs* fs;
+    espfs_t* espfs;
     char base_path[ESP_VFS_PATH_MAX+1];
-    EspFsFile** files;
+    espfs_file_t** files;
     size_t max_files;
 } vfs_espfs_t;
 
@@ -54,7 +53,7 @@ static int vfs_espfs_open(void* ctx, const char *path, int flags, int mode)
         return -1;
     }
 
-    vfs_espfs->files[fd] = espFsOpen(vfs_espfs->fs, path);
+    vfs_espfs->files[fd] = espfs_open(vfs_espfs->espfs, path);
     if (vfs_espfs->files[fd] == NULL) {
         return -1;
     }
@@ -71,7 +70,7 @@ static int vfs_espfs_fstat(void* ctx, int fd, struct stat* st)
         return -1;
     }
 
-    EspFsFile *fp = vfs_espfs->files[fd];
+    espfs_file_t *fp = vfs_espfs->files[fd];
     memset(st, 0, sizeof(struct stat));
     st->st_size = fp->header->fileLenDecomp;
     st->st_mode = S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH | S_IFREG;
@@ -86,8 +85,8 @@ static int vfs_espfs_stat(void* ctx, const char* path, struct stat* st)
 {
     vfs_espfs_t *vfs_espfs = (vfs_espfs_t *)ctx;
 
-    EspFsStat s;
-    if (!espFsStat(vfs_espfs->fs, path, &s)) {
+    espfs_stat_t s;
+    if (!espfs_stat(vfs_espfs->espfs, path, &s)) {
         return -1;
     }
 
@@ -108,11 +107,11 @@ static ssize_t vfs_espfs_read(void* ctx, int fd, void* data, size_t size)
         return -1;
     }
 
-    EspFsFile *fp = vfs_espfs->files[fd];
+    espfs_file_t *fp = vfs_espfs->files[fd];
     if (fp == NULL) {
         return -1;
     }
-    return espFsRead(fp, data, size);
+    return espfs_read(fp, data, size);
 }
 
 
@@ -130,12 +129,12 @@ static off_t vfs_espfs_lseek(void* ctx, int fd, off_t size, int mode)
         return -1;
     }
 
-    EspFsFile *fp = vfs_espfs->files[fd];
+    espfs_file_t *fp = vfs_espfs->files[fd];
     if (fp == NULL) {
         return -1;
     } 
 
-    return espFsSeek(fp, size, mode);
+    return espfs_seek(fp, size, mode);
 }
 
 
@@ -147,12 +146,12 @@ static int vfs_espfs_close(void* ctx, int fd)
         return -1;
     }
 
-    EspFsFile *fp = vfs_espfs->files[fd];
+    espfs_file_t *fp = vfs_espfs->files[fd];
     if (fp == NULL) {
         return -1;
     }
 
-    espFsClose(fp);
+    espfs_close(fp);
     vfs_espfs->files[fd] = NULL;
     return 0;
 }
@@ -161,7 +160,7 @@ static int vfs_espfs_close(void* ctx, int fd)
 esp_err_t esp_vfs_espfs_register(const esp_vfs_espfs_conf_t* conf)
 {
     assert(conf->base_path);
-    assert(conf->fs);
+    assert(conf->espfs);
     const esp_vfs_t vfs = {
         .flags = ESP_VFS_FLAG_CONTEXT_PTR,
         .write_p = &vfs_espfs_write,
@@ -184,9 +183,9 @@ esp_err_t esp_vfs_espfs_register(const esp_vfs_espfs_conf_t* conf)
         return ESP_ERR_NO_MEM;
     }
 
-    vfs_espfs->fs = conf->fs;
+    vfs_espfs->espfs = conf->espfs;
     vfs_espfs->max_files = conf->max_files;
-    vfs_espfs->files = calloc(conf->max_files, sizeof(EspFsFile*));
+    vfs_espfs->files = calloc(conf->max_files, sizeof(espfs_file_t*));
     if (vfs_espfs->files == NULL) {
         ESP_LOGE(__func__, "allocating files failed");
         free(vfs_espfs);

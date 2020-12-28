@@ -13,6 +13,7 @@ It's written for use with httpd, but doesn't need to be used as such.
 //care of that.
 
 #include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -25,7 +26,6 @@ It's written for use with httpd, but doesn't need to be used as such.
 #endif
 
 #include "espfs_priv.h"
-#include "libespfs/format.h"
 #include "libespfs/espfs.h"
 
 
@@ -33,25 +33,25 @@ It's written for use with httpd, but doesn't need to be used as such.
 #include "heatshrink_decoder.h"
 #endif
 
-EspFs* espFsInit(EspFsConfig* conf)
+espfs_t* espfs_init(espfs_config_t* conf)
 {
 #if defined(CONFIG_ENABLE_FLASH_MMAP)
 	spi_flash_mmap_handle_t mmapHandle = 0;
 #endif
-	const void* memAddr = conf->memAddr;
+	const void* addr = conf->addr;
 
-	if (!memAddr) {
+	if (!addr) {
 #if defined(CONFIG_ENABLE_FLASH_MMAP)
-		esp_partition_subtype_t subtype = conf->partLabel ?
+		esp_partition_subtype_t subtype = conf->partition ?
 				ESP_PARTITION_SUBTYPE_ANY : ESP_PARTITION_SUBTYPE_DATA_ESPHTTPD;
 		const esp_partition_t* partition = esp_partition_find_first(
-				ESP_PARTITION_TYPE_DATA, subtype, conf->partLabel);
+				ESP_PARTITION_TYPE_DATA, subtype, conf->partition);
 		if (!partition) {
 			return NULL;
 		}
 
 		esp_err_t err = esp_partition_mmap(partition, 0, partition->size,
-				SPI_FLASH_MMAP_DATA, &memAddr, &mmapHandle);
+				SPI_FLASH_MMAP_DATA, &addr, &mmapHandle);
 		if (err) {
 			return NULL;
 		}
@@ -60,21 +60,21 @@ EspFs* espFsInit(EspFsConfig* conf)
 #endif
 	}
 
-	EspFs* fs = NULL;
+	espfs_t* fs = NULL;
 
-	const EspFsHeader *h = (const EspFsHeader *)memAddr;
+	const espfs_header_t *h = (const espfs_header_t *)addr;
 	if (h->magic != ESPFS_MAGIC) {
 		ESP_LOGE(__func__, "Magic not found at %p", h);
 		goto err;
 	}
 
-	fs = malloc(sizeof(EspFs));
+	fs = malloc(sizeof(espfs_t));
 	if (!fs) {
-		ESP_LOGE(__func__, "Unable to allocate EspFs");
+		ESP_LOGE(__func__, "Unable to allocate espfs");
 		goto err;
 	}
 
-	uint32_t entry_length = sizeof(*h) + h->nameLen + h->fileLenComp;
+	uint32_t entry_length = sizeof(*h) + h->filenameLen + h->fileLenComp;
 	if (entry_length & 3) {
 		entry_length += 4 - (entry_length & 3);
 	}
@@ -85,17 +85,17 @@ EspFs* espFsInit(EspFsConfig* conf)
 		fs->numFiles++;
 		h = (void*)h + entry_length;
 		if (h->magic != ESPFS_MAGIC) {
-			ESP_LOGE(__func__, "Magic not found while walking EspFs");
+			ESP_LOGE(__func__, "Magic not found while walking espfs");
 			goto err;
 		}
-		entry_length = sizeof(*h) + h->nameLen + h->fileLenComp;
+		entry_length = sizeof(*h) + h->filenameLen + h->fileLenComp;
 		if (entry_length & 3) {
 			entry_length += 4 - (entry_length & 3);
 		}
 		fs->length += entry_length;
-	} while (!(h->flags & FLAG_LASTFILE));
+	} while (!(h->flags & ESPFS_FLAG_LASTFILE));
 
-	fs->memAddr = memAddr;
+	fs->addr = addr;
 #if defined(CONFIG_ENABLE_FLASH_MMAP)
 	fs->mmapHandle = mmapHandle;
 #endif
@@ -113,7 +113,7 @@ err:
 	return NULL;
 }
 
-void espFsDeinit(EspFs* fs)
+void espfs_deinit(espfs_t* fs)
 {
 #if defined(CONFIG_ENABLE_FLASH_MMAP)
 	if (fs->mmapHandle) {
@@ -124,7 +124,7 @@ void espFsDeinit(EspFs* fs)
 }
 
 // Returns flags of opened file.
-int espFsFlags(EspFsFile *fh)
+espfs_flags_t espfs_flags(espfs_file_t *fh)
 {
 	if (fh == NULL) {
 		ESP_LOGE(__func__, "Invalid file handle");
@@ -135,45 +135,45 @@ int espFsFlags(EspFsFile *fh)
 }
 
 // Open a file and return a pointer to the file desc struct.
-EspFsFile *espFsOpen(EspFs* fs, const char *fileName)
+espfs_file_t *espfs_open(espfs_t* fs, const char *filename)
 {
 	if (!fs) {
 		ESP_LOGE(__func__, "fs is null");
 		return NULL;
 	}
 
-	char *p = (char *)fs->memAddr;
+	char *p = (char *)fs->addr;
 	char namebuf[256];
-	EspFsHeader *h;
-	EspFsFile *r;
+	espfs_header_t *h;
+	espfs_file_t *r;
 
 	// Strip first initial slash
 	// We should not strip any next slashes otherwise there is potential
 	// security risk when mapped authentication handler will not invoke
 	// (ex. ///security.html)
-	if(fileName[0]=='/') fileName++;
-	ESP_LOGD(__func__, "looking for file '%s'.", fileName);
+	if(filename[0]=='/') filename++;
+	ESP_LOGD(__func__, "looking for file '%s'.", filename);
 
 	// Go find that file!
 	while(1) {
-		h = (EspFsHeader*)p;
+		h = (espfs_header_t*)p;
 		if (h->magic != ESPFS_MAGIC) {
 			ESP_LOGE(__func__, "Magic mismatch. EspFS image broken.");
 			return NULL;
 		}
-		if (h->flags & FLAG_LASTFILE) {
+		if (h->flags & ESPFS_FLAG_LASTFILE) {
 			ESP_LOGD(__func__, "End of image");
 			return NULL;
 		}
 		// Grab the name of the file.
-		p += sizeof(EspFsHeader);
+		p += sizeof(espfs_header_t);
 		memcpy((uint32_t*)&namebuf, (uintptr_t*)p, sizeof(namebuf));
-		if (strcmp(namebuf, fileName) == 0) {
+		if (strcmp(namebuf, filename) == 0) {
 			ESP_LOGD(__func__, "Found file '%s'. Namelen=%x fileLenComp=%x, compr=%d flags=%d",
-					namebuf, (unsigned int)h->nameLen, (unsigned int)h->fileLenComp, h->compression, h->flags);
+					namebuf, (unsigned int)h->filenameLen, (unsigned int)h->fileLenComp, h->compression, h->flags);
 			// Yay, this is the file we need!
-			p += h->nameLen; //Skip to content.
-			r = (EspFsFile *)malloc(sizeof(EspFsFile)); // Alloc file desc mem
+			p += h->filenameLen; //Skip to content.
+			r = (espfs_file_t *)malloc(sizeof(espfs_file_t)); // Alloc file desc mem
 			ESP_LOGV(__func__, "Alloc %p", r);
 			if (r == NULL) return NULL;
 			r->header = h;
@@ -181,10 +181,10 @@ EspFsFile *espFsOpen(EspFs* fs, const char *fileName)
 			r->posComp = p;
 			r->posStart = p;
 			r->posDecomp = 0;
-			if (h->compression == COMPRESS_NONE) {
+			if (h->compression == ESPFS_COMPRESS_NONE) {
 				r->decompData = NULL;
 #if CONFIG_ESPFS_USE_HEATSHRINK
-			} else if (h->compression == COMPRESS_HEATSHRINK) {
+			} else if (h->compression == ESPFS_COMPRESS_HEATSHRINK) {
 				// File is compressed with Heatshrink.
 				char parm;
 				heatshrink_decoder *dec;
@@ -203,56 +203,56 @@ EspFsFile *espFsOpen(EspFs* fs, const char *fileName)
 			return r;
 		}
 		// We don't need this file. Skip name and file
-		p += h->nameLen + h->fileLenComp;
+		p += h->filenameLen + h->fileLenComp;
 		if ((uintptr_t)p & 3) {
 		    p += 4 - ((uintptr_t)p & 3); // align to next 32bit val
 		}
 	}
 }
 
-int espFsStat(EspFs* fs, const char *fileName, EspFsStat *s)
+bool espfs_stat(espfs_t* fs, const char *filename, espfs_stat_t *s)
 {
 	if (!fs) {
 		ESP_LOGE(__func__, "fs is null");
 		return 0;
 	}
 
-	char *p = (char *)fs->memAddr;
-	EspFsHeader *h;
+	char *p = (char *)fs->addr;
+	espfs_header_t *h;
 
-	if(fileName[0]=='/') fileName++;
-	ESP_LOGD(__func__, "looking for file '%s'.", fileName);
+	if(filename[0]=='/') filename++;
+	ESP_LOGD(__func__, "looking for file '%s'.", filename);
 
-	memset(s, 0, sizeof(EspFsStat));
+	memset(s, 0, sizeof(espfs_stat_t));
 
-	if(strlen(fileName) == 0) {
+	if(strlen(filename) == 0) {
 		s->type = ESPFS_TYPE_DIR;
 		return 1;
 	}
 
-	size_t fileNameLen = strlen(fileName);
+	size_t filenameLen = strlen(filename);
 	size_t dirNameLen;
 	char dirName[256];
 
-	strncpy(dirName, fileName, sizeof(dirName));
+	strncpy(dirName, filename, sizeof(dirName));
 	dirName[sizeof(dirName) - 1] = '\0';
-	if (fileName[fileNameLen - 1] != '/') {
+	if (filename[filenameLen - 1] != '/') {
 		strncat(dirName, "/", sizeof(dirName) - 1);
 	}
 	dirNameLen = strlen(dirName);
 
 	while(1) {
-		h = (EspFsHeader*)p;
+		h = (espfs_header_t*)p;
 		if (h->magic != ESPFS_MAGIC) {
 			ESP_LOGE(__func__, "Magic mismatch. EspFS image broken.");
 			return 0;
 		}
-		if (h->flags & FLAG_LASTFILE) {
+		if (h->flags & ESPFS_FLAG_LASTFILE) {
 			ESP_LOGD(__func__, "End of image");
 			break;
 		}
-		p += sizeof(EspFsHeader);
-		if (strcmp((const char *)p, fileName) == 0) {
+		p += sizeof(espfs_header_t);
+		if (strcmp((const char *)p, filename) == 0) {
 			s->type = ESPFS_TYPE_FILE;
 			s->size = h->fileLenDecomp;
 			s->flags = h->flags;
@@ -261,7 +261,7 @@ int espFsStat(EspFs* fs, const char *fileName, EspFsStat *s)
 		if (strncmp((const char *)p, dirName, dirNameLen) == 0) {
 			s->type = ESPFS_TYPE_DIR;
 		}
-		p += h->nameLen + h->fileLenComp;
+		p += h->filenameLen + h->fileLenComp;
 		if ((uintptr_t)p & 3) {
 		    p += 4 - ((uintptr_t)p & 3); // align to next 32bit val
 		}
@@ -270,34 +270,34 @@ int espFsStat(EspFs* fs, const char *fileName, EspFsStat *s)
 	return s->type != ESPFS_TYPE_MISSING;
 }
 
-// Read len bytes from the given file into buff. Returns the actual amount of bytes read.
-int espFsRead(EspFsFile *fh, char *buff, int len)
+// Read len bytes from the given file into buf. Returns the actual amount of bytes read.
+ssize_t espfs_read(espfs_file_t *fh, char *buf, size_t len)
 {
-	int flen;
+	size_t flen;
 #if CONFIG_ESPFS_USE_HEATSHRINK
-	int fdlen;
+	size_t fdlen;
 #endif
 	if (fh == NULL) return 0;
 
 	memcpy((char*)&flen, (char*)&fh->header->fileLenComp, 4);
 	// Cache file length.
 	// Do stuff depending on the way the file is compressed.
-	if (fh->decompressor == COMPRESS_NONE) {
+	if (fh->decompressor == ESPFS_COMPRESS_NONE) {
 		int toRead;
 		toRead = flen - (fh->posComp - fh->posStart);
 		if (len>toRead) len = toRead;
 		ESP_LOGV(__func__, "Reading %d bytes from %p", len, fh->posComp);
-		memcpy(buff, fh->posComp, len);
+		memcpy(buf, fh->posComp, len);
 		fh->posDecomp += len;
 		fh->posComp += len;
 		ESP_LOGV(__func__, "Done reading %d bytes, pos=%p", len, fh->posComp);
 		return len;
 #if CONFIG_ESPFS_USE_HEATSHRINK
-	} else if (fh->decompressor==COMPRESS_HEATSHRINK) {
+	} else if (fh->decompressor==ESPFS_COMPRESS_HEATSHRINK) {
 		memcpy((char*)&fdlen, (char*)&fh->header->fileLenDecomp, 4);
-		int decoded = 0;
+		size_t decoded = 0;
 		size_t elen, rlen;
-		char ebuff[16];
+		char ebuf[16];
 		heatshrink_decoder *dec = (heatshrink_decoder *)fh->decompData;
 		ESP_LOGV(__func__, "Alloc %p", dec);
 		if (fh->posDecomp == fdlen) {
@@ -313,14 +313,14 @@ int espFsRead(EspFsFile *fh, char *buff, int len)
 			// ToDo: Check ret val of heatshrink fns for errors
 			elen = flen - (fh->posComp - fh->posStart);
 			if (elen>0) {
-				memcpy(ebuff, fh->posComp, 16);
-				heatshrink_decoder_sink(dec, (uint8_t *)ebuff, (elen > 16) ? 16 : elen, &rlen);
+				memcpy(ebuf, fh->posComp, 16);
+				heatshrink_decoder_sink(dec, (uint8_t *)ebuf, (elen > 16) ? 16 : elen, &rlen);
 				fh->posComp += rlen;
 			}
 			// Grab decompressed data and put into buff
-			heatshrink_decoder_poll(dec, (uint8_t *)buff, len - decoded, &rlen);
+			heatshrink_decoder_poll(dec, (uint8_t *)buf, len - decoded, &rlen);
 			fh->posDecomp += rlen;
-			buff += rlen;
+			buf += rlen;
 			decoded += rlen;
 
 			ESP_LOGV(__func__, "Elen %d rlen %d d %d pd %d fdl %d", elen, rlen, decoded, fh->posDecomp, fdlen);
@@ -340,7 +340,7 @@ int espFsRead(EspFsFile *fh, char *buff, int len)
 }
 
 // Seek in the file.
-int espFsSeek(EspFsFile *fh, long offset, int mode)
+ssize_t espfs_seek(espfs_file_t *fh, long offset, int mode)
 {
 	if (fh == NULL) {
 		return -1;
@@ -352,7 +352,7 @@ int espFsSeek(EspFsFile *fh, long offset, int mode)
 		} else if (offset == 0) {
 			fh->posComp = fh->posStart;
 			fh->posDecomp = 0;
-		} else if (fh->decompressor == COMPRESS_NONE) {
+		} else if (fh->decompressor == ESPFS_COMPRESS_NONE) {
 			if (offset > fh->header->fileLenComp) {
 				offset = fh->header->fileLenComp;
 			}
@@ -364,7 +364,7 @@ int espFsSeek(EspFsFile *fh, long offset, int mode)
 	} else if (mode == SEEK_CUR) {
 		if (offset == 0) {
 			return fh->posDecomp;
-		} else if (fh->decompressor == COMPRESS_NONE) {
+		} else if (fh->decompressor == ESPFS_COMPRESS_NONE) {
 			if (offset < 0) {
 				if (fh->posDecomp + offset < 0) {
 					fh->posComp = fh->posStart;
@@ -385,7 +385,7 @@ int espFsSeek(EspFsFile *fh, long offset, int mode)
 		} else {
 			return -1;
 		}
-	} else if (mode == SEEK_END && fh->decompressor == COMPRESS_NONE) {
+	} else if (mode == SEEK_END && fh->decompressor == ESPFS_COMPRESS_NONE) {
 		if (offset == 0) {
 			fh->posComp = fh->posStart + fh->header->fileLenComp;
 			fh->posDecomp = fh->header->fileLenComp;
@@ -406,31 +406,31 @@ int espFsSeek(EspFsFile *fh, long offset, int mode)
 	return fh->posDecomp;
 }
 
-bool espFsIsCompressed(EspFsFile *fh)
+bool espfs_is_compressed(espfs_file_t *fh)
 {
-	return (fh->header->compression != COMPRESS_NONE);
+	return (fh->header->compression != ESPFS_COMPRESS_NONE);
 }
 
-int espFsAccess(EspFsFile *fh, void **buf)
+ssize_t espfs_access(espfs_file_t *fh, void **buf)
 {
-	if (espFsIsCompressed(fh)) {
+	if (espfs_is_compressed(fh)) {
 		return -1;
 	}
 	*buf = fh->posStart;
 	return fh->header->fileLenComp;
 }
 
-int espFsFilesize(EspFsFile *fh)
+size_t espfs_filesize(espfs_file_t *fh)
 {
 	return fh->header->fileLenDecomp;
 }
 
 // Close the file.
-void espFsClose(EspFsFile *fh)
+void espfs_close(espfs_file_t *fh)
 {
 	if (fh == NULL) return;
 #if CONFIG_ESPFS_USE_HEATSHRINK
-	if (fh->decompressor == COMPRESS_HEATSHRINK) {
+	if (fh->decompressor == ESPFS_COMPRESS_HEATSHRINK) {
 		heatshrink_decoder *dec = (heatshrink_decoder *)fh->decompData;
 		ESP_LOGV(__func__, "Free %p", dec);
 		heatshrink_decoder_free(dec);
