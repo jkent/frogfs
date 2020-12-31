@@ -3,6 +3,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#if defined(CONFIG_IDF_TARGET_ESP32) || \
+    defined(CONFIG_IDF_TARGET_ESP32S2) || \
+	defined(CONFIG_IDF_TARGET_ESP32S3)
+# include <esp_spi_flash.h>
+#endif
+
 typedef struct espfs_t {
 	const void *addr;
 #if defined(CONFIG_IDF_TARGET_ESP32) || \
