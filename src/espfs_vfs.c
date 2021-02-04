@@ -71,6 +71,10 @@ static int vfs_espfs_fstat(void* ctx, int fd, struct stat* st)
     }
 
     espfs_file_t *fp = vfs_espfs->files[fd];
+    if (fp == NULL) {
+        return -1;
+    }
+
     memset(st, 0, sizeof(struct stat));
     st->st_size = fp->header->fileLenDecomp;
     st->st_mode = S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH | S_IFREG;
@@ -132,7 +136,7 @@ static off_t vfs_espfs_lseek(void* ctx, int fd, off_t size, int mode)
     espfs_file_t *fp = vfs_espfs->files[fd];
     if (fp == NULL) {
         return -1;
-    } 
+    }
 
     return espfs_seek(fp, size, mode);
 }
