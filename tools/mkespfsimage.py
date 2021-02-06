@@ -37,7 +37,7 @@ def add_file(config, root, filename, actions):
             p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
             processed_data = p.communicate(input=processed_data)[0]
         else:
-            print(f'Unknown action: {action}', file=sys.stderr)
+            print('Unknown action: %s' % action, file=sys.stderr)
             sys.exit(1)
 
     flags = 0
@@ -66,21 +66,21 @@ def add_file(config, root, filename, actions):
     initial_len, processed_len, compressed_len = len(initial_data), len(processed_data), len(compressed_data)
 
     if initial_len < 1024:
-        initial = f'{initial_len} B'
-        compressed = f'{compressed_len} B'
+        initial = '%d B' % initial_len
+        compressed = '%d B' % compressed_len
     elif initial_len < 1024 * 1024:
-        initial = f'{initial_len / 1024:.1f} KiB'
-        compressed = f'{compressed_len / 1024:.1f} KiB'
+        initial = '%.1f KiB' % initial_len / 1024
+        initial = '%.1f KiB' % compressed_len / 1024
     elif initial_len < 1024 * 1024 * 1024:
-        initial = f'{initial_len / 1024 / 1024:.1f} MiB'
-        compressed = f'{compressed_len / 1024 / 1024:.1f} MiB'
+        initial = '%.1f MiB' % initial_len / 1024 / 1024
+        initial = '%.1f MiB' % compressed_len / 1024 / 1024
 
     percent = 100.0
     if initial_len > 0:
         percent = compressed_len / initial_len * 100
 
     filename = filename.replace('\\', '/')
-    print(f'{filename}: {initial} -> {compressed} ({percent:.1f}%)')
+    print('%s: %s -> %s (%.1f%%)' % (filename, initial, compressed, percent))
     filename = filename.encode('utf8')
     filename = filename.ljust((len(filename) + 4) // 4 * 4, b'\0')
     compressed_data = compressed_data.ljust((compressed_len + 3) // 4 * 4, b'\0')
@@ -152,7 +152,7 @@ def main():
             npms = npm if type(npm) == list else [npm]
             for npm in npms:
                 if not os.path.exists(os.path.join('node_modules', npm)):
-                    subprocess.check_call(f'npm install {npm}', shell=True)
+                    subprocess.check_call('npm install %s' % npm, shell=True)
 
         elif 'setup' in config[tools][tool]:
             setup = config['tools'][tool]['setup']

@@ -15,14 +15,14 @@ def main():
     transtab = str.maketrans('-.', '__')
     varname = os.path.basename(args.INFILE).translate(transtab)
 
-    source = f'#include <stddef.h>\n#include <stdint.h>\n\nconst __attribute__((aligned(4))) uint8_t {varname}[] = {{\n'
+    source = '#include <stddef.h>\n#include <stdint.h>\n\nconst __attribute__((aligned(4))) uint8_t %s[] = {\n' % varname
 
     data_len = len(data)
     n = 0
     while n < data_len:
         source += '  '
         for i in range(12):
-            source += f'0x{data[n]:02X}'
+            source += '0x%02X' % data[n]
             n += 1
             if n == data_len:
                 break
@@ -36,7 +36,7 @@ def main():
             break
     source += '};\n'
 
-    source += f'size_t {varname}_len = {data_len};\n'
+    source += 'size_t %s_len = %s;\n' % (varname, data_len)
 
     with open(args.OUTPUT, 'wb') as f:
         f.write(source.encode())
