@@ -1,11 +1,11 @@
-libespfs documentation
+libespfs Documentation
 ======================
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-   API Reference <api-reference>
-   Examples <examples>
-
+   readme/index
+   api-reference/index
+   examples
    genindex

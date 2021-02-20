@@ -1,5 +1,29 @@
 menu "libespfs"
 
+choice
+	prompt "Log level"
+	default ESPFS_LOG_LEVEL_WARNING
+
+config ESPFS_LOG_LEVEL_NONE
+	bool "None"
+
+config ESPFS_LOG_LEVEL_ERROR
+	bool "Error"
+
+config ESPFS_LOG_LEVEL_WARNING
+	bool "Error"
+
+config ESPFS_LOG_LEVEL_INFO
+	bool "Info"
+
+config ESPFS_LOG_LEVEL_DEBUG
+	bool "Debug"
+
+config ESPFS_LOG_LEVEL_VERBOSE
+	bool "Verbose"
+
+endchoice # "Log level"
+
 config ESPFS_MAX_PARTITIONS
 	int "Maximum Number of Partitions"
 	default 1

@@ -24,7 +24,8 @@ INPUT = \
     ##
     ## libespfs - API Reference
     ##
-    ../include/libespfs/espfs.h
+    ../include/libespfs/espfs.h \
+    ../include/libespfs/vfs.h \
     ##
 
 ## Get warnings for functions that have no documentation for their parameters or return value
@@ -47,12 +48,12 @@ HAVE_DOT = NO
 ## Generate XML that is required for Breathe
 ##
 GENERATE_XML    = YES
-XML_OUTPUT      = xml
+XML_OUTPUT      = _build/xml
 
 GENERATE_HTML   = NO
 HAVE_DOT        = NO
 GENERATE_LATEX  = NO
-GENERATE_MAN    = YES
+GENERATE_MAN    = NO
 GENERATE_RTF    = NO
 
 ## Skip distracting progress messages
@@ -60,4 +61,4 @@ GENERATE_RTF    = NO
 QUIET = YES
 ## Log warnings in a file for further review
 ##
-WARN_LOGFILE = "doxygen-warning-log.txt"
+WARN_LOGFILE = _build/doxygen-warning-log.txt

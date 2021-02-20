@@ -12,13 +12,11 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('.'))
-from utils import call_with_python, run_cmd_get_output
 
 # -- Project information -----------------------------------------------------
 
 project = 'libespfs'
-copyright = '2020, libespfs contributors'
+copyright = '2021, libespfs contributors'
 author = 'Jeff Kent <jeff@jkent.net>'
 
 # -- General configuration ------------------------------------------------
@@ -31,6 +29,7 @@ author = 'Jeff Kent <jeff@jkent.net>'
 # ones.
 extensions = [
     'breathe',
+    'recommonmark',
 ]
 
 # Breathe extension variables
@@ -38,25 +37,17 @@ extensions = [
 # Doxygen regenerates files in 'xml/' directory every time,
 # but we copy files to 'xml_in/' only when they change, to speed up
 # incremental builds.
-breathe_projects = { "libespfs": "xml/" }
-breathe_default_project = "libespfs"
+breathe_projects = { 'libespfs': '_build/xml' }
+breathe_default_project = 'libespfs'
+breathe_domain_by_extension = {
+    'h': 'c',
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
-# The suffix of source filenames.
-source_suffix = ['.rst', '.md']
-
-source_parsers = {
-       '.md': 'recommonmark.parser.CommonMarkParser',
-    }
-
-# The encoding of source files.
-#source_encoding = 'utf-8-sig'
-
 # The master toctree document.
 master_doc = 'index'
-
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -69,7 +60,9 @@ master_doc = 'index'
 # This is supposed to be "the short X.Y version", but it's the only version
 # visible when you open index.html.
 # Display full version to make things less confusing.
-version = run_cmd_get_output('git describe')
+def run_cmd_get_output(cmd):
+    return os.popen(cmd).read().strip()
+version = run_cmd_get_output('git describe --tags')
 # The full version, including alpha/beta/rc tags.
 # If needed, nearest tag is returned by 'git describe --abbrev=0'.
 release = version
@@ -83,7 +76,7 @@ print('Version: {0}  Release: {1}'.format(version, release))
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build', 'README.md']
+exclude_patterns = ['_build']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -119,7 +112,9 @@ html_theme = 'sphinx_rtd_theme'
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-#html_theme_options = {}
+html_theme_options = {
+    'titles_only': True,
+}
 
 # Add any paths that contain custom themes here, relative to this directory.
 #html_theme_path = []
@@ -143,7 +138,7 @@ html_theme = 'sphinx_rtd_theme'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+#html_static_path = ['_static']
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
@@ -191,96 +186,6 @@ html_static_path = ['_static']
 # This is the file name suffix for HTML files (e.g. ".xhtml").
 #html_file_suffix = None
 
-# Output file base name for HTML help builder.
-htmlhelp_basename = 'ReadtheDocsTemplatedoc'
-
-
-# -- Options for LaTeX output ---------------------------------------------
-
-latex_elements = {
-# The paper size ('letterpaper' or 'a4paper').
-#'papersize': 'letterpaper',
-
-# The font size ('10pt', '11pt' or '12pt').
-#'pointsize': '10pt',
-
-# Additional stuff for the LaTeX preamble.
-#'preamble': '',
-}
-
-# Grouping the document tree into LaTeX files. List of tuples
-# (source start file, target name, title,
-#  author, documentclass [howto, manual, or own class]).
-latex_documents = [
-  ('index', 'ReadtheDocsTemplate.tex', 'libespfs User Manual',
-   '', 'manual'),
-]
-
-# The name of an image file (relative to this directory) to place at the top of
-# the title page.
-#latex_logo = None
-
-# For "manual" documents, if this is true, then toplevel headings are parts,
-# not chapters.
-#latex_use_parts = False
-
-# If true, show page references after internal links.
-#latex_show_pagerefs = False
-
-# If true, show URL addresses after external links.
-#latex_show_urls = False
-
-# Documents to append as an appendix to all manuals.
-#latex_appendices = []
-
-# If false, no module index is generated.
-#latex_domain_indices = True
-
-
-# -- Options for manual page output ---------------------------------------
-
-# One entry per manual page. List of tuples
-# (source start file, name, description, authors, manual section).
-man_pages = [
-    ('index', 'readthedocstemplate', 'libespfs User Manual',
-     [''], 1)
-]
-
-# If true, show URL addresses after external links.
-#man_show_urls = False
-
-
-# -- Options for Texinfo output -------------------------------------------
-
-# Grouping the document tree into Texinfo files. List of tuples
-# (source start file, target name, title, author,
-#  dir menu entry, description, category)
-texinfo_documents = [
-  ('index', 'ReadtheDocsTemplate', 'libespfs User Manual',
-   '', 'ReadtheDocsTemplate', 'One line description of project.',
-   'Miscellaneous'),
-]
-
-# Documents to append as an appendix to all manuals.
-#texinfo_appendices = []
-
-# If false, no module index is generated.
-#texinfo_domain_indices = True
-
-# How to display URL addresses: 'footnote', 'no', or 'inline'.
-#texinfo_show_urls = 'footnote'
-
-# If true, do not generate a @detailmenu in the "Top" node's menu.
-#texinfo_no_detailmenu = False
-
-# Override RTD CSS theme to introduce the theme corrections
-# https://github.com/rtfd/sphinx_rtd_theme/pull/432
-def setup(app):
-    app.add_css_file('theme_overrides.css')
-
 print("Calling Doxygen to generate latest XML files")
 if os.system("doxygen Doxyfile") != 0:
     raise RuntimeError('Doxygen call failed')
-
-# Generate 'api_name.inc' files using the XML files by Doxygen
-call_with_python('gen-dxd.py')

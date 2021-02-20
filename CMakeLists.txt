@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.5)
 
 set(libespfs_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/src/espfs.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/espfs_vfs.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/vfs.c
   ${CMAKE_CURRENT_SOURCE_DIR}/third-party/heatshrink/heatshrink_decoder.c)
 set(libespfs_INCLUDE_DIRS
   ${CMAKE_CURRENT_SOURCE_DIR}/third-party/heatshrink
