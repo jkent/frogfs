@@ -66,14 +66,14 @@ def add_file(config, root, filename, actions):
     initial_len, processed_len, compressed_len = len(initial_data), len(processed_data), len(compressed_data)
 
     if initial_len < 1024:
-        initial = '%d B' % initial_len
-        compressed = '%d B' % compressed_len
+        initial = '%d B' % (initial_len)
+        compressed = '%d B' % (compressed_len)
     elif initial_len < 1024 * 1024:
-        initial = '%.1f KiB' % initial_len / 1024
-        initial = '%.1f KiB' % compressed_len / 1024
+        initial = '%.1f KiB' % (initial_len / 1024)
+        compressed = '%.1f KiB' % (compressed_len / 1024)
     elif initial_len < 1024 * 1024 * 1024:
-        initial = '%.1f MiB' % initial_len / 1024 / 1024
-        initial = '%.1f MiB' % compressed_len / 1024 / 1024
+        initial = '%.1f MiB' % (initial_len / 1024 / 1024)
+        compressed = '%.1f MiB' % (compressed_len / 1024 / 1024)
 
     percent = 100.0
     if initial_len > 0:
