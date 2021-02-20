@@ -11,7 +11,7 @@ config ESPFS_LOG_LEVEL_ERROR
 	bool "Error"
 
 config ESPFS_LOG_LEVEL_WARNING
-	bool "Error"
+	bool "Warning"
 
 config ESPFS_LOG_LEVEL_INFO
 	bool "Info"
