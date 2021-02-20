@@ -29,7 +29,7 @@ author = 'Jeff Kent <jeff@jkent.net>'
 # ones.
 extensions = [
     'breathe',
-    'recommonmark',
+    'myst_parser',
 ]
 
 # Breathe extension variables
@@ -187,5 +187,7 @@ html_theme_options = {
 #html_file_suffix = None
 
 print("Calling Doxygen to generate latest XML files")
+if not os.path.exists('_build/xml'):
+    os.makedirs('_build/xml')
 if os.system("doxygen Doxyfile") != 0:
     raise RuntimeError('Doxygen call failed')
