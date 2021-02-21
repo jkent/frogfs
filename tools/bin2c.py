@@ -36,7 +36,7 @@ def main():
             break
     source += '};\n'
 
-    source += 'size_t %s_len = %s;\n' % (varname, data_len)
+    source += 'const size_t %s_len = %s;\n' % (varname, data_len)
 
     with open(args.OUTPUT, 'wb') as f:
         f.write(source.encode())

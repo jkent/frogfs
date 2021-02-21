@@ -53,9 +53,9 @@ typedef struct espfs_file_t espfs_file_t;
  * \brief Configuration for the \a espfs_init function
  */
 typedef struct {
-    const void *addr; /**< address of an espfs filesystem in memory */
+    const void *addr; /** address of an espfs filesystem in memory */
 #if defined(CONFIG_ENABLE_FLASH_MMAP)
-    const char *partition; /**< name of a partition to use as an espfs
+    const char *partition; /** name of a partition to use as an espfs
             filesystem. \a addr should be \a NULL if used */
 #endif
 } espfs_config_t;
@@ -64,9 +64,9 @@ typedef struct {
  * \brief Structure filled by the \a espfs_stat function
  */
 typedef struct {
-    espfs_flags_t flags; /**< file flags */
-    espfs_stat_type_t type; /**< file type */
-    size_t size; /**< file size */
+    espfs_flags_t flags; /** file flags */
+    espfs_stat_type_t type; /** file type */
+    size_t size; /** file size */
 } espfs_stat_t;
 
 /**
@@ -75,14 +75,14 @@ typedef struct {
  * \return espfs fs handle
  */
 espfs_fs_t *espfs_init(
-    espfs_config_t *conf /**< [in] configuration */
+    espfs_config_t *conf /** [in] configuration */
 );
 
 /**
  * \brief Tear down an \a espfs_fs_t instance
  */
 void espfs_deinit(
-    espfs_fs_t *fs /**< [in] espfs fs handle */
+    espfs_fs_t *fs /** [in] espfs fs handle */
 );
 
 /**
@@ -91,8 +91,8 @@ void espfs_deinit(
  * \return espfs_file handle or \a NULL if not found
  */
 espfs_file_t *espfs_open(
-    espfs_fs_t *fs, /**< [in] espfs fs handle */
-    const char *filename /**< [in] espfs path */
+    espfs_fs_t *fs, /** [in] espfs fs handle */
+    const char *filename /** [in] espfs path */
 );
 
 /**
@@ -101,9 +101,9 @@ espfs_file_t *espfs_open(
  * \return \a true if sucessful
  */
 bool espfs_stat(
-    espfs_fs_t *fs, /**< [in] espfs fs handle */
-    const char *filename, /**< [in] espfs path */
-    espfs_stat_t *s /**< [out] stat structure */
+    espfs_fs_t *fs, /** [in] espfs fs handle */
+    const char *filename, /** [in] espfs path */
+    espfs_stat_t *s /** [out] stat structure */
 );
 
 /**
@@ -112,7 +112,7 @@ bool espfs_stat(
  * \return flags
  */
 espfs_flags_t espfs_flags(
-    espfs_file_t *fh /**< [in] espfs file handle */
+    espfs_file_t *fh /** [in] espfs file handle */
 );
 
 /**
@@ -121,9 +121,9 @@ espfs_flags_t espfs_flags(
  * \return actual number of bytes read, zero if end of file reached
  */
 ssize_t espfs_read(
-    espfs_file_t *fh, /**< [in] espfs file handle */
-    char *buf, /**< [out] bytes read */
-    size_t len /**< [len] maximum bytes to read */
+    espfs_file_t *fh, /** [in] espfs file handle */
+    char *buf, /** [out] bytes read */
+    size_t len /** [len] maximum bytes to read */
 );
 
 /**
@@ -136,9 +136,9 @@ ssize_t espfs_read(
  * \return position in file or < 0 upon error
  */
 ssize_t espfs_seek(
-    espfs_file_t *fh, /**< [in] espfs file handle */
-    long offset, /**< [in] position */
-    int mode /**< [in] mode */
+    espfs_file_t *fh, /** [in] espfs file handle */
+    long offset, /** [in] position */
+    int mode /** [in] mode */
 );
 
 /**
@@ -147,7 +147,7 @@ ssize_t espfs_seek(
  * \return \a true if compressed
  */
 bool espfs_is_compressed(
-    espfs_file_t *fh /**< [in] espfs file handle */
+    espfs_file_t *fh /** [in] espfs file handle */
 );
 
 /**
@@ -157,7 +157,7 @@ bool espfs_is_compressed(
  */
 ssize_t espfs_access(
     espfs_file_t *fh, /* [in] espfs file handle */
-    void **buf /**< [out] doube pointer to buf */
+    void **buf /** [out] doube pointer to buf */
 );
 
 /**

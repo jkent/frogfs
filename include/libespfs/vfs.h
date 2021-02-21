@@ -17,9 +17,9 @@ extern "C" {
  * \brief Configuration structure for the \a esp_vfs_espfs_register function
  */
 typedef struct {
-    const char *base_path; /**< vfs path to mount the filesystem */
-    espfs_fs_t *fs; /**< the espfs instance */
-    size_t max_files; /**< maximum open files */
+    const char *base_path; /** vfs path to mount the filesystem */
+    espfs_fs_t *fs; /** the espfs instance */
+    size_t max_files; /** maximum open files */
 } esp_vfs_espfs_conf_t;
 
 /**
@@ -29,7 +29,7 @@ typedef struct {
  *         registered
  */
 esp_err_t esp_vfs_espfs_register(
-    const esp_vfs_espfs_conf_t *conf /**< [in] vfs configuration */
+    const esp_vfs_espfs_conf_t *conf /** [in] vfs configuration */
 );
 
 
