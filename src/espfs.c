@@ -11,6 +11,7 @@
 #include "espfs_priv.h"
 #include "log.h"
 #include "libespfs/espfs.h"
+#include "libespfs/espfs_format.h"
 
 #if defined(CONFIG_ESPFS_USE_HEATSHRINK)
 # include "heatshrink_decoder.h"

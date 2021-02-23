@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "espfs_format.h"
+#include "libespfs/espfs_format.h"
 
 #if defined(ESP_PLATFORM)
 # include <esp_spi_flash.h>

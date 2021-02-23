@@ -9,34 +9,38 @@ from argparse import ArgumentParser
 from collections import OrderedDict
 from fnmatch import fnmatch
 from struct import Struct
+from zlib import crc32
 
 import heatshrink2
 from hiyapyco import odyldo
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
-# magic, len, version_major, version_minor, num_objects
-espfs_fs_header_t = Struct('<IBBHI')
+espfs_fs_header_t = Struct('<IBBHII')
+# magic, len, version_major, version_minor, num_objects, file_len
 ESPFS_MAGIC = 0x2B534645 # EFS+
 ESPFS_VERSION_MAJOR = 0
-ESPFS_VERSION_MINOR = 0
+ESPFS_VERSION_MINOR = 1
 
-# hash, offset
 espfs_hashtable_t = Struct('<II')
+# hash, offset
 
-# type, len, path_len
 espfs_object_header_t = Struct('<BBH')
+# type, len, path_len
 ESPFS_TYPE_FILE = 0
 ESPFS_TYPE_DIR  = 1
 
-# data_len, file_len, flags, compression, reserved
 espfs_file_header_t = Struct('<IIHBB')
+# data_len, file_len, flags, compression, reserved
 ESPFS_FLAG_GZIP = (1 << 1)
 ESPFS_COMPRESSION_NONE       = 0
 ESPFS_COMPRESSION_HEATSHRINK = 1
 
-# window_sz2, lookahead_sz2
 espfs_heatshrink_header_t = Struct('<BBH')
+# window_sz2, lookahead_sz2
+
+espfs_crc32_footer_t = Struct('<I')
+# crc32
 
 def load_config(root):
     global config
@@ -95,10 +99,6 @@ def load_config(root):
 
     config['paths'] = OrderedDict(sorted(config['paths'].items(),
             key = pattern_sort))
-
-def make_fs_header(num_objects):
-    return espfs_fs_header_t.pack(ESPFS_MAGIC, espfs_fs_header_t.size,
-            ESPFS_VERSION_MAJOR, ESPFS_VERSION_MINOR, num_objects)
 
 def hash_path(path):
     hash = 5381
@@ -239,8 +239,7 @@ def main():
             subprocess.check_call('npm install %s' % (npm), shell = True)
 
     num_objects = len(pathlist)
-    fs_header = make_fs_header(num_objects)
-    offset = espfs_file_header_t.size + (espfs_hashtable_t.size * num_objects)
+    offset = espfs_fs_header_t.size + (espfs_hashtable_t.size * num_objects)
     hashtable = b''
     objects = b''
 
@@ -252,13 +251,20 @@ def main():
                 data = f.read()
             object = make_file_object(hash, path, data, attributes['actions'])
         else:
-            continue
+            print('unknown object type %d' % (type), file = sys.stderr)
+            sys.exit(1)
         hashtable += espfs_hashtable_t.pack(hash, offset)
         objects += object
         offset += len(object)
 
+    binary_len = offset + espfs_crc32_footer_t.size
+    header = espfs_fs_header_t.pack(ESPFS_MAGIC, espfs_fs_header_t.size,
+            ESPFS_VERSION_MAJOR, ESPFS_VERSION_MINOR, num_objects, binary_len)
+    binary = header + hashtable + objects
+    binary += espfs_crc32_footer_t.pack(crc32(binary) & 0xFFFFFFFF)
+
     with open(args.IMAGE, 'wb') as f:
-        f.write(fs_header + hashtable + objects)
+        f.write(binary)
 
 if __name__ == '__main__':
     main()

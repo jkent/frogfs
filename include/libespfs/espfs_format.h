@@ -12,7 +12,7 @@
  */
 #define ESPFS_MAGIC 0x2B534645 /** EFS+ */
 #define ESPFS_VERSION_MAJOR 0
-#define ESPFS_VERSION_MINOR 0
+#define ESPFS_VERSION_MINOR 1
 
 typedef struct espfs_fs_header_t espfs_fs_header_t;
 typedef struct espfs_hashtable_entry_t espfs_hashtable_entry_t;
@@ -20,6 +20,7 @@ typedef struct espfs_object_header_t espfs_object_header_t;
 typedef struct espfs_dir_header_t espfs_dir_header_t;
 typedef struct espfs_file_header_t espfs_file_header_t;
 typedef struct espfs_heatshrink_header_t espfs_heatshrink_header_t;
+typedef struct espfs_crc32_footer_t espfs_crc32_footer_t;
 
 struct espfs_fs_header_t {
     uint32_t magic;
@@ -27,6 +28,7 @@ struct espfs_fs_header_t {
     uint8_t version_major;
     uint16_t version_minor;
     uint32_t num_objects;
+    uint32_t binary_len;
 } __attribute__((packed));
 
 struct espfs_hashtable_entry_t {
@@ -57,4 +59,8 @@ struct espfs_heatshrink_header_t {
     uint8_t window_sz2;
     uint8_t lookahead_sz2;
     uint16_t reserved;
+} __attribute__((packed));
+
+struct espfs_crc32_footer_t {
+    uint32_t crc32;
 } __attribute__((packed));
