@@ -74,10 +74,10 @@ typedef enum {
 
 # define LOG_FORMAT(letter, format)  LOG_COLOR_ ## letter #letter " %s: " format LOG_RESET_COLOR "\n"
 
-# define ESPFS_LOGE( tag, format, ... )  if (LOG_LEVEL >= LOG_ERROR)   { printf(LOG_FORMAT(E, format), tag, ##__VA_ARGS__); }
-# define ESPFS_LOGW( tag, format, ... )  if (LOG_LEVEL >= LOG_WARN)    { printf(LOG_FORMAT(W, format), tag, ##__VA_ARGS__); }
-# define ESPFS_LOGI( tag, format, ... )  if (LOG_LEVEL >= LOG_INFO)    { printf(LOG_FORMAT(I, format), tag, ##__VA_ARGS__); }
-# define ESPFS_LOGD( tag, format, ... )  if (LOG_LEVEL >= LOG_DEBUG)   { printf(LOG_FORMAT(D, format), tag, ##__VA_ARGS__); }
-# define ESPFS_LOGV( tag, format, ... )  if (LOG_LEVEL >= LOG_VERBOSE) { printf(LOG_FORMAT(V, format), tag, ##__VA_ARGS__); }
+# define ESPFS_LOGE( tag, format, ... )  if (LOG_LEVEL >= LOG_ERROR)   { fprintf(stderr, LOG_FORMAT(E, format), tag, ##__VA_ARGS__); }
+# define ESPFS_LOGW( tag, format, ... )  if (LOG_LEVEL >= LOG_WARN)    { fprintf(stderr, LOG_FORMAT(W, format), tag, ##__VA_ARGS__); }
+# define ESPFS_LOGI( tag, format, ... )  if (LOG_LEVEL >= LOG_INFO)    { fprintf(stderr, LOG_FORMAT(I, format), tag, ##__VA_ARGS__); }
+# define ESPFS_LOGD( tag, format, ... )  if (LOG_LEVEL >= LOG_DEBUG)   { fprintf(stderr, LOG_FORMAT(D, format), tag, ##__VA_ARGS__); }
+# define ESPFS_LOGV( tag, format, ... )  if (LOG_LEVEL >= LOG_VERBOSE) { fprintf(stderr, LOG_FORMAT(V, format), tag, ##__VA_ARGS__); }
 
 #endif

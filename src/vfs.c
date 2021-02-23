@@ -11,6 +11,7 @@
 #include <esp_log.h>
 #include <esp_vfs.h>
 
+#include <errno.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/fcntl.h>
@@ -19,8 +20,8 @@
 typedef struct {
     espfs_fs_t *fs;
     char base_path[ESP_VFS_PATH_MAX + 1];
-    espfs_file_t** files;
     size_t max_files;
+    espfs_file_t *files[];
 } vfs_espfs_t;
 
 static vfs_espfs_t *s_vfs_espfs[CONFIG_ESPFS_MAX_PARTITIONS];
@@ -38,7 +39,7 @@ static esp_err_t esp_espfs_get_empty(int *index)
     return ESP_ERR_NOT_FOUND;
 }
 
-static int vfs_espfs_open(void *ctx, const char *path, int flags, int mode)
+static int vfs_espfs_fopen(void *ctx, const char *path, int flags, int mode)
 {
     vfs_espfs_t *vfs_espfs = (vfs_espfs_t *) ctx;
 
@@ -57,7 +58,7 @@ static int vfs_espfs_open(void *ctx, const char *path, int flags, int mode)
         return -1;
     }
 
-    vfs_espfs->files[fd] = espfs_open(vfs_espfs->fs, path);
+    vfs_espfs->files[fd] = espfs_fopen(vfs_espfs->fs, path);
     if (vfs_espfs->files[fd] == NULL) {
         return -1;
     }
@@ -79,14 +80,13 @@ static int vfs_espfs_fstat(void *ctx, int fd, struct stat *st)
     }
 
     memset(st, 0, sizeof(struct stat));
-    st->st_size = fp->header->file_len;
     st->st_mode = S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH | S_IFREG;
+    st->st_size = fp->fh->file_len;
     st->st_spare4[0] = ESPFS_MAGIC;
-    st->st_spare4[1] = fp->header->flags;
+    st->st_spare4[1] = fp->fh->flags | (fp->fh->compression << 16);
     return 0;
 }
 
-static int vfs_espfs_close(void *ctx, int fd);
 static int vfs_espfs_stat(void *ctx, const char *path, struct stat *st)
 {
     vfs_espfs_t *vfs_espfs = (vfs_espfs_t *) ctx;
@@ -96,15 +96,19 @@ static int vfs_espfs_stat(void *ctx, const char *path, struct stat *st)
         return -1;
     }
 
+    memset(st, 0, sizeof(struct stat));
     st->st_mode = S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
     st->st_mode |= (s.type == ESPFS_TYPE_FILE) ? S_IFREG : S_IFDIR;
     st->st_size = s.size;
     st->st_spare4[0] = ESPFS_MAGIC;
-    st->st_spare4[1] = s.flags;
+    st->st_spare4[1] = s.flags | (s.compression << 16);
+
+    printf("%ld\n", st->st_spare4[1]);
+
     return 0;
 }
 
-static ssize_t vfs_espfs_read(void *ctx, int fd, void *data, size_t size)
+static ssize_t vfs_espfs_fread(void *ctx, int fd, void *data, size_t size)
 {
     vfs_espfs_t *vfs_espfs = (vfs_espfs_t *) ctx;
 
@@ -116,7 +120,7 @@ static ssize_t vfs_espfs_read(void *ctx, int fd, void *data, size_t size)
     if (fp == NULL) {
         return -1;
     }
-    return espfs_read(fp, data, size);
+    return espfs_fread(fp, data, size);
 }
 
 static ssize_t vfs_espfs_write(void *ctx, int fd, const void *data, size_t size)
@@ -137,10 +141,10 @@ static off_t vfs_espfs_lseek(void *ctx, int fd, off_t size, int mode)
         return -1;
     }
 
-    return espfs_seek(fp, size, mode);
+    return espfs_fseek(fp, size, mode);
 }
 
-static int vfs_espfs_close(void *ctx, int fd)
+static int vfs_espfs_fclose(void *ctx, int fd)
 {
     vfs_espfs_t *vfs_espfs = (vfs_espfs_t *) ctx;
 
@@ -153,7 +157,7 @@ static int vfs_espfs_close(void *ctx, int fd)
         return -1;
     }
 
-    espfs_close(fp);
+    espfs_fclose(fp);
     vfs_espfs->files[fd] = NULL;
     return 0;
 }
@@ -162,13 +166,14 @@ esp_err_t esp_vfs_espfs_register(const esp_vfs_espfs_conf_t *conf)
 {
     assert(conf->base_path != NULL);
     assert(conf->fs != NULL);
+
     const esp_vfs_t vfs = {
         .flags = ESP_VFS_FLAG_CONTEXT_PTR,
         .write_p = &vfs_espfs_write,
         .lseek_p = &vfs_espfs_lseek,
-        .read_p = &vfs_espfs_read,
-        .open_p = &vfs_espfs_open,
-        .close_p = &vfs_espfs_close,
+        .read_p = &vfs_espfs_fread,
+        .open_p = &vfs_espfs_fopen,
+        .close_p = &vfs_espfs_fclose,
         .fstat_p = &vfs_espfs_fstat,
         .stat_p = &vfs_espfs_stat,
     };
@@ -178,23 +183,18 @@ esp_err_t esp_vfs_espfs_register(const esp_vfs_espfs_conf_t *conf)
         return ESP_ERR_INVALID_STATE;
     }
 
-    vfs_espfs_t *vfs_espfs = calloc(1, sizeof(vfs_espfs_t));
+    vfs_espfs_t *vfs_espfs = calloc(1, sizeof(vfs_espfs_t) +
+            (sizeof(espfs_file_t *) * conf->max_files));
     if (vfs_espfs == NULL) {
-        ESPFS_LOGE(__func__, "esp_espfs could not be molloc'd");
+        ESPFS_LOGE(__func__, "vfs_espfs could not be alloc'd");
         return ESP_ERR_NO_MEM;
     }
 
     vfs_espfs->fs = conf->fs;
     vfs_espfs->max_files = conf->max_files;
-    vfs_espfs->files = calloc(conf->max_files, sizeof(espfs_file_t*));
-    if (vfs_espfs->files == NULL) {
-        ESPFS_LOGE(__func__, "allocating files failed");
-        free(vfs_espfs);
-        return ESP_ERR_NO_MEM;
-    }
-
     strlcat(vfs_espfs->base_path, conf->base_path, ESP_VFS_PATH_MAX + 1);
-    esp_err_t err = esp_vfs_register(conf->base_path, &vfs, vfs_espfs);
+
+    esp_err_t err = esp_vfs_register(vfs_espfs->base_path, &vfs, vfs_espfs);
     if (err != ESP_OK) {
         free(vfs_espfs);
         return err;

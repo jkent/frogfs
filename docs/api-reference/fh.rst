@@ -6,15 +6,13 @@ Files
 Functions
 ^^^^^^^^^
 
-.. doxygenfunction:: espfs_open
-.. doxygenfunction:: espfs_stat
-.. doxygenfunction:: espfs_flags
-.. doxygenfunction:: espfs_read
-.. doxygenfunction:: espfs_seek
-.. doxygenfunction:: espfs_is_compressed
-.. doxygenfunction:: espfs_access
-.. doxygenfunction:: espfs_filesize
-.. doxygenfunction:: espfs_close
+.. doxygenfunction:: espfs_fopen
+.. doxygenfunction:: espfs_fclose
+.. doxygenfunction:: espfs_fstat
+.. doxygenfunction:: espfs_fread
+.. doxygenfunction:: espfs_fseek
+.. doxygenfunction:: espfs_ftell
+.. doxygenfunction:: espfs_faccess
 
 Structures
 ^^^^^^^^^^
@@ -30,6 +28,6 @@ Type Definitions
 Enumerations
 ^^^^^^^^^^^^
 
-.. doxygenenum:: espfs_compression_type_t
-.. doxygenenum:: espfs_flags_t
 .. doxygenenum:: espfs_stat_type_t
+.. doxygenenum:: espfs_flags_t
+.. doxygenenum:: espfs_compression_type_t

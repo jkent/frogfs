@@ -13,14 +13,16 @@ extern "C" {
 #include <esp_err.h>
 
 
+typedef struct esp_vfs_espfs_conf_t esp_vfs_espfs_conf_t;
+
 /**
  * \brief Configuration structure for the \a esp_vfs_espfs_register function
  */
-typedef struct {
-    const char *base_path; /** vfs path to mount the filesystem */
-    espfs_fs_t *fs; /** the espfs instance */
-    size_t max_files; /** maximum open files */
-} esp_vfs_espfs_conf_t;
+struct esp_vfs_espfs_conf_t {
+    const char *base_path; /**< vfs path to mount the filesystem */
+    espfs_fs_t *fs; /**< the espfs instance */
+    size_t max_files; /**< maximum open files */
+};
 
 /**
  * \brief Mount an espfs fs handle under a vfs path

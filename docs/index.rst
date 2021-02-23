@@ -7,5 +7,4 @@ libespfs Documentation
 
    readme/index
    api-reference/index
-   examples
    genindex

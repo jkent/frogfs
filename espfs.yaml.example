@@ -1,6 +1,3 @@
-process:
-  '*':
-    - heatshrink
-  '*.js':
-    - babel-convert
-    - uglifyjs
+paths:
+    '*.html': gzip
+    '*':

@@ -38,8 +38,8 @@ ENABLE_PREPROCESSING   = YES
 MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = YES
 PREDEFINED             = \
-    __attribute__(x)= \
-    CONFIG_ENABLE_FLASH_MMAP
+    CONFIG_ENABLE_FLASH_MMAP=y \
+    CONFIG_ESPFS_USE_HEATSHRINK=y
 
 ## Do not complain about not having dot
 ##

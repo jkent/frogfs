@@ -1,172 +1,264 @@
 #!/usr/bin/env python
 
-from argparse import ArgumentParser
-from fnmatch import fnmatch
+import bisect
 import gzip
-import heatshrink2
 import os
-from struct import Struct
 import subprocess
 import sys
-import yaml
+from argparse import ArgumentParser
+from collections import OrderedDict
+from fnmatch import fnmatch
+from struct import Struct
+
+import heatshrink2
+from hiyapyco import odyldo
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
-header_struct = Struct('<IBBHII')
 
-FLAG_LASTFILE = 1 << 0
-FLAG_GZIP = 1 << 1
-COMPRESS_NONE = 0
-COMPRESS_HEATSHRINK = 1
-ESPFS_MAGIC = 0x73665345
+# magic, len, version_major, version_minor, num_objects
+espfs_fs_header_t = Struct('<IBBHI')
+ESPFS_MAGIC = 0x2B534645 # EFS+
+ESPFS_VERSION_MAJOR = 0
+ESPFS_VERSION_MINOR = 0
 
-def add_file(config, root, filename, actions):
-    filepath = os.path.join(root, filename)
-    with open(filepath, 'rb') as f:
-        initial_data = f.read()
+# hash, offset
+espfs_hashtable_t = Struct('<II')
 
-    processed_data = initial_data
+# type, len, path_len
+espfs_object_header_t = Struct('<BBH')
+ESPFS_TYPE_FILE = 0
+ESPFS_TYPE_DIR  = 1
 
-    for action in actions:
-        if action == 'discard':
-            return b''
-        elif action in ['gzip', 'heatshrink']:
-            pass
-        elif action in config['tools']:
-            tool = config['tools'][action]
-            command = tool['command']
-            p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
-            processed_data = p.communicate(input=processed_data)[0]
+# data_len, file_len, flags, compression, reserved
+espfs_file_header_t = Struct('<IIHBB')
+ESPFS_FLAG_GZIP = (1 << 1)
+ESPFS_COMPRESSION_NONE       = 0
+ESPFS_COMPRESSION_HEATSHRINK = 1
+
+# window_sz2, lookahead_sz2
+espfs_heatshrink_header_t = Struct('<BBH')
+
+def load_config(root):
+    global config
+
+    defaults_file = os.path.join(script_dir, '..', 'espfs_defaults.yaml')
+    with open(defaults_file) as f:
+        config = list(odyldo.safe_load_all(f))[0]
+
+    user = OrderedDict()
+    user_file = os.path.join(root, 'espfs.yaml')
+    if os.path.exists(user_file):
+        with open(user_file) as f:
+            user_list = list(odyldo.yaml.safe_load_all(f))
+        if user_list:
+            user = user_list[0]
+
+    def section_merge(s_name):
+        s = user.get(s_name, OrderedDict())
+        if s is None:
+            if s_name in config:
+                del config[s_name]
         else:
-            print('Unknown action: %s' % action, file=sys.stderr)
-            sys.exit(1)
+            for ss_name, ss in s.items():
+                if ss is None:
+                    if ss_name in config[s_name]:
+                        del config[s_name][ss_name]
+                else:
+                    config[s_name][ss_name] = ss
+
+    for s_name in ('preprocessors', 'compressors', 'paths'):
+        section_merge(s_name)
+        for ss_name, ss in config.get(s_name, OrderedDict()).items():
+            if isinstance(ss, str):
+                config[s_name][ss_name] = [ss]
+            elif isinstance(ss, dict):
+                for sss_name, sss in ss.items():
+                    if isinstance(sss, str):
+                        ss[sss_name] = [sss]
+
+    class pattern_sort:
+        def __init__(self, path, *args):
+            self.pattern, _ = path
+
+        def __lt__(self, other):
+            if self.pattern == '*':
+                return False
+            if other.pattern == '*':
+                return True
+            if self.pattern.startswith('*') and \
+                    not other.pattern.startswith('*'):
+                return False
+            if not self.pattern.startswith('*') and \
+                    other.pattern.startswith('*'):
+                return True
+            return self.pattern < other.pattern
+
+    config['paths'] = OrderedDict(sorted(config['paths'].items(),
+            key = pattern_sort))
+
+def make_fs_header(num_objects):
+    return espfs_fs_header_t.pack(ESPFS_MAGIC, espfs_fs_header_t.size,
+            ESPFS_VERSION_MAJOR, ESPFS_VERSION_MINOR, num_objects)
+
+def hash_path(path):
+    hash = 5381
+    for c in path.encode('utf8'):
+        hash = ((hash << 5) + hash + c) & 0xFFFFFFFF
+    return hash
+
+def make_pathlist(root):
+    pathlist = []
+    for dir, _, files in os.walk(root):
+        reldir = os.path.relpath(dir, root).replace('\\', '/').lstrip('.') \
+                .lstrip('/')
+        absdir = os.path.abspath(dir)
+        if reldir:
+            entry = (hash_path(reldir), reldir, absdir, ESPFS_TYPE_DIR, {})
+            bisect.insort(pathlist, entry)
+        for file in files:
+            relfile = os.path.join(reldir, file).replace('\\', '/') \
+                    .lstrip('/')
+            absfile = os.path.join(absdir, file)
+            entry = (hash_path(relfile), relfile, absfile, ESPFS_TYPE_FILE, {})
+            bisect.insort(pathlist, entry)
+    return pathlist
+
+def make_dir_object(hash, path):
+    print('%08x %-34s dir' % (hash, path))
+    path = path.encode('utf8') + b'\0'
+    path = path.ljust((len(path) + 3) // 4 * 4, b'\0')
+    header = espfs_object_header_t.pack(ESPFS_TYPE_DIR,
+            espfs_object_header_t.size, len(path))
+    return header + path
+
+def make_file_object(hash, path, data, actions={}):
+    global config
 
     flags = 0
-    if 'gzip' in actions:
-        flags |= FLAG_GZIP
-        tool = config['tools']['gzip']
-        level = min(max(tool.get('level', 9), 0), 9)
-        processed_data = gzip.compress(processed_data, level)
+    compression = ESPFS_COMPRESSION_NONE
+    initial_len = len(data)
 
-    if 'heatshrink' in actions:
-        compression = COMPRESS_HEATSHRINK
-        tool = config['tools']['heatshrink']
-        level = min(max(tool.get('level', 9), 0), 9) // 2
-        window_sizes, lookahead_sizes = [5, 6, 8, 11, 13],  [3, 3, 4, 4, 4]
-        window_sz2, lookahead_sz2 = window_sizes[level], lookahead_sizes[level]
-        header = bytes([window_sz2 << 4 | lookahead_sz2])
-        compressed_data = header + heatshrink2.compress(processed_data, window_sz2=window_sz2, lookahead_sz2=lookahead_sz2)
-    else:
-        compression = COMPRESS_NONE
-        compressed_data = processed_data
+    if 'skip' not in actions:
+        for action in actions:
+            if action in ('heatshrink'):
+                compression = ESPFS_COMPRESSION_HEATSHRINK
+            elif action == 'gzip':
+                flags |= ESPFS_FLAG_GZIP
+                level = config['preprocessors']['gzip']['level']
+                level = min(max(level, 0), 9)
+                data = gzip.compress(data, level)
+            elif action in config['preprocessors']:
+                command = config['preprocessors'][action]['command']
+                process = subprocess.Popen(command, stdin = subprocess.PIPE,
+                        stdout = subprocess.PIPE, shell = True)
+                data = process.communicate(input = data)[0]
+            else:
+                print('Unknown action: %s' % (action), file = sys.stderr)
+                sys.exit(1)
 
-    if len(compressed_data) >= len(processed_data):
-        compression = COMPRESS_NONE
-        compressed_data = processed_data
+    file_data = data
+    file_len = len(data)
 
-    initial_len, processed_len, compressed_len = len(initial_data), len(processed_data), len(compressed_data)
+    if compression == ESPFS_COMPRESSION_HEATSHRINK:
+        window_sz2 = config['compressors']['heatshrink']['window_sz2']
+        lookahead_sz2 = config['compressors']['heatshrink']['lookahead_sz2']
+        data = espfs_heatshrink_header_t.pack(window_sz2, lookahead_sz2,
+                0) + heatshrink2.compress(data, window_sz2 = window_sz2,
+                lookahead_sz2 = lookahead_sz2)
+
+    data_len = len(data)
+
+    if compression and data_len >= file_len:
+        compression = ESPFS_COMPRESSION_NONE
+        data = file_data
+        data_len = len(data)
 
     if initial_len < 1024:
-        initial = '%d B' % (initial_len)
-        compressed = '%d B' % (compressed_len)
+        initial_len_str = '%d B' % (initial_len)
+        data_len_str = '%d B' % (data_len)
     elif initial_len < 1024 * 1024:
-        initial = '%.1f KiB' % (initial_len / 1024)
-        compressed = '%.1f KiB' % (compressed_len / 1024)
-    elif initial_len < 1024 * 1024 * 1024:
-        initial = '%.1f MiB' % (initial_len / 1024 / 1024)
-        compressed = '%.1f MiB' % (compressed_len / 1024 / 1024)
+        initial_len_str = '%.1f KiB' % (initial_len / 1024)
+        data_len_str = '%.1f KiB' % (data_len / 1024)
+    else:
+        initial_len_str = '%.1f MiB' % (initial_len / 1024 / 1024)
+        data_len_str = '%.1f MiB' % (data_len / 1024 / 1024)
 
     percent = 100.0
     if initial_len > 0:
-        percent = compressed_len / initial_len * 100
+        percent = data_len / initial_len * 100.0
 
-    filename = filename.replace('\\', '/')
-    print('%s: %s -> %s (%.1f%%)' % (filename, initial, compressed, percent))
-    filename = filename.encode('utf8')
-    filename = filename.ljust((len(filename) + 4) // 4 * 4, b'\0')
-    compressed_data = compressed_data.ljust((compressed_len + 3) // 4 * 4, b'\0')
+    stats = '%-9s -> %-9s (%.1f%%)' % (initial_len_str, data_len_str, percent)
+    print('%08x %-34s file %s' % (hash, path, stats))
 
-    header = header_struct.pack(ESPFS_MAGIC, flags, compression, len(filename), compressed_len, processed_len)
-    return header + filename + compressed_data
+    path = path.encode('utf8') + b'\0'
+    path = path.ljust((len(path) + 3) // 4 * 4, b'\0')
+    data = data.ljust((data_len + 3) // 4 * 4, b'\0')
+    header = espfs_object_header_t.pack(ESPFS_TYPE_FILE,
+            espfs_object_header_t.size + espfs_file_header_t.size,
+            len(path)) + espfs_file_header_t.pack(data_len, file_len, flags,
+            compression, 0)
 
-def add_footer():
-    return header_struct.pack(ESPFS_MAGIC, FLAG_LASTFILE, COMPRESS_NONE, 0, 0, 0)
+    return header + path + data
 
 def main():
+    global config
+
     parser = ArgumentParser()
     parser.add_argument('ROOT')
     parser.add_argument('IMAGE')
     args = parser.parse_args()
 
-    with open(os.path.join(script_dir, '..', 'espfs_defaults.yaml')) as f:
-        config = yaml.load(f.read(), Loader=yaml.SafeLoader)
+    load_config(args.ROOT)
 
-    user_config = None
-    user_config_file = os.path.join(args.ROOT, 'espfs.yaml')
-    if os.path.exists(user_config_file):
-        with open(user_config_file) as f:
-            user_config = yaml.load(f.read(), Loader=yaml.SafeLoader)
+    pathlist = make_pathlist(args.ROOT)
+    npmset = set()
+    for entry in pathlist[:]:
+        _, path, _, type, attributes = entry
+        attributes['actions'] = OrderedDict()
+        for pattern, actions in config['paths'].items():
+            if fnmatch(path, pattern):
+                if 'discard' in actions:
+                    pathlist.remove(entry)
+                    break
+                for action in actions:
+                    if action in ('discard', 'gzip', 'heatshrink'):
+                        pass
+                    elif action not in config['preprocessors']:
+                        print('unknown action %s for %s' % (action, pattern),
+                                file = sys.sterr)
+                        sys.exit(1)
+                    else:
+                        for npm in config['preprocessors'][action].get('npm',
+                                ()):
+                            npmset.add(npm)
 
-    if user_config:
-        for k, v in user_config.items():
-            if k == 'tools':
-                if 'tools' not in config:
-                    config['tools'] = {}
-                for k2, v2 in v.items():
-                    config['tools'][k2] = v2
-            elif k == 'process':
-                if 'process' not in config:
-                    config['process'] = {}
-                for k2, v2 in v.items():
-                    config['process'][k2] = v2
-            elif k == 'skip':
-                if 'tools' not in config:
-                    config['tools'] = {}
-                config['skip'] = v
+                    attributes['actions'][action] = None
 
-    file_ops = {}
-    for subdir, _, files in os.walk(args.ROOT):
-        for file in files:
-            filename = os.path.relpath(os.path.join(subdir, file), args.ROOT)
-            if filename not in file_ops:
-                file_ops[filename] = []
-            if 'process' in config:
-                for pattern, actions in config['process'].items():
-                    if fnmatch(filename, pattern):
-                        file_ops[filename].extend(actions)
+    for npm in npmset:
+        if not os.path.exists(os.path.join('node_modules', npm)):
+            subprocess.check_call('npm install %s' % (npm), shell = True)
 
-    if 'skip' in config:
-        for pattern in config['skip']:
-            for filename in file_ops.copy().keys():
-                if fnmatch(filename, pattern):
-                    file_ops[filename] = []
+    num_objects = len(pathlist)
+    fs_header = make_fs_header(num_objects)
+    offset = espfs_file_header_t.size + (espfs_hashtable_t.size * num_objects)
+    hashtable = b''
+    objects = b''
 
-    all_tools = set()
-    for filename, tools in file_ops.items():
-        all_tools.update(tools)
-
-    for tool in all_tools:
-        if tool in ['discard', 'gzip', 'heatshrink']:
+    for hash, path, abspath, type, attributes in sorted(pathlist):
+        if type == ESPFS_TYPE_DIR:
+            object = make_dir_object(hash, path)
+        elif type == ESPFS_TYPE_FILE:
+            with open(abspath, 'rb') as f:
+                data = f.read()
+            object = make_file_object(hash, path, data, attributes['actions'])
+        else:
             continue
-        if 'npm' in config['tools'][tool]:
-            npm = config['tools'][tool]['npm']
-            npms = npm if type(npm) == list else [npm]
-            for npm in npms:
-                if not os.path.exists(os.path.join('node_modules', npm)):
-                    subprocess.check_call('npm install %s' % npm, shell=True)
-
-        elif 'setup' in config[tools][tool]:
-            setup = config['tools'][tool]['setup']
-            setups = setup if type(setup) == list else [setup]
-            for setup in setups:
-                subprocess.check_call(setup, shell=True)
-
-    data = b''
-    for filename, actions in file_ops.items():
-        data += add_file(config, args.ROOT, filename, actions)
-    data += add_footer()
+        hashtable += espfs_hashtable_t.pack(hash, offset)
+        objects += object
+        offset += len(object)
 
     with open(args.IMAGE, 'wb') as f:
-        f.write(data)
+        f.write(fs_header + hashtable + objects)
 
 if __name__ == '__main__':
     main()

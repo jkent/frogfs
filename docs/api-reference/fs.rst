@@ -8,6 +8,7 @@ Functions
 
 .. doxygenfunction:: espfs_init
 .. doxygenfunction:: espfs_deinit
+.. doxygenfunction:: espfs_stat
 
 Structures
 ^^^^^^^^^^
