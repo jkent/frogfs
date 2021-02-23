@@ -12,6 +12,7 @@ but has been separated to be used for other uses.
 Libespfs can be used in other projects though, and works fine on Linux. There
 is a test Linux program in `tools/test` to read files from an espfs image.
 
+
 # Getting started
 
 To use this component, make a components directory in your project's root
@@ -36,11 +37,46 @@ paths:
 You can add your own preprocessors as well. Look at the espfs_default.yaml
 within the component as an example.
 
+
+## Building an espfs image
+
+An example for ESP-IDF, in your project's toplevel CMakeLists.txt:
+
+```cmake
+cmake_minimum_required(VERSION 3.5)
+
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+project(myproject)
+
+include(components/libespfs/cmake/include.cmake)
+target_add_espfs(myproject.elf espfs html)
+```
+
+Where **espfs** is the prefix to the symbol name **espfs_bin** in your
+resulting binary and **html** is the path relative to the project root
+directory. In C you get two symbols:
+
+```C
+extern const uint8_t espfs_bin[];
+extern const size_t espfs_bin_len;
+```
+
+You can also define your own target to build just the binary:
+
+```cmake
+define_target_espfs(my_espfs_target html espfs.bin)
+```
+
+In this case, **html** is the directory to build from, and **espfs.bin** is
+the output path for the generated image.
+
+
 # Usage
 
 There are two different ways you can use libespfs. There is the low level
 interface and there is a vfs interface for IDF. The vfs interface is the
 normal way to use libespfs. But you can use both at the same time if you wish.
+
 
 ## Common initialization
 
@@ -63,6 +99,7 @@ espfs_deinit(fs);
 You can also mount a filesystem from a flash partition. Instead of specifying
 **addr**, you'd specify a **part_label** string.
 
+
 ## VFS interface
 
 ```C
@@ -76,6 +113,7 @@ esp_vfs_espfs_register(&vfs_espfs_conf);
 
 You can then use the system (open, read, close) or file stream (fopen, fread,
 fclose) functions to access files.
+
 
 ## Raw interface
 

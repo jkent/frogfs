@@ -31,16 +31,8 @@ config ESPFS_MAX_PARTITIONS
 	help
 		Define maximum number of partitions that can be mounted.
 
-config ESPFS_IMAGE_ROOT
-	string "Directory within project to build from"
-	default "espfs"
-
 config ESPFS_USE_HEATSHRINK
 	bool "Use heatshrink decompressor"
-	default y
-
-config ESPFS_EMBED_BINARY
-	bool "Embed resulting espfs in firmware image"
 	default y
 
 endmenu
