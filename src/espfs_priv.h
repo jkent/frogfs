@@ -22,6 +22,7 @@ struct espfs_fs_t {
 #endif
     const espfs_fs_header_t *header;
     const espfs_hashtable_entry_t *hashtable;
+    const espfs_sorttable_entry_t *sorttable;
 };
 
 struct espfs_file_t {

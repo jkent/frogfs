@@ -35,7 +35,8 @@ enum espfs_stat_type_t {
  * \brief Object flags
  */
 enum espfs_flags_t {
-    ESPFS_FLAG_GZIP = (1 << 0),
+    ESPFS_FLAG_GZIP  = (1 << 0),
+    ESPFS_FLAG_CACHE = (1 << 1),
 };
 
 /**
@@ -61,6 +62,7 @@ struct espfs_config_t {
  * \brief Structure filled by \a espfs_stat and \a espfs_fstat functions
  */
 struct espfs_stat_t {
+    uint16_t index; /**< file index */
     espfs_stat_type_t type; /**< file type */
     espfs_flags_t flags; /**< file flags */
     espfs_compression_type_t compression; /**< compression type */
@@ -81,6 +83,16 @@ espfs_fs_t *espfs_init(
  */
 void espfs_deinit(
     espfs_fs_t *fs /** [in] espfs fs pointer */
+);
+
+/**
+ * \brief Get path for sorted espfs object index
+ *
+ * \return path or NULL if the index is invalid
+ */
+const char *espfs_get_path(
+    espfs_fs_t *fs, /** [in] espfs fs pointer */
+    uint16_t index /** [in] espfs file index */
 );
 
 /**
@@ -116,7 +128,6 @@ void espfs_fclose(
  */
 void espfs_fstat(
     espfs_file_t *f, /** [in] espfs file */
-    const char *path, /** [in] espfs path */
     espfs_stat_t *s /** [out] stat structure */
 );
 

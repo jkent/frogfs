@@ -78,7 +78,9 @@ espfs_fs_t *espfs_init(espfs_config_t *conf)
         goto err_out;
     }
 
-    fs->hashtable = (void *) fs->header + fs->header->len;
+    fs->hashtable = (const void *) fs->header + fs->header->len;
+    fs->sorttable = (const void *) fs->hashtable +
+            (sizeof(espfs_hashtable_entry_t) * fs->header->num_objects);
 
     return fs;
 
@@ -99,6 +101,20 @@ void espfs_deinit(espfs_fs_t *fs)
     free(fs);
 }
 
+const char *espfs_get_path(espfs_fs_t *fs, uint16_t index)
+{
+    assert(fs != NULL);
+
+    if (index >= fs->header->num_objects) {
+        return NULL;
+    }
+
+    const espfs_sorttable_entry_t *entry = fs->sorttable + index;
+    const espfs_object_header_t *object = (const void *) fs->header +
+            entry->offset;
+    return (const char *) object + object->len;
+}
+
 static uint32_t hash_path(const char *path)
 {
     uint32_t hash = 5381;
@@ -113,7 +129,7 @@ static uint32_t hash_path(const char *path)
     return hash;
 }
 
-static void *find_object(espfs_fs_t *fs, const char *path)
+static const void *find_object(espfs_fs_t *fs, const char *path)
 {
     assert(fs != NULL);
 
@@ -169,7 +185,7 @@ static void *find_object(espfs_fs_t *fs, const char *path)
     do {
         if (middle != skip) {
             object = (void *) fs->header + entry->offset;
-            if (strcmp(path, (char *) object + object->len) == 0) {
+            if (strcmp(path, (const char *) object + object->len) == 0) {
                 ESPFS_LOGV(__func__, "object %d", middle);
                 return object;
             }
@@ -186,7 +202,7 @@ bool espfs_stat(espfs_fs_t *fs, const char *path, espfs_stat_t *stat)
 {
     assert(fs != NULL);
 
-    espfs_object_header_t *object = find_object(fs, path);
+    const espfs_object_header_t *object = find_object(fs, path);
     if (object == NULL) {
         ESPFS_LOGD(__func__, "object not found: %s", path);
         return false;
@@ -194,9 +210,9 @@ bool espfs_stat(espfs_fs_t *fs, const char *path, espfs_stat_t *stat)
 
     memset(stat, 0, sizeof(espfs_stat_t));
     stat->type = object->type;
+    stat->index = object->index;
     if (object->type == ESPFS_TYPE_FILE) {
-        espfs_file_header_t *fh = (espfs_file_header_t *) object;
-
+        const espfs_file_header_t *fh = (const espfs_file_header_t *) object;
         stat->flags = fh->flags;
         stat->compression = fh->compression;
         stat->size = fh->file_len;
@@ -210,13 +226,13 @@ espfs_file_t *espfs_fopen(espfs_fs_t *fs, const char *path)
 {
     assert(fs != NULL);
 
-    espfs_object_header_t *object = find_object(fs, path);
+    const espfs_object_header_t *object = find_object(fs, path);
     if ((object == NULL) || (object->type != ESPFS_TYPE_FILE)) {
         ESPFS_LOGD(__func__, "file not found: %s", path);
         return NULL;
     }
 
-    espfs_file_header_t *fh = (espfs_file_header_t *) object;
+    const espfs_file_header_t *fh = (const espfs_file_header_t *) object;
 
     espfs_file_t *f = malloc(sizeof(espfs_file_t));
     if (f == NULL) {
@@ -276,12 +292,13 @@ void espfs_fclose(espfs_file_t *f)
     free(f);
 }
 
-void espfs_fstat(espfs_file_t *f, const char *path, espfs_stat_t *stat)
+void espfs_fstat(espfs_file_t *f, espfs_stat_t *stat)
 {
     assert(f != NULL);
 
     memset(stat, 0, sizeof(espfs_stat_t));
     stat->type = f->fh->object.type;
+    stat->index = f->fh->object.index;
     stat->flags = f->fh->flags;
     stat->compression = f->fh->compression;
     stat->size = f->fh->file_len;
@@ -355,12 +372,12 @@ ssize_t espfs_fread(espfs_file_t *f, void *buf, size_t len)
 
             if (remain == 0) {
                 if (f->file_pos == f->fh->file_len) {
-                    ESPFS_LOGD(__func__, "heatshrink decoder finished");
                     HSD_finish_res res = heatshrink_decoder_finish(hsd);
                     if (res < 0) {
                         ESPFS_LOGE(__func__, "heatshrink_decoder_finish");
                         return -1;
                     }
+                    ESPFS_LOGV(__func__, "heatshrink_decoder_finish");
                 }
                 return decoded;
             }

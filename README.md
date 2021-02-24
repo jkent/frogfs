@@ -1,4 +1,4 @@
-# About libespfs
+# About Libespfs
 
 Libespfs is a read-only filesystem component designed for
 [ESP-IDF](https://github.com/espressif/esp-idf) and
@@ -13,7 +13,7 @@ Libespfs can be used in other projects though, and works fine on Linux. There
 is a test Linux program in `tools/test` to read files from an espfs image.
 
 
-# Getting started
+# Getting Started
 
 To use this component, make a components directory in your project's root
 directory and within that directory run:
@@ -25,17 +25,26 @@ You can generate a filesystem using `tools/mkespfsiage.py`. The tool takes two
 arguments, ROOT, the directory containing the files to generate from, and
 IMAGE, the output file for the image. The script references an espfs.yaml file
 in the image ROOT, with the default settings to not add it to the image. The
-yaml file the various preprocessors and compressors to run while building the
-image. Example:
+yaml file defines filters for the various preprocessors and compressors to run
+while building the image. The espfs.yaml file overrides any settings in the
+espfs_defaults.yaml file included with libespfs. Example:
 
 ```yaml
-paths:
+filters:
     '*.html': ['html-minifier', 'gzip']
+    '*.zip': no-compress
     '*': heatshrink
 ```
 
+There are 5 preprocessors (babel-convert, babel-minifiy, html-minifier,
+uglifycss, and uglifyjs) and there are two compressors (gzip and heatshrink).
+These can be prefixed with 'no-' to disable them in more specific filters.
+There is also the commands 'discard' to prevent files from being added to the
+image, 'skip' to cancel all processing, 'no-preprocessing', and
+'no-compression'.
+
 You can add your own preprocessors as well. Look at the espfs_default.yaml
-within the component as an example.
+within libespfs for an example.
 
 
 ## Building an espfs image
@@ -118,6 +127,7 @@ fclose) functions to access files.
 ## Raw interface
 
 ```C
+const char *espfs_get_path(espfs_fs_t *fs, uint16_t index);
 bool espfs_stat(espfs_fs_t *fs, const char *path, espfs_stat_t *s);
 espfs_file_t *espfs_fopen(espfs_fs_t *fs, const char *path);
 void espfs_fclose(espfs_file_t *f);

@@ -16,23 +16,27 @@ from hiyapyco import odyldo
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
-espfs_fs_header_t = Struct('<IBBHII')
-# magic, len, version_major, version_minor, num_objects, file_len
+espfs_fs_header_t = Struct('<IBBHIHH')
+# magic, len, version_major, version_minor, binary_len, num_objects, reserved
 ESPFS_MAGIC = 0x2B534645 # EFS+
-ESPFS_VERSION_MAJOR = 0
-ESPFS_VERSION_MINOR = 1
+ESPFS_VERSION_MAJOR = 1
+ESPFS_VERSION_MINOR = 0
 
-espfs_hashtable_t = Struct('<II')
+espfs_hashtable_entry_t = Struct('<II')
 # hash, offset
 
-espfs_object_header_t = Struct('<BBH')
-# type, len, path_len
+espfs_sorttable_entry_t = Struct('<I')
+# offset
+
+espfs_object_header_t = Struct('<BBHHH')
+# type, len, index, path_len, reserved
 ESPFS_TYPE_FILE = 0
 ESPFS_TYPE_DIR  = 1
 
 espfs_file_header_t = Struct('<IIHBB')
 # data_len, file_len, flags, compression, reserved
-ESPFS_FLAG_GZIP = (1 << 1)
+ESPFS_FLAG_GZIP  = (1 << 0)
+ESPFS_FLAG_CACHE = (1 << 1)
 ESPFS_COMPRESSION_NONE       = 0
 ESPFS_COMPRESSION_HEATSHRINK = 1
 
@@ -70,7 +74,7 @@ def load_config(root):
                 else:
                     config[s_name][ss_name] = ss
 
-    for s_name in ('preprocessors', 'compressors', 'paths'):
+    for s_name in ('preprocessors', 'compressors', 'filters'):
         section_merge(s_name)
         for ss_name, ss in config.get(s_name, OrderedDict()).items():
             if isinstance(ss, str):
@@ -97,7 +101,7 @@ def load_config(root):
                 return True
             return self.pattern < other.pattern
 
-    config['paths'] = OrderedDict(sorted(config['paths'].items(),
+    config['filters'] = OrderedDict(sorted(config['filters'].items(),
             key = pattern_sort))
 
 def hash_path(path):
@@ -108,70 +112,87 @@ def hash_path(path):
 
 def make_pathlist(root):
     pathlist = []
-    for dir, _, files in os.walk(root):
+    for dir, _, files in os.walk(root, followlinks=True):
         reldir = os.path.relpath(dir, root).replace('\\', '/').lstrip('.') \
                 .lstrip('/')
         absdir = os.path.abspath(dir)
         if reldir:
-            entry = (hash_path(reldir), reldir, absdir, ESPFS_TYPE_DIR, {})
+            hash = hash_path(reldir)
+            entry = (reldir, {'path': absdir, 'type': ESPFS_TYPE_DIR,
+                    'hash': hash})
             bisect.insort(pathlist, entry)
         for file in files:
             relfile = os.path.join(reldir, file).replace('\\', '/') \
                     .lstrip('/')
             absfile = os.path.join(absdir, file)
-            entry = (hash_path(relfile), relfile, absfile, ESPFS_TYPE_FILE, {})
+            hash = hash_path(relfile)
+            entry = (relfile, {'path': absfile, 'type': ESPFS_TYPE_FILE,
+                    'hash': hash})
             bisect.insort(pathlist, entry)
     return pathlist
 
-def make_dir_object(hash, path):
+def make_dir_object(hash, path, attributes):
+    index = attributes['index']
+
     print('%08x %-34s dir' % (hash, path))
     path = path.encode('utf8') + b'\0'
     path = path.ljust((len(path) + 3) // 4 * 4, b'\0')
     header = espfs_object_header_t.pack(ESPFS_TYPE_DIR,
-            espfs_object_header_t.size, len(path))
+            espfs_object_header_t.size, index, len(path), 0)
     return header + path
 
-def make_file_object(hash, path, data, actions={}):
+def make_file_object(hash, path, data, attributes):
     global config
 
+    index = attributes['index']
+    actions = attributes['actions']
     flags = 0
     compression = ESPFS_COMPRESSION_NONE
+    initial_data = data
     initial_len = len(data)
 
-    if 'skip' not in actions:
+    if 'cache' in actions and 'no-cache' not in actions:
+        flags |= ESPFS_FLAG_CACHE
+
+    if 'no-preprocessing' not in actions:
+        for preprocessor in config['preprocessors'].keys():
+            if ('no-' + preprocessor) in actions:
+                del actions[preprocessor]
         for action in actions:
-            if action in ('heatshrink'):
-                compression = ESPFS_COMPRESSION_HEATSHRINK
-            elif action == 'gzip':
-                flags |= ESPFS_FLAG_GZIP
-                level = config['preprocessors']['gzip']['level']
-                level = min(max(level, 0), 9)
-                data = gzip.compress(data, level)
-            elif action in config['preprocessors']:
+            if action in config['preprocessors']:
                 command = config['preprocessors'][action]['command']
                 process = subprocess.Popen(command, stdin = subprocess.PIPE,
                         stdout = subprocess.PIPE, shell = True)
                 data = process.communicate(input = data)[0]
-            else:
-                print('Unknown action: %s' % (action), file = sys.stderr)
-                sys.exit(1)
 
     file_data = data
     file_len = len(data)
 
-    if compression == ESPFS_COMPRESSION_HEATSHRINK:
-        window_sz2 = config['compressors']['heatshrink']['window_sz2']
-        lookahead_sz2 = config['compressors']['heatshrink']['lookahead_sz2']
-        data = espfs_heatshrink_header_t.pack(window_sz2, lookahead_sz2,
-                0) + heatshrink2.compress(data, window_sz2 = window_sz2,
-                lookahead_sz2 = lookahead_sz2)
+    if file_len >= initial_len:
+        data = initial_data
+        data_len = initial_len
+
+    if 'no-compression' not in actions:
+        if 'gzip' in actions and 'no-gzip' not in actions:
+            flags |= ESPFS_FLAG_GZIP
+            level = config['compressors']['gzip']['level']
+            level = min(max(level, 0), 9)
+            data = gzip.compress(data, level)
+        elif 'heatshrink' in actions and 'no-heatshrink' not in actions:
+            compression = ESPFS_COMPRESSION_HEATSHRINK
+            window_sz2 = config['compressors']['heatshrink']['window_sz2']
+            lookahead_sz2 = config['compressors']['heatshrink']['lookahead_sz2']
+            data = espfs_heatshrink_header_t.pack(window_sz2, lookahead_sz2,
+                    0) + heatshrink2.compress(data, window_sz2 = window_sz2,
+                    lookahead_sz2 = lookahead_sz2)
 
     data_len = len(data)
 
-    if compression and data_len >= file_len:
+    if data_len >= file_len:
+        flags &= ~ESPFS_FLAG_GZIP
         compression = ESPFS_COMPRESSION_NONE
         data = file_data
-        data_len = len(data)
+        data_len = file_len
 
     if initial_len < 1024:
         initial_len_str = '%d B' % (initial_len)
@@ -195,8 +216,8 @@ def make_file_object(hash, path, data, actions={}):
     data = data.ljust((data_len + 3) // 4 * 4, b'\0')
     header = espfs_object_header_t.pack(ESPFS_TYPE_FILE,
             espfs_object_header_t.size + espfs_file_header_t.size,
-            len(path)) + espfs_file_header_t.pack(data_len, file_len, flags,
-            compression, 0)
+            index, len(path), 0) + espfs_file_header_t.pack(data_len,
+            file_len, flags, compression, 0)
 
     return header + path + data
 
@@ -212,25 +233,33 @@ def main():
 
     pathlist = make_pathlist(args.ROOT)
     npmset = set()
+    index = 0
     for entry in pathlist[:]:
-        _, path, _, type, attributes = entry
+        path, attributes = entry
         attributes['actions'] = OrderedDict()
-        for pattern, actions in config['paths'].items():
+        attributes['index'] = index
+        index += 1
+        for pattern, actions in config['filters'].items():
             if fnmatch(path, pattern):
                 if 'discard' in actions:
+                    index -= 1
                     pathlist.remove(entry)
                     break
+                if 'skip' in actions:
+                    break
                 for action in actions:
-                    if action in ('discard', 'gzip', 'heatshrink'):
+                    if action in ('cache', 'gzip', 'heatshrink',
+                            'no-cache', 'no-compression', 'no-gzip',
+                            'no-heatshrink', 'no-preprocessing'):
                         pass
-                    elif action not in config['preprocessors']:
-                        print('unknown action %s for %s' % (action, pattern),
-                                file = sys.sterr)
-                        sys.exit(1)
-                    else:
-                        for npm in config['preprocessors'][action].get('npm',
-                                ()):
+                    elif action in config['preprocessors']:
+                        for npm in config['preprocessors'][action] \
+                                .get('npm', ()):
                             npmset.add(npm)
+                    else:
+                        print('unknown action %s for %s' % (action, pattern),
+                                file = sys.stderr)
+                        sys.exit(1)
 
                     attributes['actions'][action] = None
 
@@ -239,28 +268,38 @@ def main():
             subprocess.check_call('npm install %s' % (npm), shell = True)
 
     num_objects = len(pathlist)
-    offset = espfs_fs_header_t.size + (espfs_hashtable_t.size * num_objects)
+    offset = espfs_fs_header_t.size + \
+            (espfs_hashtable_entry_t.size * num_objects) + \
+            (espfs_sorttable_entry_t.size * num_objects)
     hashtable = b''
+    sorttable = bytearray(espfs_sorttable_entry_t.size * num_objects)
     objects = b''
 
-    for hash, path, abspath, type, attributes in sorted(pathlist):
+    pathlist = sorted(pathlist, key = lambda e: (e[1]['hash'], e[0]))
+    for path, attributes in pathlist:
+        abspath = attributes['path']
+        type = attributes['type']
+        hash = attributes['hash']
         if type == ESPFS_TYPE_DIR:
-            object = make_dir_object(hash, path)
+            object = make_dir_object(hash, path, attributes)
         elif type == ESPFS_TYPE_FILE:
             with open(abspath, 'rb') as f:
                 data = f.read()
-            object = make_file_object(hash, path, data, attributes['actions'])
+            object = make_file_object(hash, path, data, attributes)
         else:
             print('unknown object type %d' % (type), file = sys.stderr)
             sys.exit(1)
-        hashtable += espfs_hashtable_t.pack(hash, offset)
+        hashtable += espfs_hashtable_entry_t.pack(hash, offset)
+        espfs_sorttable_entry_t.pack_into(sorttable,
+                espfs_sorttable_entry_t.size * attributes['index'], offset)
         objects += object
         offset += len(object)
 
     binary_len = offset + espfs_crc32_footer_t.size
     header = espfs_fs_header_t.pack(ESPFS_MAGIC, espfs_fs_header_t.size,
-            ESPFS_VERSION_MAJOR, ESPFS_VERSION_MINOR, num_objects, binary_len)
-    binary = header + hashtable + objects
+            ESPFS_VERSION_MAJOR, ESPFS_VERSION_MINOR, binary_len,
+            num_objects, 0)
+    binary = header + hashtable + sorttable + objects
     binary += espfs_crc32_footer_t.pack(crc32(binary) & 0xFFFFFFFF)
 
     with open(args.IMAGE, 'wb') as f:

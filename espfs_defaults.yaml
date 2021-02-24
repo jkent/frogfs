@@ -1,7 +1,4 @@
 preprocessors:
-    gzip:
-        level: 9
-
     babel-convert:
         npm:
             - '@babel/core'
@@ -26,13 +23,19 @@ preprocessors:
         command: npx uglifyjs
 
 compressors:
+    gzip:
+        level: 9
+
     heatshrink:
         window_sz2: 11
         lookahead_sz2: 4
 
-paths:
+filters:
+    'espfs.paths': discard
     'espfs.yaml': discard
     '*.css': uglifycss
     '*.html': html-minifier
     '*.js': [babel-convert, uglifyjs]
-    '*': heatshrink
+    '*.woff': no-compression
+    '*.woff2': no-compression
+    '*': [cache, heatshrink]
