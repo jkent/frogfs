@@ -3,19 +3,20 @@ import bisect
 import os
 from argparse import ArgumentParser
 
-discard = ('espfs.paths')
+discard = ('espfs.paths',)
 
 def make_pathlist(root):
     pathlist = []
     for dir, _, files in os.walk(root, followlinks=True):
         reldir = os.path.relpath(dir, root).replace('\\', '/').lstrip('.') \
                 .lstrip('/')
-        if reldir:
+        if reldir and os.path.exists(dir):
             bisect.insort(pathlist, reldir)
         for file in files:
-            relfile = os.path.join(reldir, file).replace('\\', '/') \
-                    .lstrip('/')
-            bisect.insort(pathlist, relfile)
+            if os.path.exists(os.path.join(dir, file)):
+                relfile = os.path.join(reldir, file).replace('\\', '/') \
+                        .lstrip('/')
+                bisect.insort(pathlist, relfile)
 
     for path in discard:
         if path in pathlist:

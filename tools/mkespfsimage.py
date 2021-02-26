@@ -116,7 +116,7 @@ def make_pathlist(root):
         reldir = os.path.relpath(dir, root).replace('\\', '/').lstrip('.') \
                 .lstrip('/')
         absdir = os.path.abspath(dir)
-        if reldir:
+        if reldir and os.path.exists(absdir):
             hash = hash_path(reldir)
             entry = (reldir, {'path': absdir, 'type': ESPFS_TYPE_DIR,
                     'hash': hash})
@@ -125,10 +125,11 @@ def make_pathlist(root):
             relfile = os.path.join(reldir, file).replace('\\', '/') \
                     .lstrip('/')
             absfile = os.path.join(absdir, file)
-            hash = hash_path(relfile)
-            entry = (relfile, {'path': absfile, 'type': ESPFS_TYPE_FILE,
-                    'hash': hash})
-            bisect.insort(pathlist, entry)
+            if os.path.exists(absfile):
+                hash = hash_path(relfile)
+                entry = (relfile, {'path': absfile, 'type': ESPFS_TYPE_FILE,
+                        'hash': hash})
+                bisect.insort(pathlist, entry)
     return pathlist
 
 def make_dir_object(hash, path, attributes):
@@ -151,19 +152,15 @@ def make_file_object(hash, path, data, attributes):
     initial_data = data
     initial_len = len(data)
 
-    if 'cache' in actions and 'no-cache' not in actions:
+    if 'cache' in actions:
         flags |= ESPFS_FLAG_CACHE
 
-    if 'no-preprocessing' not in actions:
-        for preprocessor in config['preprocessors'].keys():
-            if ('no-' + preprocessor) in actions:
-                del actions[preprocessor]
-        for action in actions:
-            if action in config['preprocessors']:
-                command = config['preprocessors'][action]['command']
-                process = subprocess.Popen(command, stdin = subprocess.PIPE,
-                        stdout = subprocess.PIPE, shell = True)
-                data = process.communicate(input = data)[0]
+    for action in actions:
+        if action in config['preprocessors']:
+            command = config['preprocessors'][action]['command']
+            process = subprocess.Popen(command, stdin = subprocess.PIPE,
+                    stdout = subprocess.PIPE, shell = True)
+            data = process.communicate(input = data)[0]
 
     file_data = data
     file_len = len(data)
@@ -172,19 +169,18 @@ def make_file_object(hash, path, data, attributes):
         data = initial_data
         data_len = initial_len
 
-    if 'no-compression' not in actions:
-        if 'gzip' in actions and 'no-gzip' not in actions:
-            flags |= ESPFS_FLAG_GZIP
-            level = config['compressors']['gzip']['level']
-            level = min(max(level, 0), 9)
-            data = gzip.compress(data, level)
-        elif 'heatshrink' in actions and 'no-heatshrink' not in actions:
-            compression = ESPFS_COMPRESSION_HEATSHRINK
-            window_sz2 = config['compressors']['heatshrink']['window_sz2']
-            lookahead_sz2 = config['compressors']['heatshrink']['lookahead_sz2']
-            data = espfs_heatshrink_header_t.pack(window_sz2, lookahead_sz2,
-                    0) + heatshrink2.compress(data, window_sz2 = window_sz2,
-                    lookahead_sz2 = lookahead_sz2)
+    if 'gzip' in actions:
+        flags |= ESPFS_FLAG_GZIP
+        level = config['compressors']['gzip']['level']
+        level = min(max(level, 0), 9)
+        data = gzip.compress(data, level)
+    elif 'heatshrink' in actions:
+        compression = ESPFS_COMPRESSION_HEATSHRINK
+        window_sz2 = config['compressors']['heatshrink']['window_sz2']
+        lookahead_sz2 = config['compressors']['heatshrink']['lookahead_sz2']
+        data = espfs_heatshrink_header_t.pack(window_sz2, lookahead_sz2,
+                0) + heatshrink2.compress(data, window_sz2 = window_sz2,
+                lookahead_sz2 = lookahead_sz2)
 
     data_len = len(data)
 
@@ -232,7 +228,6 @@ def main():
     load_config(args.ROOT)
 
     pathlist = make_pathlist(args.ROOT)
-    npmset = set()
     index = 0
     for entry in pathlist[:]:
         path, attributes = entry
@@ -247,21 +242,36 @@ def main():
                     break
                 if 'skip' in actions:
                     break
-                for action in actions:
-                    if action in ('cache', 'gzip', 'heatshrink',
-                            'no-cache', 'no-compression', 'no-gzip',
-                            'no-heatshrink', 'no-preprocessing'):
-                        pass
+                for action in actions[:]:
+                    if action == 'cache':
+                        attributes['actions'][action] = None
+                    elif action in config['compressors']:
+                        attributes['actions'][action] = None
                     elif action in config['preprocessors']:
-                        for npm in config['preprocessors'][action] \
-                                .get('npm', ()):
-                            npmset.add(npm)
+                        attributes['actions'][action] = None
+                    elif action.startswith('no-'):
+                        if action == 'no-compression':
+                            for name in config['compressors']:
+                                if name in attributes['actions']:
+                                    del attributes['actions'][name]
+                        elif action == 'no-preprocessing':
+                            for name in config['preprocessors']:
+                                if name in attributes['actions']:
+                                    del attributes['actions'][name]
+                        elif action[3:] in attributes['actions']:
+                            del attributes['actions'][action[3:]]
                     else:
                         print('unknown action %s for %s' % (action, pattern),
-                                file = sys.stderr)
+                        file = sys.stderr)
                         sys.exit(1)
 
-                    attributes['actions'][action] = None
+    npmset = set()
+    for _, attributes in pathlist:
+        actions = attributes['actions']
+        for action in actions:
+            if action in config['preprocessors']:
+                for npm in config['preprocessors'][action].get('npm', ()):
+                    npmset.add(npm)
 
     for npm in npmset:
         if not os.path.exists(os.path.join('node_modules', npm)):

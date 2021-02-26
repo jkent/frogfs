@@ -49,24 +49,26 @@ function(define_target_espfs target dir output)
 
     get_filename_component(output_dir ${output} DIRECTORY)
 
-    add_custom_target(${target}
+    add_custom_target(${target}_paths
         BYPRODUCTS ${dir}/espfs.paths
         DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/libespfs.dir/requirements.stamp
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${output_dir}
         COMMAND ${python} ${libespfs_DIR}/tools/pathlist.py ${dir}
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        COMMANT "Updating espfs.paths for ${target}"
+        COMMENT "Updating espfs.paths for ${target}"
         VERBATIM
     )
 
-    add_custom_command(OUTPUT ${output}
-        COMMAND ${python} ${libespfs_DIR}/tools/mkespfsimage.py ${dir} ${output}
+    add_custom_target(${target}
+        BYPRODUCTS ${output}
         DEPENDS ${dir}/espfs.paths
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${output_dir}
+        COMMAND ${python} ${libespfs_DIR}/tools/mkespfsimage.py ${dir} ${output}
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         COMMENT "Building espfs binary ${output}"
         USES_TERMINAL
         VERBATIM
     )
+    add_dependencies(${target} ${target}_paths)
 endfunction()
 
 function(target_add_espfs target name)
@@ -88,7 +90,6 @@ function(target_add_espfs target name)
     add_custom_target(espfs_image_${name}
         BYPRODUCTS ${dir}/espfs.paths
         DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/libespfs.dir/requirements.stamp
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${output_dir}
         COMMAND ${python} ${libespfs_DIR}/tools/pathlist.py ${dir}
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         COMMENT "Updating pathlist for espfs_image_${name}"
@@ -97,6 +98,7 @@ function(target_add_espfs target name)
     add_dependencies(${target} espfs_image_${name})
 
     add_custom_command(OUTPUT ${output}.bin
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${output_dir}
         COMMAND ${python} ${libespfs_DIR}/tools/mkespfsimage.py ${dir} ${output}.bin
         DEPENDS ${dir}/espfs.paths
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}

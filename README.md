@@ -31,7 +31,7 @@ espfs_defaults.yaml file included with libespfs. Example:
 
 ```yaml
 filters:
-    '*.html': ['html-minifier', 'gzip']
+    '*.html': [html-minifier, gzip]
     '*.zip': no-compress
     '*': heatshrink
 ```

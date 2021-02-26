@@ -17,7 +17,7 @@
 # include "heatshrink_decoder.h"
 #endif
 
-#if defined(CONFIG_ENABLE_FLASH_MMAP)
+#if defined(ESP_PLATFORM)
 # include <esp_partition.h>
 # include <esp_spi_flash.h>
 #endif
@@ -43,12 +43,12 @@ espfs_fs_t *espfs_init(espfs_config_t *conf)
 
     fs->header = (espfs_fs_header_t *)conf->addr;
     if (fs->header == NULL) {
-#if defined (CONFIG_ENABLE_FLASH_MMAP)
-        esp_partition_subtype_t subtype = conf->partlabel ?
+#if defined (ESP_PLATFORM)
+        esp_partition_subtype_t subtype = conf->part_label ?
                 ESP_PARTITION_SUBTYPE_ANY :
                 ESP_PARTITION_SUBTYPE_DATA_ESPHTTPD;
         const esp_partition_t* partition = esp_partition_find_first(
-                ESP_PARTITION_TYPE_DATA, subtype, conf->partlabel);
+                ESP_PARTITION_TYPE_DATA, subtype, conf->part_label);
 
         if (partition == NULL) {
             ESPFS_LOGE(__func__, "unable to find espfs partition");
@@ -93,7 +93,7 @@ void espfs_deinit(espfs_fs_t *fs)
 {
     ESPFS_LOGV(__func__, "%p", fs);
 
-#if defined(CONFIG_ENABLE_FLASH_MMAP)
+#if defined(ESP_PLATFORM)
     if (fs->mmap_handle) {
         spi_flash_munmap(fs->mmap_handle);
     }

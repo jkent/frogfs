@@ -52,7 +52,7 @@ enum espfs_compression_type_t {
  */
 struct espfs_config_t {
     const void *addr; /**< address of an espfs filesystem in memory */
-#if defined(CONFIG_ENABLE_FLASH_MMAP)
+#if defined(ESP_PLATFORM)
     const char *part_label; /**< name of a partition to use as an espfs
             filesystem. \a addr should be \a NULL if used */
 #endif
