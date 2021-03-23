@@ -20,6 +20,7 @@ typedef struct esp_vfs_espfs_conf_t esp_vfs_espfs_conf_t;
  */
 struct esp_vfs_espfs_conf_t {
     const char *base_path; /**< vfs path to mount the filesystem */
+    const char *overlay_path; /**< vfs overlay search path */
     espfs_fs_t *fs; /**< the espfs instance */
     size_t max_files; /**< maximum open files */
 };
