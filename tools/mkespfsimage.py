@@ -72,7 +72,14 @@ def load_config(root):
                     if ss_name in config[s_name]:
                         del config[s_name][ss_name]
                 else:
-                    config[s_name][ss_name] = ss
+                    if s_name == 'filters':
+                        if isinstance(config[s_name][ss_name], str):
+                            config[s_name][ss_name] = [config[s_name][ss_name]]
+                        if isinstance(ss, str):
+                            ss = [ss]
+                        config[s_name][ss_name] += ss
+                    else:
+                        config[s_name][ss_name] = ss
 
     for s_name in ('preprocessors', 'compressors', 'filters'):
         section_merge(s_name)
@@ -167,7 +174,7 @@ def make_file_object(hash, path, data, attributes):
 
     if file_len >= initial_len:
         data = initial_data
-        data_len = initial_len
+        file_len = initial_len
 
     if 'gzip' in actions:
         flags |= ESPFS_FLAG_GZIP
@@ -250,7 +257,19 @@ def main():
                     elif action in config['preprocessors']:
                         attributes['actions'][action] = None
                     elif action.startswith('no-'):
-                        if action == 'no-compression':
+                        pass
+                    else:
+                        print('unknown action %s for %s' % (action, pattern),
+                        file = sys.stderr)
+                        sys.exit(1)
+
+        for pattern, actions in config['filters'].items():
+            if fnmatch(path, pattern):
+                for action in actions[:]:
+                    if action.startswith('no-'):
+                        if action == 'no-cache':
+                            del attributes['actions']['cache']
+                        elif action == 'no-compression':
                             for name in config['compressors']:
                                 if name in attributes['actions']:
                                     del attributes['actions'][name]
@@ -260,10 +279,6 @@ def main():
                                     del attributes['actions'][name]
                         elif action[3:] in attributes['actions']:
                             del attributes['actions'][action[3:]]
-                    else:
-                        print('unknown action %s for %s' % (action, pattern),
-                        file = sys.stderr)
-                        sys.exit(1)
 
     npmset = set()
     for _, attributes in pathlist:
