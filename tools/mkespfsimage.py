@@ -31,7 +31,7 @@ def add_file(config, root, filename, actions):
             return b''
         elif action in ['gzip', 'heatshrink']:
             pass
-        elif action in config['tools']:
+        elif action in config['tools'] and '.min.' not in filename:
             tool = config['tools'][action]
             command = tool['command']
             p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
