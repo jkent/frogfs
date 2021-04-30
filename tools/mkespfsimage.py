@@ -31,11 +31,12 @@ def add_file(config, root, filename, actions):
             return b''
         elif action in ['gzip', 'heatshrink']:
             pass
-        elif action in config['tools'] and '.min.' not in filename:
-            tool = config['tools'][action]
-            command = tool['command']
-            p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
-            processed_data = p.communicate(input=processed_data)[0]
+        elif action in config['tools']:
+            if '.min.' not in filename:
+                tool = config['tools'][action]
+                command = tool['command']
+                p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+                processed_data = p.communicate(input=processed_data)[0]
         else:
             print('Unknown action: %s' % action, file=sys.stderr)
             sys.exit(1)
