@@ -13,11 +13,6 @@ extern "C" {
 #include <stdint.h>
 #include <sys/types.h>
 
-
-typedef enum espfs_compression_type_t espfs_compression_type_t;
-typedef enum espfs_flags_t espfs_flags_t;
-typedef enum espfs_stat_type_t espfs_stat_type_t;
-
 typedef struct espfs_fs_t espfs_fs_t;
 typedef struct espfs_file_t espfs_file_t;
 typedef struct espfs_config_t espfs_config_t;
@@ -26,26 +21,26 @@ typedef struct espfs_stat_t espfs_stat_t;
 /**
  * \brief Object type
  */
-enum espfs_stat_type_t {
+typedef enum espfs_stat_type_t {
     ESPFS_TYPE_FILE,
     ESPFS_TYPE_DIR,
-};
+} espfs_stat_type_t;
 
 /**
  * \brief Object flags
  */
-enum espfs_flags_t {
+typedef enum espfs_flags_t {
     ESPFS_FLAG_GZIP  = (1 << 0),
     ESPFS_FLAG_CACHE = (1 << 1),
-};
+} espfs_flags_t;
 
 /**
  * \brief Compression encodings
  */
-enum espfs_compression_type_t {
+typedef enum espfs_compression_type_t {
     ESPFS_COMPRESSION_NONE,
     ESPFS_COMPRESSION_HEATSHRINK
-};
+} espfs_compression_type_t;
 
 /**
  * \brief Configuration for the \a espfs_init function
