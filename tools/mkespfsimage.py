@@ -81,6 +81,7 @@ def load_config(root):
                     else:
                         config[s_name][ss_name] = ss
 
+    #for s_name in ('preprocessors', 'compressors', 'filters'):
     for s_name in ('preprocessors', 'compressors', 'filters'):
         section_merge(s_name)
         for ss_name, ss in config.get(s_name, OrderedDict()).items():
@@ -162,12 +163,12 @@ def make_file_object(hash, path, data, attributes):
     if 'cache' in actions:
         flags |= ESPFS_FLAG_CACHE
 
-    for action in actions:
-        if action in config['preprocessors']:
-            command = config['preprocessors'][action]['command']
-            process = subprocess.Popen(command, stdin = subprocess.PIPE,
-                    stdout = subprocess.PIPE, shell = True)
-            data = process.communicate(input = data)[0]
+   # for action in actions:
+    #    if action in config['preprocessors']:
+    #        command = config['preprocessors'][action]['command']
+    #        process = subprocess.Popen(command, stdin = subprocess.PIPE,
+    #                stdout = subprocess.PIPE, shell = True)
+    #        data = process.communicate(input = data)[0]
 
     file_data = data
     file_len = len(data)
@@ -254,8 +255,8 @@ def main():
                         attributes['actions'][action] = None
                     elif action in config['compressors']:
                         attributes['actions'][action] = None
-                    elif action in config['preprocessors']:
-                        attributes['actions'][action] = None
+                    #elif action in config['preprocessors']:
+                    #    attributes['actions'][action] = None
                     elif action.startswith('no-'):
                         pass
                     else:
@@ -273,10 +274,10 @@ def main():
                             for name in config['compressors']:
                                 if name in attributes['actions']:
                                     del attributes['actions'][name]
-                        elif action == 'no-preprocessing':
-                            for name in config['preprocessors']:
-                                if name in attributes['actions']:
-                                    del attributes['actions'][name]
+                        #elif action == 'no-preprocessing':
+                        #    for name in config['preprocessors']:
+                        #        if name in attributes['actions']:
+                        #            del attributes['actions'][name]
                         elif action[3:] in attributes['actions']:
                             del attributes['actions'][action[3:]]
 
