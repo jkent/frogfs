@@ -280,17 +280,17 @@ def main():
                         elif action[3:] in attributes['actions']:
                             del attributes['actions'][action[3:]]
 
-    npmset = set()
-    for _, attributes in pathlist:
-        actions = attributes['actions']
-        for action in actions:
-            if action in config['preprocessors']:
-                for npm in config['preprocessors'][action].get('npm', ()):
-                    npmset.add(npm)
+    #npmset = set()
+    #for _, attributes in pathlist:
+    #    actions = attributes['actions']
+     #   for action in actions:
+      #      if action in config['preprocessors']:
+       #         for npm in config['preprocessors'][action].get('npm', ()):
+        #            npmset.add(npm)
 
-    for npm in npmset:
-        if not os.path.exists(os.path.join('node_modules', npm)):
-            subprocess.check_call('npm install %s' % (npm), shell = True)
+    #for npm in npmset:
+     #   if not os.path.exists(os.path.join('node_modules', npm)):
+      #      subprocess.check_call('npm install %s' % (npm), shell = True)
 
     num_objects = len(pathlist)
     offset = espfs_fs_header_t.size + \

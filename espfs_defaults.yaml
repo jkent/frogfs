@@ -1,26 +1,26 @@
-preprocessors:
-    babel-convert:
-        npm:
-            - '@babel/core'
-            - '@babel/cli'
-            - '@babel/preset-env'
-        command: npx babel --no-babelrc --presets @babel/preset-env
+#preprocessors:
+ #   babel-convert:
+  #      npm:
+   #         - '@babel/core'
+    #        - '@babel/cli'
+     #       - '@babel/preset-env'
+      #  command: npx babel --no-babelrc --presets @babel/preset-env
 
-    babel-minify:
-        npm: babel-preset-minify
-        command: npx babel --no-babelrc --presets minify
+#    babel-minify:
+ #       npm: babel-preset-minify
+  #      command: npx babel --no-babelrc --presets minify
 
-    html-minifier:
-        npm: html-minifier
-        command: npx html-minifier
+#    html-minifier:
+ #       npm: html-minifier
+  #      command: npx html-minifier
 
-    uglifycss:
-        npm: uglifycss
-        command: npx uglifycss
+#    uglifycss:
+  #      npm: uglifycss
+ #       command: npx uglifycss
 
-    uglifyjs:
-        npm: uglify-js
-        command: npx uglifyjs
+#    uglifyjs:
+ #       npm: uglify-js
+  #      command: npx uglifyjs
 
 compressors:
     gzip:
@@ -33,9 +33,13 @@ compressors:
 filters:
     'espfs.paths': discard
     'espfs.yaml': discard
-    '*.css': uglifycss
-    '*.html': html-minifier
-    '*.js': [babel-convert, uglifyjs]
+    #'*.css': uglifycss
+    #'*.html': html-minifier
+    #'*.js': [babel-convert, uglifyjs]
+    '*.css': no-compression
+    '*.png': no-compression
+    '*.html': no-compression
+    '*.js': no-compression
     '*.woff': no-compression
     '*.woff2': no-compression
-    '*': [cache, heatshrink]
+    #'*': [cache, heatshrink]
