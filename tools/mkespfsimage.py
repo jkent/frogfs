@@ -82,7 +82,7 @@ def load_config(root):
                         config[s_name][ss_name] = ss
 
     #for s_name in ('preprocessors', 'compressors', 'filters'):
-    for s_name in ('preprocessors', 'compressors', 'filters'):
+    for s_name in ( 'compressors', 'filters'):
         section_merge(s_name)
         for ss_name, ss in config.get(s_name, OrderedDict()).items():
             if isinstance(ss, str):
