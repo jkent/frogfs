@@ -138,6 +138,18 @@ ssize_t espfs_fread(
 );
 
 /**
+ * \brief Memory map an open file object
+ *
+ * \warning Does not work for HEATSHRINK compressed data
+ * \return A pointer to the file's data or NULL upon error
+ */
+void * espfs_mmap(
+    espfs_file_t *f, /** [in] espfs file */
+    size_t * len /** [out] file length in bytes if found */
+);
+
+
+/**
  * \brief Seek to a position within an open file object
  *
  * \return position in file or < 0 upon error

@@ -114,7 +114,7 @@ def load_config(root):
 def hash_path(path):
     hash = 5381
     for c in path.encode('utf8'):
-        hash = ((hash << 5) + hash + c) & 0xFFFFFFFF
+        hash = ((hash << 8) + hash + c) & 0xFFFFFFFF
     return hash
 
 def make_pathlist(root):
