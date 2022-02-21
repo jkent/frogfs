@@ -52,7 +52,7 @@ function(define_target_espfs target dir output)
     add_custom_target(${target}_paths
         BYPRODUCTS ${dir}/espfs.paths
         DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/libespfs.dir/requirements.stamp
-        COMMAND ${python} ${libespfs_DIR}/tools/pathlist.py ${dir}
+        COMMAND ${python} ${libespfs_DIR}/tools/pathlist.py ${CMAKE_CURRENT_BINARY_DIR}/${dir}
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         COMMENT "Updating espfs.paths for ${target}"
         VERBATIM
