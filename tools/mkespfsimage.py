@@ -19,7 +19,7 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 espfs_fs_header_t = Struct('<IBBHIHH')
 # magic, len, version_major, version_minor, binary_len, num_objects, reserved
 ESPFS_MAGIC = 0x2B534645 # EFS+
-ESPFS_VERSION_MAJOR = 1
+ESPFS_VERSION_MAJOR = 2
 ESPFS_VERSION_MINOR = 0
 
 espfs_hashtable_entry_t = Struct('<II')

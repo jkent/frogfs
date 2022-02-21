@@ -11,7 +11,7 @@
  * \brief Magic number used in the espfs file header
  */
 #define ESPFS_MAGIC 0x2B534645 /** EFS+ */
-#define ESPFS_VERSION_MAJOR 1
+#define ESPFS_VERSION_MAJOR 2
 #define ESPFS_VERSION_MINOR 0
 
 typedef struct espfs_fs_header_t espfs_fs_header_t;

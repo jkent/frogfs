@@ -21,7 +21,7 @@ directory and within that directory run:
 `git clone --recursive https://github.com/jkent/libespfs`
 
 
-You can generate a filesystem using `tools/mkespfsiage.py`. The tool takes two
+You can generate a filesystem using `tools/mkespfsimage.py`. The tool takes two
 arguments, ROOT, the directory containing the files to generate from, and
 IMAGE, the output file for the image. The script references an espfs.yaml file
 in the image ROOT, with the default settings to not add it to the image. The
@@ -36,8 +36,8 @@ filters:
     '*': heatshrink
 ```
 
-There are 5 preprocessors (babel-convert, babel-minifiy, html-minifier,
-uglifycss, and uglifyjs) and there are two compressors (gzip and heatshrink).
+There are 6 preprocessors (babel-convert, babel-minifiy, html-minifier,
+uglifycss, uglifyjs and zeroify) and there are two compressors (gzip, heatshrink).
 These can be prefixed with 'no-' to disable them in more specific filters.
 There is also the commands 'discard' to prevent files from being added to the
 image, 'skip' to cancel all processing, 'no-preprocessing', and

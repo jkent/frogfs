@@ -22,6 +22,9 @@ preprocessors:
         npm: uglify-js
         command: npx uglifyjs
 
+    zeroify:
+        command: python tools/zeroify.py
+
 compressors:
     gzip:
         level: 9

@@ -304,21 +304,6 @@ void espfs_fstat(espfs_file_t *f, espfs_stat_t *stat)
     stat->size = f->fh->file_len;
 }
 
-// Memory map an open file object
-void * espfs_mmap(espfs_file_t *f, size_t * len)
-{
-    assert(f != NULL);
-
-    if (f->fh->compression != ESPFS_COMPRESSION_NONE) {
-        return 0;
-    }
-    if (len != NULL) {
-        *len = f->fh->file_len;
-    }
-    return f->raw_start;
-}
-
-
 // Read len bytes from the given file into buf. Returns the actual amount of bytes read.
 ssize_t espfs_fread(espfs_file_t *f, void *buf, size_t len)
 {

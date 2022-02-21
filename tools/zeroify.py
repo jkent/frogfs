@@ -6,8 +6,16 @@ import sys
 
 
 def main():
-    if len(sys.argv) < 3:
+    if len(sys.argv) != 3 and len(sys.argv) != 1:
         print("Usage is ", sys.argv[0], " inputFile outputFileWithZero")
+        return
+
+    if len(sys.argv) == 1:
+        input_str = sys.stdin.read()
+        sys.stdout.write(input_str)
+        sys.stdout.flush()
+        b = bytearray(b'\0')
+        sys.stdout.buffer.write(b)
         return
 
     with open(sys.argv[1], 'rb') as i:
