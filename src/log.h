@@ -4,17 +4,17 @@
 
 #pragma once
 
-#if defined(CONFIG_ESPFS_LOG_LEVEL_NONE)
+#if defined(CONFIG_FROGFS_LOG_LEVEL_NONE)
 # define LOG_LEVEL LOG_NONE
-#elif defined(CONFIG_ESPFS_LOG_LEVEL_ERROR)
+#elif defined(CONFIG_FROGFS_LOG_LEVEL_ERROR)
 # define LOG_LEVEL LOG_ERROR
-#elif defined(CONFIG_ESPFS_LOG_LEVEL_WARN)
+#elif defined(CONFIG_FROGFS_LOG_LEVEL_WARN)
 # define LOG_LEVEL LOG_WARN
-#elif defined(CONFIG_ESPFS_LOG_LEVEL_INFO)
+#elif defined(CONFIG_FROGFS_LOG_LEVEL_INFO)
 # define LOG_LEVEL LOG_INFO
-#elif defined(CONFIG_ESPFS_LOG_LEVEL_DEBUG)
+#elif defined(CONFIG_FROGFS_LOG_LEVEL_DEBUG)
 # define LOG_LEVEL LOG_DEBUG
-#elif defined(CONFIG_ESPFS_LOG_LEVEL_VERBOSE)
+#elif defined(CONFIG_FROGFS_LOG_LEVEL_VERBOSE)
 # define LOG_LEVEL LOG_VERBOSE
 #else
 # define LOG_LEVEL LOG_WARN
@@ -33,17 +33,17 @@
 # define LOG_VERBOSE ESP_LOG_VERBOSE
 
 # if defined(CONFIG_IDF_TARGET_ESP8266)
-#  define ESPFS_LOGE( tag, format, ... )  if (LOG_LEVEL >= LOG_ERROR)   { esp_log_write(LOG_ERROR,   tag, format, ##__VA_ARGS__); }
-#  define ESPFS_LOGW( tag, format, ... )  if (LOG_LEVEL >= LOG_WARN)    { esp_log_write(LOG_WARN,    tag, format, ##__VA_ARGS__); }
-#  define ESPFS_LOGI( tag, format, ... )  if (LOG_LEVEL >= LOG_INFO)    { esp_log_write(LOG_INFO,    tag, format, ##__VA_ARGS__); }
-#  define ESPFS_LOGD( tag, format, ... )  if (LOG_LEVEL >= LOG_DEBUG)   { esp_log_write(LOG_DEBUG,   tag, format, ##__VA_ARGS__); }
-#  define ESPFS_LOGV( tag, format, ... )  if (LOG_LEVEL >= LOG_VERBOSE) { esp_log_write(LOG_VERBOSE, tag, format, ##__VA_ARGS__); }
+#  define FROGFS_LOGE( tag, format, ... )  if (LOG_LEVEL >= LOG_ERROR)   { esp_log_write(LOG_ERROR,   tag, format, ##__VA_ARGS__); }
+#  define FROGFS_LOGW( tag, format, ... )  if (LOG_LEVEL >= LOG_WARN)    { esp_log_write(LOG_WARN,    tag, format, ##__VA_ARGS__); }
+#  define FROGFS_LOGI( tag, format, ... )  if (LOG_LEVEL >= LOG_INFO)    { esp_log_write(LOG_INFO,    tag, format, ##__VA_ARGS__); }
+#  define FROGFS_LOGD( tag, format, ... )  if (LOG_LEVEL >= LOG_DEBUG)   { esp_log_write(LOG_DEBUG,   tag, format, ##__VA_ARGS__); }
+#  define FROGFS_LOGV( tag, format, ... )  if (LOG_LEVEL >= LOG_VERBOSE) { esp_log_write(LOG_VERBOSE, tag, format, ##__VA_ARGS__); }
 # else
-#  define ESPFS_LOGE( tag, format, ... )  if (LOG_LEVEL >= LOG_ERROR)   { esp_log_write(LOG_ERROR,   tag, LOG_FORMAT(E, format), esp_log_timestamp(), tag, ##__VA_ARGS__); }
-#  define ESPFS_LOGW( tag, format, ... )  if (LOG_LEVEL >= LOG_WARN)    { esp_log_write(LOG_WARN,    tag, LOG_FORMAT(W, format), esp_log_timestamp(), tag, ##__VA_ARGS__); }
-#  define ESPFS_LOGI( tag, format, ... )  if (LOG_LEVEL >= LOG_INFO)    { esp_log_write(LOG_INFO,    tag, LOG_FORMAT(I, format), esp_log_timestamp(), tag, ##__VA_ARGS__); }
-#  define ESPFS_LOGD( tag, format, ... )  if (LOG_LEVEL >= LOG_DEBUG)   { esp_log_write(LOG_DEBUG,   tag, LOG_FORMAT(D, format), esp_log_timestamp(), tag, ##__VA_ARGS__); }
-#  define ESPFS_LOGV( tag, format, ... )  if (LOG_LEVEL >= LOG_VERBOSE) { esp_log_write(LOG_VERBOSE, tag, LOG_FORMAT(V, format), esp_log_timestamp(), tag, ##__VA_ARGS__); }
+#  define FROGFS_LOGE( tag, format, ... )  if (LOG_LEVEL >= LOG_ERROR)   { esp_log_write(LOG_ERROR,   tag, LOG_FORMAT(E, format), esp_log_timestamp(), tag, ##__VA_ARGS__); }
+#  define FROGFS_LOGW( tag, format, ... )  if (LOG_LEVEL >= LOG_WARN)    { esp_log_write(LOG_WARN,    tag, LOG_FORMAT(W, format), esp_log_timestamp(), tag, ##__VA_ARGS__); }
+#  define FROGFS_LOGI( tag, format, ... )  if (LOG_LEVEL >= LOG_INFO)    { esp_log_write(LOG_INFO,    tag, LOG_FORMAT(I, format), esp_log_timestamp(), tag, ##__VA_ARGS__); }
+#  define FROGFS_LOGD( tag, format, ... )  if (LOG_LEVEL >= LOG_DEBUG)   { esp_log_write(LOG_DEBUG,   tag, LOG_FORMAT(D, format), esp_log_timestamp(), tag, ##__VA_ARGS__); }
+#  define FROGFS_LOGV( tag, format, ... )  if (LOG_LEVEL >= LOG_VERBOSE) { esp_log_write(LOG_VERBOSE, tag, LOG_FORMAT(V, format), esp_log_timestamp(), tag, ##__VA_ARGS__); }
 # endif
 
 #else
@@ -74,10 +74,10 @@ typedef enum {
 
 # define LOG_FORMAT(letter, format)  LOG_COLOR_ ## letter #letter " %s: " format LOG_RESET_COLOR "\n"
 
-# define ESPFS_LOGE( tag, format, ... )  if (LOG_LEVEL >= LOG_ERROR)   { fprintf(stderr, LOG_FORMAT(E, format), tag, ##__VA_ARGS__); }
-# define ESPFS_LOGW( tag, format, ... )  if (LOG_LEVEL >= LOG_WARN)    { fprintf(stderr, LOG_FORMAT(W, format), tag, ##__VA_ARGS__); }
-# define ESPFS_LOGI( tag, format, ... )  if (LOG_LEVEL >= LOG_INFO)    { fprintf(stderr, LOG_FORMAT(I, format), tag, ##__VA_ARGS__); }
-# define ESPFS_LOGD( tag, format, ... )  if (LOG_LEVEL >= LOG_DEBUG)   { fprintf(stderr, LOG_FORMAT(D, format), tag, ##__VA_ARGS__); }
-# define ESPFS_LOGV( tag, format, ... )  if (LOG_LEVEL >= LOG_VERBOSE) { fprintf(stderr, LOG_FORMAT(V, format), tag, ##__VA_ARGS__); }
+# define FROGFS_LOGE( tag, format, ... )  if (LOG_LEVEL >= LOG_ERROR)   { fprintf(stderr, LOG_FORMAT(E, format), tag, ##__VA_ARGS__); }
+# define FROGFS_LOGW( tag, format, ... )  if (LOG_LEVEL >= LOG_WARN)    { fprintf(stderr, LOG_FORMAT(W, format), tag, ##__VA_ARGS__); }
+# define FROGFS_LOGI( tag, format, ... )  if (LOG_LEVEL >= LOG_INFO)    { fprintf(stderr, LOG_FORMAT(I, format), tag, ##__VA_ARGS__); }
+# define FROGFS_LOGD( tag, format, ... )  if (LOG_LEVEL >= LOG_DEBUG)   { fprintf(stderr, LOG_FORMAT(D, format), tag, ##__VA_ARGS__); }
+# define FROGFS_LOGV( tag, format, ... )  if (LOG_LEVEL >= LOG_VERBOSE) { fprintf(stderr, LOG_FORMAT(V, format), tag, ##__VA_ARGS__); }
 
 #endif

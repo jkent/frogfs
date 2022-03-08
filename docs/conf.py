@@ -15,8 +15,8 @@ import sys
 
 # -- Project information -----------------------------------------------------
 
-project = 'libespfs'
-copyright = '2021, libespfs contributors'
+project = 'FrogFS'
+copyright = '2022, FrogFS contributors'
 author = 'Jeff Kent <jeff@jkent.net>'
 
 # -- General configuration ------------------------------------------------

@@ -8,21 +8,21 @@
 
 
 /**
- * \brief Magic number used in the espfs file header
+ * \brief Magic number used in the frogfs file header
  */
-#define ESPFS_MAGIC 0x2B534645 /** EFS+ */
-#define ESPFS_VERSION_MAJOR 1
-#define ESPFS_VERSION_MINOR 0
+#define FROGFS_MAGIC 0x676F7246 /** Frog */
+#define FROGFS_VERSION_MAJOR 0
+#define FROGFS_VERSION_MINOR 0
 
-typedef struct espfs_fs_header_t espfs_fs_header_t;
-typedef struct espfs_hashtable_entry_t espfs_hashtable_entry_t;
-typedef struct espfs_sorttable_entry_t espfs_sorttable_entry_t;
-typedef struct espfs_object_header_t espfs_object_header_t;
-typedef struct espfs_file_header_t espfs_file_header_t;
-typedef struct espfs_heatshrink_header_t espfs_heatshrink_header_t;
-typedef struct espfs_crc32_footer_t espfs_crc32_footer_t;
+typedef struct frogfs_fs_header_t frogfs_fs_header_t;
+typedef struct frogfs_hashtable_entry_t frogfs_hashtable_entry_t;
+typedef struct frogfs_sorttable_entry_t frogfs_sorttable_entry_t;
+typedef struct frogfs_object_header_t frogfs_object_header_t;
+typedef struct frogfs_file_header_t frogfs_file_header_t;
+typedef struct frogfs_heatshrink_header_t frogfs_heatshrink_header_t;
+typedef struct frogfs_crc32_footer_t frogfs_crc32_footer_t;
 
-struct espfs_fs_header_t {
+struct frogfs_fs_header_t {
     uint32_t magic;
     uint8_t len;
     uint8_t version_major;
@@ -32,16 +32,16 @@ struct espfs_fs_header_t {
     uint16_t reserved;
 } __attribute__((packed));
 
-struct espfs_hashtable_entry_t {
+struct frogfs_hashtable_entry_t {
     uint32_t hash;
     uint32_t offset;
 } __attribute__((packed));
 
-struct espfs_sorttable_entry_t {
+struct frogfs_sorttable_entry_t {
     uint32_t offset;
 } __attribute__((packed));
 
-struct espfs_object_header_t {
+struct frogfs_object_header_t {
     uint8_t type;
     uint8_t len;
     uint16_t index;
@@ -49,8 +49,8 @@ struct espfs_object_header_t {
     uint16_t reserved;
 } __attribute__((packed));
 
-struct espfs_file_header_t {
-    espfs_object_header_t object;
+struct frogfs_file_header_t {
+    frogfs_object_header_t object;
     uint32_t data_len;
     uint32_t file_len;
     uint16_t flags;
@@ -58,12 +58,12 @@ struct espfs_file_header_t {
     uint8_t reserved;
 } __attribute__((packed));
 
-struct espfs_heatshrink_header_t {
+struct frogfs_heatshrink_header_t {
     uint8_t window_sz2;
     uint8_t lookahead_sz2;
     uint16_t reserved;
 } __attribute__((packed));
 
-struct espfs_crc32_footer_t {
+struct frogfs_crc32_footer_t {
     uint32_t crc32;
 } __attribute__((packed));

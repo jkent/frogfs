@@ -1,33 +1,33 @@
 Files
 =====
 
-`libespfs/espfs.h`
+`frogfs/frogfs.h`
 
 Functions
 ^^^^^^^^^
 
-.. doxygenfunction:: espfs_fopen
-.. doxygenfunction:: espfs_fclose
-.. doxygenfunction:: espfs_fstat
-.. doxygenfunction:: espfs_fread
-.. doxygenfunction:: espfs_fseek
-.. doxygenfunction:: espfs_ftell
-.. doxygenfunction:: espfs_faccess
+.. doxygenfunction:: frogfs_fopen
+.. doxygenfunction:: frogfs_fclose
+.. doxygenfunction:: frogfs_fstat
+.. doxygenfunction:: frogfs_fread
+.. doxygenfunction:: frogfs_fseek
+.. doxygenfunction:: frogfs_ftell
+.. doxygenfunction:: frogfs_faccess
 
 Structures
 ^^^^^^^^^^
 
-.. doxygenstruct:: espfs_stat_t
+.. doxygenstruct:: frogfs_stat_t
     :members:
 
 Type Definitions
 ^^^^^^^^^^^^^^^^
 
-.. doxygentypedef:: espfs_file_t
+.. doxygentypedef:: frogfs_file_t
 
 Enumerations
 ^^^^^^^^^^^^
 
-.. doxygenenum:: espfs_stat_type_t
-.. doxygenenum:: espfs_flags_t
-.. doxygenenum:: espfs_compression_type_t
+.. doxygenenum:: frogfs_stat_type_t
+.. doxygenenum:: frogfs_flags_t
+.. doxygenenum:: frogfs_compression_type_t

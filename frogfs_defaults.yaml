@@ -22,6 +22,9 @@ preprocessors:
         npm: uglify-js
         command: npx uglifyjs
 
+    zeroify:
+        command: tools/zeroify.py
+
 compressors:
     gzip:
         level: 9
@@ -31,11 +34,12 @@ compressors:
         lookahead_sz2: 4
 
 filters:
-    'espfs.paths': discard
-    'espfs.yaml': discard
+    'romfs.paths': discard
+    'romfs.yaml': discard
     '*.css': uglifycss
     '*.html': html-minifier
     '*.js': [babel-convert, uglifyjs]
-    '*.woff': no-compression
-    '*.woff2': no-compression
+    '*.txt': zeroify
+    '*.woff': uncompressed
+    '*.woff2': uncompressed
     '*': [cache, heatshrink]

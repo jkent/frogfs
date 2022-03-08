@@ -1,37 +1,37 @@
-menu "libespfs"
+menu "FrogFS"
 
 choice
 	prompt "Log level"
-	default ESPFS_LOG_LEVEL_WARNING
+	default FROGFS_LOG_LEVEL_WARNING
 
-config ESPFS_LOG_LEVEL_NONE
+config FROGFS_LOG_LEVEL_NONE
 	bool "None"
 
-config ESPFS_LOG_LEVEL_ERROR
+config FROGFS_LOG_LEVEL_ERROR
 	bool "Error"
 
-config ESPFS_LOG_LEVEL_WARNING
+config FROGFS_LOG_LEVEL_WARNING
 	bool "Warning"
 
-config ESPFS_LOG_LEVEL_INFO
+config FROGFS_LOG_LEVEL_INFO
 	bool "Info"
 
-config ESPFS_LOG_LEVEL_DEBUG
+config FROGFS_LOG_LEVEL_DEBUG
 	bool "Debug"
 
-config ESPFS_LOG_LEVEL_VERBOSE
+config FROGFS_LOG_LEVEL_VERBOSE
 	bool "Verbose"
 
 endchoice # "Log level"
 
-config ESPFS_MAX_PARTITIONS
+config FROGFS_MAX_PARTITIONS
 	int "Maximum Number of Partitions"
 	default 1
 	range 1 10
 	help
 		Define maximum number of partitions that can be mounted.
 
-config ESPFS_USE_HEATSHRINK
+config FROGFS_USE_HEATSHRINK
 	bool "Use heatshrink decompressor"
 	default y
 

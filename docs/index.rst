@@ -1,5 +1,5 @@
-libespfs Documentation
-======================
+FrogFS Documentation
+====================
 
 .. toctree::
    :maxdepth: 2

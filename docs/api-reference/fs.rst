@@ -1,23 +1,23 @@
 Filesystems
 ===========
 
-`libespfs/espfs.h`
+`frogfs/frogfs.h`
 
 Functions
 ^^^^^^^^^
 
-.. doxygenfunction:: espfs_init
-.. doxygenfunction:: espfs_deinit
-.. doxygenfunction:: espfs_get_path
-.. doxygenfunction:: espfs_stat
+.. doxygenfunction:: frogfs_init
+.. doxygenfunction:: frogfs_deinit
+.. doxygenfunction:: frogfs_get_path
+.. doxygenfunction:: frogfs_stat
 
 Structures
 ^^^^^^^^^^
 
-.. doxygenstruct:: espfs_config_t
+.. doxygenstruct:: frogfs_config_t
     :members:
 
 Type Definitions
 ^^^^^^^^^^^^^^^^
 
-.. doxygentypedef:: espfs_fs_t
+.. doxygentypedef:: frogfs_fs_t

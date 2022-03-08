@@ -5,41 +5,47 @@ import os
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('INFILE')
-    parser.add_argument('OUTPUT')
+    parser.add_argument('src_bin', metavar='SRC', help='source binary data')
+    parser.add_argument('dst_out', metavar='DST', help='destination c source')
     args = parser.parse_args()
 
-    with open(args.INFILE, 'rb') as f:
-        data = f.read()
+    with open(args.src_bin, 'rb') as f:
+        in_data = f.read()
 
     transtab = str.maketrans('-.', '__')
-    varname = os.path.basename(args.INFILE).translate(transtab)
+    varname = os.path.basename(args.src_bin).translate(transtab)
 
-    source = '#include <stddef.h>\n#include <stdint.h>\n\nconst __attribute__((aligned(4))) uint8_t %s[] = {\n' % varname
+    out_data = ''
 
-    data_len = len(data)
+    data_len = len(in_data)
     n = 0
     while n < data_len:
-        source += '  '
+        out_data += '  '
         for i in range(12):
-            source += '0x%02X' % data[n]
+            out_data += '0x%02X' % in_data[n]
             n += 1
             if n == data_len:
                 break
             elif i == 11:
-                source += ','
+                out_data += ','
             else:
-                source += ', '
+                out_data += ', '
 
-        source += '\n'
+        out_data += '\n'
         if n >= data_len:
             break
-    source += '};\n'
 
-    source += 'const size_t %s_len = %s;\n' % (varname, data_len)
+    source_code = \
+f'''#include <stddef.h>
+#include <stdint.h>
 
-    with open(args.OUTPUT, 'wb') as f:
-        f.write(source.encode())
+const size_t {varname}_len = {data_len};
+const __attribute__((aligned(4))) uint8_t {varname}[] = {{
+{out_data}}};
+'''
+
+    with open(args.dst_out, 'w') as f:
+        f.write(source_code)
 
 if __name__ == '__main__':
     main()
