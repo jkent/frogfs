@@ -11,7 +11,7 @@
  * \brief Magic number used in the frogfs file header
  */
 #define FROGFS_MAGIC 0x676F7246 /** Frog */
-#define FROGFS_VERSION_MAJOR 0
+#define FROGFS_VERSION_MAJOR 1
 #define FROGFS_VERSION_MINOR 0
 
 typedef struct frogfs_fs_header_t frogfs_fs_header_t;

@@ -7,9 +7,6 @@ set(frogfs_SRC
 
 set(frogfs_INC
     ${frogfs_DIR}/include
-)
-
-set(frogfs_PRIV_INC
     ${frogfs_DIR}/third-party/heatshrink
 )
 
@@ -19,4 +16,8 @@ set(frogfs_IDF_SRC
 
 set(frogfs_IDF_PRIV_REQ
    spi_flash
+)
+
+set(frogfs_ehttpd_SRC
+    ${frogfs_DIR}/src/route.c
 )

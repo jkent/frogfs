@@ -16,8 +16,8 @@ from sortedcontainers import SortedDict
 
 frogfs_fs_header_t = Struct('<IBBHIHH')
 # magic, len, version_major, version_minor, binary_len, num_objects, reserved
-FROGFS_MAGIC = 0x676F7246
-FROGFS_VERSION_MAJOR = 0
+FROGFS_MAGIC = 0x676F7246 # Frog
+FROGFS_VERSION_MAJOR = 1
 FROGFS_VERSION_MINOR = 0
 
 frogfs_hashtable_entry_t = Struct('<II')
@@ -44,10 +44,10 @@ frogfs_heatshrink_header_t = Struct('<BBH')
 frogfs_crc32_footer_t = Struct('<I')
 # crc32
 
-def hash_path(path):
+def djb2_hash(s):
     hash = 5381
-    for c in path.encode('utf8'):
-        hash = ((hash << 8) + hash + c) & 0xFFFFFFFF
+    for c in s.encode('utf8'):
+        hash = ((hash << 5) + hash ^ c) & 0xFFFFFFFF
     return hash
 
 def load_state(path):
@@ -58,7 +58,7 @@ def load_state(path):
         reader = csv.reader(f, quoting=csv.QUOTE_NONNUMERIC)
         for data in reader:
             path, type, _, flags, _, compressor = data
-            hash = hash_path(path)
+            hash = djb2_hash(path)
             flags = () if not flags else tuple(flags.split(','))
             if 'discard' in flags:
                 continue

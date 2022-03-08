@@ -8,7 +8,6 @@
 #include "frogfs/vfs.h"
 
 #include <esp_err.h>
-#include <esp_log.h>
 #include <esp_vfs.h>
 
 #include <dirent.h>
@@ -626,7 +625,7 @@ esp_err_t esp_vfs_frogfs_register(const esp_vfs_frogfs_conf_t *conf)
     vfs_frogfs_t *vfs_frogfs = calloc(1, sizeof(vfs_frogfs_t) +
             (sizeof(vfs_frogfs_file_t *) * conf->max_files));
     if (vfs_frogfs == NULL) {
-        FROGFS_LOGE(__func__, "vfs_frogfs could not be alloc'd");
+        LOGE(__func__, "vfs_frogfs could not be alloc'd");
         return ESP_ERR_NO_MEM;
     }
 

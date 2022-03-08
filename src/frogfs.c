@@ -34,12 +34,12 @@ frogfs_fs_t *frogfs_init(frogfs_config_t *conf)
 {
     frogfs_fs_t *fs = malloc(sizeof(frogfs_fs_t));
     if (fs == NULL) {
-        FROGFS_LOGE(__func__, "malloc failed");
+        LOGE(__func__, "malloc failed");
         return NULL;
     }
     memset(fs, 0, sizeof(frogfs_fs_t));
 
-    FROGFS_LOGV(__func__, "%p", fs);
+    LOGV(__func__, "%p", fs);
 
     fs->header = (frogfs_fs_header_t *)conf->addr;
     if (fs->header == NULL) {
@@ -51,29 +51,29 @@ frogfs_fs_t *frogfs_init(frogfs_config_t *conf)
                 ESP_PARTITION_TYPE_DATA, subtype, conf->part_label);
 
         if (partition == NULL) {
-            FROGFS_LOGE(__func__, "unable to find frogfs partition");
+            LOGE(__func__, "unable to find frogfs partition");
             goto err_out;
         }
 
         if (esp_partition_mmap(partition, 0, partition->size,
                 SPI_FLASH_MMAP_DATA, (const void **)&fs->header,
                 &fs->mmap_handle) != ESP_OK) {
-            FROGFS_LOGE(__func__, "mmap failed");
+            LOGE(__func__, "mmap failed");
             goto err_out;
         }
 #else
-        FROGFS_LOGE(__func__, "flash mmap not enabled and addr is NULL");
+        LOGE(__func__, "flash mmap not enabled and addr is NULL");
         goto err_out;
 #endif
     }
 
     if (fs->header->magic != FROGFS_MAGIC) {
-        FROGFS_LOGE(__func__, "magic not found");
+        LOGE(__func__, "magic not found");
         goto err_out;
     }
 
     if (fs->header->version_major != FROGFS_VERSION_MAJOR) {
-        FROGFS_LOGE(__func__, "frogfs version %d.%d not supported",
+        LOGE(__func__, "frogfs version %d.%d not supported",
                 fs->header->version_major, fs->header->version_minor);
         goto err_out;
     }
@@ -91,7 +91,7 @@ err_out:
 
 void frogfs_deinit(frogfs_fs_t *fs)
 {
-    FROGFS_LOGV(__func__, "%p", fs);
+    LOGV(__func__, "%p", fs);
 
 #if defined(ESP_PLATFORM)
     if (fs->mmap_handle) {
@@ -115,15 +115,13 @@ const char *frogfs_get_path(frogfs_fs_t *fs, uint16_t index)
     return (const char *) object + object->len;
 }
 
-static uint32_t hash_path(const char *path)
+static uint32_t djb2_hash(const char *s)
 {
-    uint32_t hash = 5381;
-    const uint8_t *p = (uint8_t *)path;
+    unsigned long hash = 5381;
 
-    while (*p) {
-        /* hash = hash * 257 + *p */
-        hash = (hash << 8) + hash + *p;
-        p++;
+    while (*s) {
+        /* hash = hash * 33 ^ c */
+        hash = ((hash << 5) + hash) ^ *s++;
     }
 
     return hash;
@@ -136,10 +134,10 @@ static const void *find_object(frogfs_fs_t *fs, const char *path)
     while (*path == '/') {
         path++;
     }
-    FROGFS_LOGV(__func__, "%s", path);
+    LOGV(__func__, "%s", path);
 
-    uint32_t hash = hash_path(path);
-    FROGFS_LOGV(__func__, "hash %08x", hash);
+    uint32_t hash = djb2_hash(path);
+    LOGV(__func__, "hash %08x", hash);
 
     int first = 0;
     int last = fs->header->num_objects - 1;
@@ -159,19 +157,19 @@ static const void *find_object(frogfs_fs_t *fs, const char *path)
     }
 
     if (first > last) {
-        FROGFS_LOGV(__func__, "no match");
+        LOGV(__func__, "no match");
         return NULL;
     }
 
     /* be optimistic and test the first match */
     frogfs_object_header_t *object = (void *) fs->header + entry->offset;
     if (strcmp(path, (char *) object + object->len) == 0) {
-        FROGFS_LOGV(__func__, "object %d", middle);
+        LOGV(__func__, "object %d", middle);
         return object;
     }
 
     /* hash collision, move entry to the first match */
-    FROGFS_LOGV(__func__, "hash collision");
+    LOGV(__func__, "hash collision");
     int skip = middle;
     while (middle > 0) {
         entry = fs->hashtable + middle;
@@ -186,7 +184,7 @@ static const void *find_object(frogfs_fs_t *fs, const char *path)
         if (middle != skip) {
             object = (void *) fs->header + entry->offset;
             if (strcmp(path, (const char *) object + object->len) == 0) {
-                FROGFS_LOGV(__func__, "object %d", middle);
+                LOGV(__func__, "object %d", middle);
                 return object;
             }
         }
@@ -194,7 +192,7 @@ static const void *find_object(frogfs_fs_t *fs, const char *path)
         middle++;
     } while ((middle < fs->header->num_objects) && (entry->hash == hash));
 
-    FROGFS_LOGW(__func__, "unable to find object");
+    LOGW(__func__, "unable to find object");
     return NULL;
 }
 
@@ -204,7 +202,7 @@ bool frogfs_stat(frogfs_fs_t *fs, const char *path, frogfs_stat_t *stat)
 
     const frogfs_object_header_t *object = find_object(fs, path);
     if (object == NULL) {
-        FROGFS_LOGD(__func__, "object not found: %s", path);
+        LOGD(__func__, "object not found: %s", path);
         return false;
     }
 
@@ -228,7 +226,7 @@ frogfs_file_t *frogfs_fopen(frogfs_fs_t *fs, const char *path)
 
     const frogfs_object_header_t *object = find_object(fs, path);
     if ((object == NULL) || (object->type != FROGFS_TYPE_FILE)) {
-        FROGFS_LOGD(__func__, "file not found: %s", path);
+        LOGD(__func__, "file not found: %s", path);
         return NULL;
     }
 
@@ -236,12 +234,12 @@ frogfs_file_t *frogfs_fopen(frogfs_fs_t *fs, const char *path)
 
     frogfs_file_t *f = malloc(sizeof(frogfs_file_t));
     if (f == NULL) {
-        FROGFS_LOGE(__func__, "malloc failed");
+        LOGE(__func__, "malloc failed");
         goto err_out;
     }
     memset(f, 0, sizeof(frogfs_file_t));
 
-    FROGFS_LOGV(__func__, "%p", f);
+    LOGV(__func__, "%p", f);
 
     f->fs = fs;
     f->fh = fh;
@@ -257,7 +255,7 @@ frogfs_file_t *frogfs_fopen(frogfs_fs_t *fs, const char *path)
     } else
 #endif
     {
-        FROGFS_LOGE(__func__, "unrecognized compression type %d",
+        LOGE(__func__, "unrecognized compression type %d",
                 fh->compression);
         goto err_out;
     }
@@ -277,13 +275,13 @@ void frogfs_fclose(frogfs_file_t *f)
         return;
     }
 
-    FROGFS_LOGV(__func__, "%p", f);
+    LOGV(__func__, "%p", f);
 
 #if defined(CONFIG_FROGFS_USE_HEATSHRINK)
     if (f->fh->compression == FROGFS_COMPRESSION_HEATSHRINK) {
         heatshrink_decoder *hsd = f->user;
         if (hsd != NULL) {
-            FROGFS_LOGV(__func__, "heatshrink_decoder_free");
+            LOGV(__func__, "heatshrink_decoder_free");
             heatshrink_decoder_free(hsd);
         }
     }
@@ -333,11 +331,11 @@ ssize_t frogfs_fread(frogfs_file_t *f, void *buf, size_t len)
         if (hsd == NULL) {
             frogfs_heatshrink_header_t *hsh = (void *) &f->fh->object +
                     f->fh->object.len + f->fh->object.path_len;
-            FROGFS_LOGV(__func__, "heatshrink_decoder_alloc");
+            LOGV(__func__, "heatshrink_decoder_alloc");
             hsd = heatshrink_decoder_alloc(16, hsh->window_sz2,
                     hsh->lookahead_sz2);
             if (hsd == NULL) {
-                FROGFS_LOGE(__func__, "heatshrink_decoder_alloc");
+                LOGE(__func__, "heatshrink_decoder_alloc");
                 return -1;
             }
 
@@ -354,7 +352,7 @@ ssize_t frogfs_fread(frogfs_file_t *f, void *buf, size_t len)
                 HSD_sink_res res = heatshrink_decoder_sink(hsd, f->raw_ptr,
                         (remain > 16) ? 16 : remain, &rlen);
                 if (res < 0) {
-                    FROGFS_LOGE(__func__, "heatshrink_decoder_sink");
+                    LOGE(__func__, "heatshrink_decoder_sink");
                     return -1;
                 }
                 f->raw_ptr += rlen;
@@ -363,7 +361,7 @@ ssize_t frogfs_fread(frogfs_file_t *f, void *buf, size_t len)
             HSD_poll_res res = heatshrink_decoder_poll(hsd, (uint8_t *) buf,
                     len - decoded, &rlen);
             if (res < 0) {
-                FROGFS_LOGE(__func__, "heatshrink_decoder_poll");
+                LOGE(__func__, "heatshrink_decoder_poll");
                 return -1;
             }
             f->file_pos += rlen;
@@ -374,10 +372,10 @@ ssize_t frogfs_fread(frogfs_file_t *f, void *buf, size_t len)
                 if (f->file_pos == f->fh->file_len) {
                     HSD_finish_res res = heatshrink_decoder_finish(hsd);
                     if (res < 0) {
-                        FROGFS_LOGE(__func__, "heatshrink_decoder_finish");
+                        LOGE(__func__, "heatshrink_decoder_finish");
                         return -1;
                     }
-                    FROGFS_LOGV(__func__, "heatshrink_decoder_finish");
+                    LOGV(__func__, "heatshrink_decoder_finish");
                 }
                 return decoded;
             }
@@ -448,7 +446,7 @@ ssize_t frogfs_fseek(frogfs_file_t *f, long offset, int mode)
 
         if (new_pos < f->file_pos) {
             if (hsd != NULL) {
-                FROGFS_LOGV(__func__, "heatshrink_decoder_reset");
+                LOGV(__func__, "heatshrink_decoder_reset");
                 heatshrink_decoder_reset(hsd);
             }
             f->file_pos = 0;

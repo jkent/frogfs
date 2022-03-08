@@ -1,4 +1,4 @@
-include(${CMAKE_CURRENT_LIST_DIR}/files.cmake)
+set(frogfs_DIR ${CMAKE_CURRENT_LIST_DIR}/..)
 
 if(ESP_PLATFORM)
     set(PROJECT_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/build/esp-idf)
