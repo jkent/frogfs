@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "libespfs/espfs.h"
+#include "frogfs/espfs.h"
 
 int main(int argc, char *argv[])
 {

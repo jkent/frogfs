@@ -5,9 +5,9 @@ designed for embedded use, including, but not limited to
 [ESP-IDF](https://github.com/espressif/esp-idf) and
 [ESP8266_RTOS_SDK](https://github.com/espressif/ESP8266_RTOS_SDK). There is
 also [a cross-platform example](https://github.com/jkent/esphttpd-example)
-available. It originally was written to be used with libesphttpd,
-but has been separated to allow other uses. There is a simple test Linux
-program in `tools/test` directory to read files from a FrogFS image.
+available. It originally was written to be used with libesphttpd and Clockwise
+HTTPd, but has been separated to allow other uses. There is a simple test
+Linux program in `tools/test` directory to read files from a FrogFS image.
 
 
 ## How it works

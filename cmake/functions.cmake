@@ -11,7 +11,6 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
     add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/CMakeFiles/venv.stamp ${PROJECT_BINARY_DIR}/CMakeFiles/venv
         COMMAND ${Python3_EXECUTABLE} -m venv ${PROJECT_BINARY_DIR}/CMakeFiles/venv
         COMMAND ${CMAKE_COMMAND} -E touch ${PROJECT_BINARY_DIR}/CMakeFiles/venv.stamp
-        BYPRODUCTS ${PROJECT_BINARY_DIR}/CMakeFiles/venv
         COMMENT "Initalizing Python virtualenv"
     )
 

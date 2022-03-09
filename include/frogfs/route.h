@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#include "libesphttpd/httpd.h"
+#include "cwhttpd/httpd.h"
 
 
 /*************************
@@ -18,17 +18,17 @@ extern "C" {
 /**
  * \brief Espfs GET route handler
  */
-ehttpd_status_t ehttpd_route_frogfs_get(ehttpd_conn_t *conn);
+cwhttpd_status_t frogfs_route_get(cwhttpd_conn_t *conn);
 
 /**
  * \brief Espfs template route handler
  */
-ehttpd_status_t ehttpd_route_frogfs_tpl(ehttpd_conn_t *conn);
+cwhttpd_status_t frogfs_route_tpl(cwhttpd_conn_t *conn);
 
 /**
  * \brief Espfs index route handler
  */
-ehttpd_status_t ehttpd_route_frogfs_index(ehttpd_conn_t *conn);
+cwhttpd_status_t frogfs_route_index(cwhttpd_conn_t *conn);
 
 #ifdef __cplusplus
 } /* extern "C" */

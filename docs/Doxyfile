@@ -22,7 +22,8 @@ PROJECT_NAME = "FrogFS Programming Guide"
 
 INPUT = \
     ../include/frogfs/frogfs.h \
-    ../include/frogfs/vfs.h
+    ../include/frogfs/route.h \
+    ../include/frogfs/vfs.h \
 
 ## Get warnings for functions that have no documentation for their parameters or return value
 ##

@@ -5,8 +5,8 @@
 #include "frogfs/frogfs.h"
 #include "frogfs/route.h"
 #include "log.h"
-#include "libesphttpd/route.h"
-#include "libesphttpd/httpd.h"
+#include "cwhttpd/route.h"
+#include "cwhttpd/httpd.h"
 
 #include <string.h>
 #include <stddef.h>
@@ -19,7 +19,7 @@
 #define TRY(X) ({ \
     ssize_t n = X; \
     if (n < 0) { \
-        r = EHTTPD_STATUS_FAIL; \
+        r = CWHTTPD_STATUS_FAIL; \
         goto cleanup; \
     } \
     n; \
@@ -27,12 +27,12 @@
 
 #define FILE_CHUNK_LEN (1024)
 
-static ehttpd_status_t get_filepath(ehttpd_conn_t *conn, char *path,
+static cwhttpd_status_t get_filepath(cwhttpd_conn_t *conn, char *path,
         size_t len, frogfs_stat_t *s, const char *index)
 {
     size_t out_len = 0;
     const char *url = conn->request.url;
-    const ehttpd_route_t *route = conn->route;
+    const cwhttpd_route_t *route = conn->route;
     const char *rpath = route->path;
 
     while (*url && *rpath == *url) {
@@ -66,16 +66,16 @@ static ehttpd_status_t get_filepath(ehttpd_conn_t *conn, char *path,
     }
 
     if (!frogfs_stat(conn->inst->frogfs, path, s)) {
-        return EHTTPD_STATUS_NOTFOUND;
+        return CWHTTPD_STATUS_NOTFOUND;
     }
 
     if ((index == NULL) && (s->type == FROGFS_TYPE_DIR)) {
         out_len += strlcpy(path + out_len, "/", len - out_len);
-        return EHTTPD_STATUS_OK;
+        return CWHTTPD_STATUS_OK;
     }
 
     if (s->type == FROGFS_TYPE_FILE) {
-        return EHTTPD_STATUS_OK;
+        return CWHTTPD_STATUS_OK;
     }
 
     if (s->type == FROGFS_TYPE_DIR) {
@@ -83,121 +83,121 @@ static ehttpd_status_t get_filepath(ehttpd_conn_t *conn, char *path,
         char *p = path + out_len;
         out_len += strlcpy(path + out_len, index, len - out_len);
         if (!frogfs_stat(conn->inst->frogfs, path, s)) {
-            return EHTTPD_STATUS_NOTFOUND;
+            return CWHTTPD_STATUS_NOTFOUND;
         }
         if (s->type == FROGFS_TYPE_FILE) {
             *p = '\0';
-            ehttpd_redirect(conn, path);
-            return EHTTPD_STATUS_DONE;
+            cwhttpd_redirect(conn, path);
+            return CWHTTPD_STATUS_DONE;
         }
     }
 
-    return EHTTPD_STATUS_NOTFOUND;
+    return CWHTTPD_STATUS_NOTFOUND;
 }
 
-ehttpd_status_t ehttpd_route_frogfs_get(ehttpd_conn_t *conn)
+cwhttpd_status_t frogfs_route_get(cwhttpd_conn_t *conn)
 {
-    ehttpd_status_t r = EHTTPD_STATUS_DONE;
+    cwhttpd_status_t r = CWHTTPD_STATUS_DONE;
 
     /* Only process GET requests, otherwise fallthrough */
-    if (conn->request.method != EHTTPD_METHOD_GET) {
-        return EHTTPD_STATUS_NOTFOUND;
+    if (conn->request.method != CWHTTPD_METHOD_GET) {
+        return CWHTTPD_STATUS_NOTFOUND;
     }
 
     /* We can use buf here because its not needed until reading data */
     char buf[FILE_CHUNK_LEN];
     frogfs_stat_t st;
-    ehttpd_status_t status = get_filepath(conn, buf, sizeof(buf), &st,
+    cwhttpd_status_t status = get_filepath(conn, buf, sizeof(buf), &st,
             "index.html");
-    if (status != EHTTPD_STATUS_OK) {
+    if (status != CWHTTPD_STATUS_OK) {
         return status;
     }
 
     frogfs_file_t *f = frogfs_fopen(conn->inst->frogfs, buf);
     if (f == NULL) {
-        return EHTTPD_STATUS_NOTFOUND;
+        return CWHTTPD_STATUS_NOTFOUND;
     }
 
-    const char *mimetype = ehttpd_get_mimetype(buf);
+    const char *mimetype = cwhttpd_get_mimetype(buf);
 
     bool gzip_encoding = (st.flags & FROGFS_FLAG_GZIP);
     if (gzip_encoding) {
         /* Check the request Accept-Encoding header for gzip. Return a 404
          * response if not present */
-        const char *header = ehttpd_get_header(conn, "Accept-Encoding");
+        const char *header = cwhttpd_get_header(conn, "Accept-Encoding");
         if (header && strstr(header, "gzip") == NULL) {
             LOGW(__func__, "client does not accept gzip!");
             frogfs_fclose(f);
-            TRY(ehttpd_response(conn, 404));
-            TRY(ehttpd_send_header(conn, "Content-Type", "text/plain"));
-            TRY(ehttpd_send(conn, "only gzip file available", -1));
-            return EHTTPD_STATUS_DONE;
+            TRY(cwhttpd_response(conn, 404));
+            TRY(cwhttpd_send_header(conn, "Content-Type", "text/plain"));
+            TRY(cwhttpd_send(conn, "only gzip file available", -1));
+            return CWHTTPD_STATUS_DONE;
         }
     }
 
-    ehttpd_set_chunked(conn, false);
-    TRY(ehttpd_response(conn, 200));
+    cwhttpd_set_chunked(conn, false);
+    TRY(cwhttpd_response(conn, 200));
     if (gzip_encoding) {
-        TRY(ehttpd_send_header(conn, "Content-Encoding", "gzip"));
+        TRY(cwhttpd_send_header(conn, "Content-Encoding", "gzip"));
     }
     if (!(conn->priv.flags & HFL_SEND_CHUNKED)) {
         snprintf(buf, sizeof(buf), "%d", st.size);
-        TRY(ehttpd_send_header(conn, "Content-Length", buf));
+        TRY(cwhttpd_send_header(conn, "Content-Length", buf));
     }
     if (mimetype) {
-        TRY(ehttpd_send_header(conn, "Content-Type", mimetype));
+        TRY(cwhttpd_send_header(conn, "Content-Type", mimetype));
     }
     if (st.flags & FROGFS_FLAG_CACHE) {
-        TRY(ehttpd_send_cache_header(conn, NULL));
+        TRY(cwhttpd_send_cache_header(conn, NULL));
     }
 
     ssize_t len;
-    TRY(ehttpd_chunk_start(conn, st.size));
+    TRY(cwhttpd_chunk_start(conn, st.size));
     while ((len = frogfs_fread(f, buf, sizeof(buf))) > 0) {
-        TRY(ehttpd_send(conn, buf, len));
+        TRY(cwhttpd_send(conn, buf, len));
     }
-    TRY(ehttpd_chunk_end(conn));
+    TRY(cwhttpd_chunk_end(conn));
 
 cleanup:
     frogfs_fclose(f);
     return r;
 }
 
-ehttpd_status_t ehttpd_route_frogfs_tpl(ehttpd_conn_t *conn)
+cwhttpd_status_t frogfs_route_tpl(cwhttpd_conn_t *conn)
 {
-    ehttpd_status_t r = EHTTPD_STATUS_DONE;
+    cwhttpd_status_t r = CWHTTPD_STATUS_DONE;
 
     /* Only process GET requests, otherwise fallthrough */
-    if (conn->request.method != EHTTPD_METHOD_GET) {
-        return EHTTPD_STATUS_NOTFOUND;
+    if (conn->request.method != CWHTTPD_METHOD_GET) {
+        return CWHTTPD_STATUS_NOTFOUND;
     }
 
     /* We can use buf here because its not needed until reading data */
     char buf[FILE_CHUNK_LEN];
     frogfs_stat_t st;
     if (!get_filepath(conn, buf, sizeof(buf), &st, "index.tpl")) {
-        return EHTTPD_STATUS_NOTFOUND;
+        return CWHTTPD_STATUS_NOTFOUND;
     }
 
     if (st.flags & FROGFS_FLAG_GZIP) {
         LOGE(__func__, "template has gzip encoding");
-        return EHTTPD_STATUS_NOTFOUND;
+        return CWHTTPD_STATUS_NOTFOUND;
     }
 
-    const char *mimetype = ehttpd_get_mimetype(buf);
+    const char *mimetype = cwhttpd_get_mimetype(buf);
 
     frogfs_file_t *f = frogfs_fopen(conn->inst->frogfs, buf);
     if (f == NULL) {
-        return EHTTPD_STATUS_NOTFOUND;
+        return CWHTTPD_STATUS_NOTFOUND;
     }
 
-    ehttpd_response(conn, 200);
+    cwhttpd_response(conn, 200);
     if (mimetype) {
-        ehttpd_send_header(conn, "Content-Type", mimetype);
+        cwhttpd_send_header(conn, "Content-Type", mimetype);
     }
-    ehttpd_send_cache_header(conn, mimetype);
+    cwhttpd_send_cache_header(conn, mimetype);
 
-    ehttpd_tpl_cb_t cb = conn->route->argv[1];
+    cwhttpd_tpl_cb_t cb = conn->route->argv[1];
     void *user = NULL;
     size_t len;
     int token_pos = -1;
@@ -213,7 +213,7 @@ ehttpd_status_t ehttpd_route_frogfs_tpl(ehttpd_conn_t *conn)
                     if (buf[i] == '%') {
                         /* send collected raw data */
                         if (raw_count != 0) {
-                            TRY(ehttpd_send(conn, p, raw_count));
+                            TRY(cwhttpd_send(conn, p, raw_count));
                             raw_count = 0;
                         }
                         /* start collecting token chars */
@@ -226,7 +226,7 @@ ehttpd_status_t ehttpd_route_frogfs_tpl(ehttpd_conn_t *conn)
                     if (buf[i] == '%') {
                         if (token_pos == 0) {
                             /* this is an escape sequence */
-                            TRY(ehttpd_send(conn, "%", 1));
+                            TRY(cwhttpd_send(conn, "%", 1));
                         } else {
                             /* this is a token */
                             token[token_pos] = '\0'; /* zero terminate */
@@ -247,7 +247,7 @@ ehttpd_status_t ehttpd_route_frogfs_tpl(ehttpd_conn_t *conn)
 
         /* send remainder */
         if (raw_count != 0) {
-            TRY(ehttpd_send(conn, p, raw_count));
+            TRY(cwhttpd_send(conn, p, raw_count));
         }
     } while (len == FILE_CHUNK_LEN);
 
@@ -258,32 +258,32 @@ cleanup:
     return r;
 }
 
-ehttpd_status_t ehttpd_route_frogfs_index(ehttpd_conn_t *conn)
+cwhttpd_status_t frogfs_route_index(cwhttpd_conn_t *conn)
 {
-    ehttpd_status_t r = EHTTPD_STATUS_DONE;
+    cwhttpd_status_t r = CWHTTPD_STATUS_DONE;
 
     /* Only process GET requests, otherwise fallthrough */
-    if (conn->request.method != EHTTPD_METHOD_GET) {
-        return EHTTPD_STATUS_NOTFOUND;
+    if (conn->request.method != CWHTTPD_METHOD_GET) {
+        return CWHTTPD_STATUS_NOTFOUND;
     }
 
     char buf[FILE_CHUNK_LEN];
     frogfs_stat_t st;
-    ehttpd_status_t status = get_filepath(conn, buf, sizeof(buf), &st, NULL);
-    if (status != EHTTPD_STATUS_OK) {
+    cwhttpd_status_t status = get_filepath(conn, buf, sizeof(buf), &st, NULL);
+    if (status != CWHTTPD_STATUS_OK) {
         return status;
     }
 
     if (st.type != FROGFS_TYPE_DIR) {
-        return EHTTPD_STATUS_NOTFOUND;
+        return CWHTTPD_STATUS_NOTFOUND;
     }
 
     size_t len = strlen(conn->request.url);
     if (conn->request.url[len - 1] != '/') {
         len = strlcpy(buf, conn->request.url, sizeof(buf));
         len = strlcpy(buf + len, "/", sizeof(buf) - len);
-        ehttpd_redirect(conn, buf);
-        return EHTTPD_STATUS_DONE;
+        cwhttpd_redirect(conn, buf);
+        return CWHTTPD_STATUS_DONE;
     }
 
     const char *parent = frogfs_get_path(conn->inst->frogfs, st.index);
@@ -291,10 +291,10 @@ ehttpd_status_t ehttpd_route_frogfs_index(ehttpd_conn_t *conn)
     uint16_t current_index = start_index = st.index;
     bool files = false;
 
-    ehttpd_response(conn, 200);
-    ehttpd_send_header(conn, "Content-Type", "text/html");
+    cwhttpd_response(conn, 200);
+    cwhttpd_send_header(conn, "Content-Type", "text/html");
 
-    TRY(ehttpd_sendf(conn,
+    TRY(cwhttpd_sendf(conn,
             "<!DOCTYPE html>\n"
             "<html>\n"
             "<head>\n"
@@ -342,7 +342,7 @@ ehttpd_status_t ehttpd_route_frogfs_index(ehttpd_conn_t *conn)
                 current_index++;
                 continue;
             }
-            TRY(ehttpd_sendf(conn,
+            TRY(cwhttpd_sendf(conn,
                     "[DIR ]          <a href=\"%H/\">%H/</a>\n", path, path));
             current_index++;
         } else if (files && st.type == FROGFS_TYPE_FILE) {
@@ -354,14 +354,14 @@ ehttpd_status_t ehttpd_route_frogfs_index(ehttpd_conn_t *conn)
                 current_index++;
                 continue;
             }
-            TRY(ehttpd_sendf(conn, "[FILE] %-8d <a href=\"%H\">%H</a>\n",
+            TRY(cwhttpd_sendf(conn, "[FILE] %-8d <a href=\"%H\">%H</a>\n",
                     st.size, path, path));
             current_index++;
         }
         current_index++;
     } while (true);
 
-    TRY(ehttpd_send(conn, "</pre>\n</body>\n</html>\n", -1));
+    TRY(cwhttpd_send(conn, "</pre>\n</body>\n</html>\n", -1));
 
 cleanup:
     return r;

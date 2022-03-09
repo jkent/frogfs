@@ -18,6 +18,6 @@ set(frogfs_IDF_PRIV_REQ
    spi_flash
 )
 
-set(frogfs_ehttpd_SRC
+set(frogfs_cwhttpd_SRC
     ${frogfs_DIR}/src/route.c
 )
