@@ -130,6 +130,9 @@ def make_file_object(item, data):
     stats = f'{initial_data_len_str:<9s} -> {data_len_str:<9s} ({percent:.1f}%)'
     print(f'{item[0][0]:08x} {item[0][1]:<34s} file {stats}')
 
+    if flags & FROGFS_FLAG_GZIP:
+        initial_data_len = data_len
+
     path = item[0][1].encode('utf8') + b'\0'
     path = path.ljust((len(path) + 3) // 4 * 4, b'\0')
     header = frogfs_object_header_t.pack(FROGFS_TYPE_FILE,

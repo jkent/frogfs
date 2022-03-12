@@ -11,9 +11,6 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdlib.h>
-#if defined(UNIX)
-# include <bsd/string.h>
-#endif
 
 
 #define TRY(X) ({ \
@@ -41,25 +38,37 @@ static cwhttpd_status_t get_filepath(cwhttpd_conn_t *conn, char *path,
     }
 
     if (route->argc < 1) {
-        out_len = strlcpy(path, url, len);
-        if (path[out_len - 1] == '/') {
-            if (index == NULL) {
-                path[out_len - 1] = '\0';
-                out_len -= 1;
-            } else {
-                out_len += strlcpy(path + out_len, index, len - out_len);
-            }
-        }
-    } else {
-        out_len = strlcpy(path, route->argv[0], len);
-        if (path[out_len - 1] == '/') {
-            out_len += strlcpy(path + out_len, url, len - out_len);
+        if (len > 0) {
+            strncpy(path, url, len - 1);
+            path[len - 1] = '\0';
+            out_len = strlen(path);
             if (path[out_len - 1] == '/') {
                 if (index == NULL) {
                     path[out_len - 1] = '\0';
                     out_len -= 1;
-                } else {
-                    out_len += strlcpy(path + out_len, index, len - out_len);
+                } else if (len - out_len > 0) {
+                        strncpy(path + out_len, index, len - out_len - 1);
+                        path[len - out_len - 1] = '\0';
+                        out_len = strlen(path);
+                }
+            }
+        }
+    } else if (len > 0) {
+        strncpy(path, route->argv[0], len - 1);
+        path[len - 1] = '\0';
+        out_len = strlen(path);
+        if (path[out_len - 1] == '/' && len - out_len > 0) {
+            strncpy(path + out_len, url, len - out_len - 1);
+            path[len - out_len - 1] = '\0';
+            out_len = strlen(path);
+
+            if (path[out_len - 1] == '/') {
+                if (index == NULL) {
+                    path[out_len - 1] = '\0';
+                    out_len -= 1;
+                } else if (len - out_len > 0) {
+                    strncpy(path + out_len, index, len - out_len - 1);
+                    path[len - out_len - 1] = '\0';
                 }
             }
         }
@@ -69,8 +78,9 @@ static cwhttpd_status_t get_filepath(cwhttpd_conn_t *conn, char *path,
         return CWHTTPD_STATUS_NOTFOUND;
     }
 
-    if ((index == NULL) && (s->type == FROGFS_TYPE_DIR)) {
-        out_len += strlcpy(path + out_len, "/", len - out_len);
+    if ((index == NULL) && (s->type == FROGFS_TYPE_DIR) && len - out_len > 0) {
+        strncpy(path + out_len, "/", len - out_len - 1);
+        path[len - out_len - 1] = '\0';
         return CWHTTPD_STATUS_OK;
     }
 
@@ -78,17 +88,25 @@ static cwhttpd_status_t get_filepath(cwhttpd_conn_t *conn, char *path,
         return CWHTTPD_STATUS_OK;
     }
 
-    if (s->type == FROGFS_TYPE_DIR) {
-        out_len += strlcpy(path + out_len, "/", len - out_len);
-        char *p = path + out_len;
-        out_len += strlcpy(path + out_len, index, len - out_len);
-        if (!frogfs_stat(conn->inst->frogfs, path, s)) {
-            return CWHTTPD_STATUS_NOTFOUND;
-        }
-        if (s->type == FROGFS_TYPE_FILE) {
-            *p = '\0';
-            cwhttpd_redirect(conn, path);
-            return CWHTTPD_STATUS_DONE;
+    if (s->type == FROGFS_TYPE_DIR && len - out_len > 0) {
+        char *p;
+
+        strncpy(path + out_len, "/", len - out_len - 1);
+        path[len - out_len - 1] = '\0';
+        out_len = strlen(path);
+
+        p = path + out_len;
+        if (len - out_len > 0) {
+            strncpy(path + out_len, index, len - out_len - 1);
+            path[len - out_len - 1] = '\0';
+            if (!frogfs_stat(conn->inst->frogfs, path, s)) {
+                return CWHTTPD_STATUS_NOTFOUND;
+            }
+            if (s->type == FROGFS_TYPE_FILE) {
+                *p = '\0';
+                cwhttpd_redirect(conn, path);
+                return CWHTTPD_STATUS_DONE;
+            }
         }
     }
 
@@ -280,8 +298,12 @@ cwhttpd_status_t frogfs_route_index(cwhttpd_conn_t *conn)
 
     size_t len = strlen(conn->request.url);
     if (conn->request.url[len - 1] != '/') {
-        len = strlcpy(buf, conn->request.url, sizeof(buf));
-        len = strlcpy(buf + len, "/", sizeof(buf) - len);
+        strncpy(buf, conn->request.url, sizeof(buf) - 1);
+        buf[sizeof(buf) - 1] = '\0';
+        if (sizeof(buf) - len > 0) {
+            strncpy(buf + len, "/", sizeof(buf) - len - 1);
+            buf[sizeof(buf) - len - 1] = '\0';
+        }
         cwhttpd_redirect(conn, buf);
         return CWHTTPD_STATUS_DONE;
     }
