@@ -70,7 +70,7 @@ static esp_err_t frogfs_get_empty(int *index)
     return ESP_ERR_NOT_FOUND;
 }
 
-static void frogfs_get_overlay(vfs_frogfs *vfs, char *overlay_path, char *path,
+static void frogfs_get_overlay(vfs_frogfs_t *vfs, char *overlay_path, const char *path,
                                size_t len)
 {
     size_t out_len;
@@ -427,8 +427,8 @@ static int vfs_frogfs_readdir_r(void *ctx, DIR *pdir, struct dirent *entry,
     if (vfs_frogfs->flags & VFS_FROGFS_USE_OVERLAY) {
         if (!dir->overlay_dir) {
             char overlay_path[256];
-            frogfs_get_overlay(vfs_frogfs, overlay_path + len, dir->path,
-                               sizeof(overlay_path) - len);
+            frogfs_get_overlay(vfs_frogfs, overlay_path, dir->path,
+                               sizeof(overlay_path));
             dir->overlay_dir = opendir(overlay_path);
             if (dir->overlay_dir == NULL) {
                 *out_dirent = NULL;
@@ -624,12 +624,12 @@ esp_err_t esp_vfs_frogfs_register(const esp_vfs_frogfs_conf_t *conf)
     vfs_frogfs->max_files = conf->max_files;
     strncpy(vfs_frogfs->base_path, conf->base_path,
             sizeof(vfs_frogfs->base_path) - 1);
-    vfs_frogfw->base_path[sizeof(vfs_frogfs->base_path) - 1] = '\0';
+    vfs_frogfs->base_path[sizeof(vfs_frogfs->base_path) - 1] = '\0';
     if (conf->overlay_path) {
         vfs_frogfs->flags |= VFS_FROGFS_USE_OVERLAY;
         strncpy(vfs_frogfs->overlay_path, conf->overlay_path,
                 sizeof(vfs_frogfs->overlay_path));
-        vfs_frogfw->overlay_path[sizeof(vfs_frogfs->overlay_path) - 1] = '\0';
+        vfs_frogfs->overlay_path[sizeof(vfs_frogfs->overlay_path) - 1] = '\0';
     }
 
     esp_err_t err = esp_vfs_register(vfs_frogfs->base_path, &vfs, vfs_frogfs);
