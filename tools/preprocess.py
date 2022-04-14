@@ -251,6 +251,10 @@ def preprocess(path, preprocessors):
             command = config['preprocessors'][preprocessor]['command']
             if command[0].startswith('tools/'):
                 command[0] = os.path.join(script_dir, command[0][6:])
+            # These are implemented as `.cmd` files on Windows, which explicitly
+            # requires them to be run under `cmd /c`
+            if os.name == 'nt':
+                command = ["cmd", "/c"] + command
             process = subprocess.Popen(command, stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE, shell=True)
             data = process.communicate(input=data)[0]
