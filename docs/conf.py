@@ -15,8 +15,8 @@ import sys
 
 # -- Project information -----------------------------------------------------
 
-project = 'libespfs'
-copyright = '2021, libespfs contributors'
+project = 'FrogFS'
+copyright = '2022, FrogFS contributors'
 author = 'Jeff Kent <jeff@jkent.net>'
 
 # -- General configuration ------------------------------------------------
@@ -37,8 +37,8 @@ extensions = [
 # Doxygen regenerates files in 'xml/' directory every time,
 # but we copy files to 'xml_in/' only when they change, to speed up
 # incremental builds.
-breathe_projects = { 'libespfs': '_build/xml' }
-breathe_default_project = 'libespfs'
+breathe_projects = { 'FrogFS': '_build/xml' }
+breathe_default_project = 'FrogFS'
 breathe_domain_by_extension = {
     'h': 'c',
 }

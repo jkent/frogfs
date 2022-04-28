@@ -7,4 +7,5 @@ API Reference
 
    fs
    fh
+   route
    vfs

@@ -13,7 +13,7 @@
 # https://www.stack.nl/~dimitri/doxygen/manual/config.html
 
 
-PROJECT_NAME = "libespfs Programming Guide"
+PROJECT_NAME = "FrogFS Programming Guide"
 
 ## The 'INPUT' statement below is used as input by script 'gen-df-input.py'
 ## to automatically generate API reference list files heder_file.inc
@@ -21,12 +21,9 @@ PROJECT_NAME = "libespfs Programming Guide"
 ## and used to include in API reference documentation
 
 INPUT = \
-    ##
-    ## libespfs - API Reference
-    ##
-    ../include/libespfs/espfs.h \
-    ../include/libespfs/vfs.h \
-    ##
+    ../include/frogfs/frogfs.h \
+    ../include/frogfs/route.h \
+    ../include/frogfs/vfs.h \
 
 ## Get warnings for functions that have no documentation for their parameters or return value
 ##

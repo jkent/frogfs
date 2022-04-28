@@ -1,15 +1,15 @@
 VFS
 ===
 
-`libespfs/vfs.h`
+`frogfs/vfs.h`
 
 Functions
 ^^^^^^^^^
 
-.. doxygenfunction:: esp_vfs_espfs_register
+.. doxygenfunction:: esp_vfs_frogfs_register
 
 Structures
 ^^^^^^^^^^
 
-.. doxygenstruct:: esp_vfs_espfs_conf_t
+.. doxygenstruct:: esp_vfs_frogfs_conf_t
     :members:

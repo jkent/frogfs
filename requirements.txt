@@ -1,2 +1,4 @@
 heatshrink2>=0.6.0
 hiyapyco>=0.4.16
+MarkupSafe==0.23
+sortedcontainers>=2.4.0

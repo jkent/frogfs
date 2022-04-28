@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "libespfs/espfs_format.h"
+#include "frogfs/frogfs_format.h"
 
 #if defined(ESP_PLATFORM)
 # include <esp_spi_flash.h>
@@ -13,21 +13,21 @@
 #include <stdint.h>
 
 
-typedef struct espfs_fs_t espfs_fs_t;
-typedef struct espfs_file_t espfs_file_t;
+typedef struct frogfs_fs_t frogfs_fs_t;
+typedef struct frogfs_file_t frogfs_file_t;
 
-struct espfs_fs_t {
+struct frogfs_fs_t {
 #if defined(ESP_PLATFORM)
     spi_flash_mmap_handle_t mmap_handle;
 #endif
-    const espfs_fs_header_t *header;
-    const espfs_hashtable_entry_t *hashtable;
-    const espfs_sorttable_entry_t *sorttable;
+    const frogfs_fs_header_t *header;
+    const frogfs_hashtable_entry_t *hashtable;
+    const frogfs_sorttable_entry_t *sorttable;
 };
 
-struct espfs_file_t {
-    const espfs_fs_t *fs;
-    const espfs_file_header_t *fh;
+struct frogfs_file_t {
+    const frogfs_fs_t *fs;
+    const frogfs_file_header_t *fh;
     uint8_t *raw_start;
     uint8_t *raw_ptr;
     uint32_t raw_len;
