@@ -235,11 +235,11 @@ def preprocess(path, preprocessors):
 
     src_abs = os.path.join(args.src_dir, path)
     dst_abs = os.path.join(args.dst_dir, path)
-    if os.path.isdir(src_abs):
-        os.mkdir(dst_abs)
-    else:
-        os.makedirs(os.path.dirname(dst_abs), exist_ok=True)
 
+    # create necessary directories if missing
+    os.makedirs(os.path.dirname(dst_abs), exist_ok=True)
+
+    if os.path.isfile(src_abs):
         with open(src_abs, 'rb') as f:
             data = f.read()
 
