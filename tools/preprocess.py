@@ -106,6 +106,8 @@ def get_preprocessors(path):
     preprocessors = OrderedDict()
     for pattern, actions in config['filters'].items():
         if fnmatch(path, pattern):
+            if 'skip-preprocessing' in actions:
+                continue
             for action in actions:
                 enable = not action.startswith('no-')
                 if not enable:
@@ -120,8 +122,6 @@ def get_preprocessors(path):
                         except:
                             pass
                     preprocessors[action] = enable
-        if 'skip-preprocessing' in actions:
-            return ()
 
     return tuple(preprocessors)
 
