@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "frogfs/espfs.h"
+#include "frogfs/frogfs.h"
 
 int main(int argc, char *argv[])
 {
@@ -37,47 +37,47 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    espfs_config_t config = {
+    frogfs_config_t config = {
         .addr = mmap_addr,
     };
 
-    espfs_fs_t *fs = espfs_init(&config);
+    frogfs_fs_t *fs = frogfs_init(&config);
     if (fs == NULL) {
-        fputs("espfs_init failed\n", stderr);
+        fputs("frogfs_init failed\n", stderr);
         munmap(mmap_addr, sb.st_size);
         close(fd);
         return EXIT_FAILURE;
 
     }
 
-    espfs_stat_t stat;
-    if (espfs_stat(fs, argv[2], &stat)) {
-        if (stat.type == ESPFS_TYPE_FILE) {
+    frogfs_stat_t stat;
+    if (frogfs_stat(fs, argv[2], &stat)) {
+        if (stat.type == FROGFS_TYPE_FILE) {
             fprintf(stderr, "Object '%s' is a file.\n", argv[2]);
-            if (stat.compression == ESPFS_COMPRESSION_HEATSHRINK) {
+            if (stat.compression == FROGFS_COMPRESSION_HEATSHRINK) {
                 fprintf(stderr, "File is compressed with heatsrhink.\n");
-            } else if (stat.compression != ESPFS_COMPRESSION_NONE) {
+            } else if (stat.compression != FROGFS_COMPRESSION_NONE) {
                 fprintf(stderr, "File is compressed wth unknown.\n");
             }
-            if (stat.flags & ESPFS_FLAG_GZIP) {
+            if (stat.flags & FROGFS_FLAG_GZIP) {
                 fprintf(stderr, "File is gzip encapsulated.\n");
             }
             fprintf(stderr, "File is %d bytes.\n", stat.size);
-            espfs_file_t *f = espfs_fopen(fs, argv[2]);
+            frogfs_file_t *f = frogfs_fopen(fs, argv[2]);
             if (f == NULL) {
                 fprintf(stderr, "Error opening file.\n");
             } else {
                 char buf[16];
                 int bytes;
                 fputs("File contents:\n", stderr);
-                while ((bytes = espfs_fread(f, buf, sizeof(buf))) ==
+                while ((bytes = frogfs_fread(f, buf, sizeof(buf))) ==
                         sizeof(buf)) {
                     fwrite(buf, bytes, 1, stdout);
                 }
                 fflush(stdout);
-                espfs_fclose(f);
+                frogfs_fclose(f);
             }
-        } else if (stat.type == ESPFS_TYPE_DIR) {
+        } else if (stat.type == FROGFS_TYPE_DIR) {
             fprintf(stderr, "Object '%s' is a directory.\n", argv[2]);
         } else {
             fprintf(stderr, "Object '%s' is an unknown type.\n", argv[2]);
@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Object '%s' does not exist.\n", argv[2]);
     }
 
-    espfs_deinit(fs);
+    frogfs_deinit(fs);
     munmap(mmap_addr, sb.st_size);
     close(fd);
     return EXIT_SUCCESS;
