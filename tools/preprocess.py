@@ -217,8 +217,8 @@ def build_state(src_dir):
                 }
     return state
 
-def install_preprocessors():
-    global config, used_preprocessors
+def install_preprocessors(config, root_dir):
+    global used_preprocessors
 
     for name in used_preprocessors:
         preprocessor = config['preprocessors'][name]
@@ -227,7 +227,10 @@ def install_preprocessors():
             subprocess.check_call(install, shell=True)
         elif 'npm' in preprocessor:
             for npm in preprocessor['npm']:
-                if not os.path.exists(os.path.join('node_modules', npm)):
+                test_path = os.path.join(root_dir.replace('/', os.path.sep),
+                                         'node_modules',
+                                         npm.replace('/', os.path.sep))
+                if not os.path.exists(test_path):
                     subprocess.check_call(f'npm install {npm}', shell=True)
 
 def preprocess(path, preprocessors):
@@ -269,6 +272,7 @@ def main():
     parser.add_argument('src_dir', metavar='SRC', help='source directory')
     parser.add_argument('dst_dir', metavar='DST', help='destination directory')
     parser.add_argument('--config', help='user configuration')
+    parser.add_argument('--root', metavar='ROOT', help='build root directory')
     args = parser.parse_args()
 
     load_config(args.config)
@@ -276,7 +280,7 @@ def main():
     old_state = load_state(args.dst_dir)
     new_state = build_state(args.src_dir)
 
-    install_preprocessors()
+    install_preprocessors(config, args.root)
 
     old_paths = SortedSet(old_state.keys())
     new_paths = SortedSet(new_state.keys())

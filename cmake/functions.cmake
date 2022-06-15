@@ -35,7 +35,7 @@ function(target_add_frogfs target path)
 
     add_custom_target(frogfs_preprocess_${ARG_NAME}
         COMMAND ${CMAKE_COMMAND} -E make_directory ${output}
-        COMMAND ${Python3_VENV} ${frogfs_DIR}/tools/preprocess.py ${config_yaml} ${CMAKE_CURRENT_SOURCE_DIR}/${path} ${output}
+        COMMAND ${Python3_VENV} ${frogfs_DIR}/tools/preprocess.py ${config_yaml} --root ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${path} ${output}
         DEPENDS ${PROJECT_BINARY_DIR}/CMakeFiles/venv ${PROJECT_BINARY_DIR}/CMakeFiles/venv_requirements.stamp ${ARG_CONFIG}
         BYPRODUCTS ${PROJECT_BINARY_DIR}/CMakeFiles/node_modules ${output} ${output}/.state ${output}/.config
         WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/CMakeFiles
@@ -74,7 +74,7 @@ function(declare_frogfs_bin path)
 
     add_custom_target(frogfs_preprocess_${ARG_NAME}
         COMMAND ${CMAKE_COMMAND} -E make_directory ${output}
-        COMMAND ${Python3_VENV} ${frogfs_DIR}/tools/preprocess.py ${config_yaml} ${CMAKE_CURRENT_SOURCE_DIR}/${path} ${output}
+        COMMAND ${Python3_VENV} ${frogfs_DIR}/tools/preprocess.py ${config_yaml} --root ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${path} ${output}
         DEPENDS ${PROJECT_BINARY_DIR}/CMakeFiles/venv ${PROJECT_BINARY_DIR}/CMakeFiles/venv_requirements.stamp ${ARG_CONFIG}
         BYPRODUCTS ${PROJECT_BINARY_DIR}/CMakeFiles/node_modules ${output} ${output}/.state ${output}/.config
         WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/CMakeFiles
