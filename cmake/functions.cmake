@@ -11,6 +11,7 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
         set(Python3_VENV ${Python3_EXECUTABLE})
         add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/CMakeFiles/venv.stamp
             COMMAND ${CMAKE_COMMAND} -E touch ${PROJECT_BINARY_DIR}/CMakeFiles/venv.stamp
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/CMakeFiles/venv
             COMMENT "Initalizing Python virtualenv"
         )
     else()
@@ -26,6 +27,7 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
         COMMAND ${Python3_VENV} -mpip install -r ${frogfs_DIR}/requirements.txt --upgrade
         COMMAND ${CMAKE_COMMAND} -E touch ${PROJECT_BINARY_DIR}/CMakeFiles/venv_requirements.stamp
         DEPENDS ${PROJECT_BINARY_DIR}/CMakeFiles/venv.stamp ${frogfs_DIR}/requirements.txt
+        BYPRODUCTS ${PROJECT_BINARY_DIR}/CMakeFiles/venv
         COMMENT "Installing Python requirements"
     )
 endif()
