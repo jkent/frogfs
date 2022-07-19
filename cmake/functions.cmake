@@ -5,29 +5,22 @@ if(ESP_PLATFORM)
 endif()
 
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)
-    find_package(Python3 REQUIRED COMPONENTS Interpreter)
-    # venv is not available on ESP_IDF on Windows
+    idf_build_get_property(python PYTHON)
     if(CMAKE_HOST_WIN32)
-        set(Python3_VENV ${Python3_EXECUTABLE})
-        add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/CMakeFiles/venv.stamp
-            COMMAND ${CMAKE_COMMAND} -E touch ${PROJECT_BINARY_DIR}/CMakeFiles/venv.stamp
-            COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/CMakeFiles/venv
-            COMMENT "Initalizing Python virtualenv"
-        )
+        set(Python3_VENV ${PROJECT_BINARY_DIR}/CMakeFiles/venv/Scripts/python)
     else()
         set(Python3_VENV ${PROJECT_BINARY_DIR}/CMakeFiles/venv/bin/python)
-        add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/CMakeFiles/venv.stamp ${PROJECT_BINARY_DIR}/CMakeFiles/venv
-            COMMAND ${Python3_EXECUTABLE} -m venv ${PROJECT_BINARY_DIR}/CMakeFiles/venv
-            COMMAND ${CMAKE_COMMAND} -E touch ${PROJECT_BINARY_DIR}/CMakeFiles/venv.stamp
-            COMMENT "Initalizing Python virtualenv"
-        )
     endif(CMAKE_HOST_WIN32)
+    add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/CMakeFiles/venv.stamp ${PROJECT_BINARY_DIR}/CMakeFiles/venv
+        COMMAND ${python} -m venv ${PROJECT_BINARY_DIR}/CMakeFiles/venv
+        COMMAND ${CMAKE_COMMAND} -E touch ${PROJECT_BINARY_DIR}/CMakeFiles/venv.stamp
+        COMMENT "Initalizing Python virtualenv"
+    )
 
     add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/CMakeFiles/venv_requirements.stamp
         COMMAND ${Python3_VENV} -mpip install -r ${frogfs_DIR}/requirements.txt --upgrade
         COMMAND ${CMAKE_COMMAND} -E touch ${PROJECT_BINARY_DIR}/CMakeFiles/venv_requirements.stamp
         DEPENDS ${PROJECT_BINARY_DIR}/CMakeFiles/venv.stamp ${frogfs_DIR}/requirements.txt
-        BYPRODUCTS ${PROJECT_BINARY_DIR}/CMakeFiles/venv
         COMMENT "Installing Python requirements"
     )
 endif()
