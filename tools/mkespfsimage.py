@@ -214,6 +214,9 @@ def make_file_object(hash, path, data, attributes):
     stats = '%-9s -> %-9s (%.1f%%)' % (initial_len_str, data_len_str, percent)
     print('%08x %-34s file %s' % (hash, path, stats))
 
+    if flags & ESPFS_FLAG_GZIP:
+        file_len = data_len
+
     path = path.encode('utf8') + b'\0'
     path = path.ljust((len(path) + 3) // 4 * 4, b'\0')
     data = data.ljust((data_len + 3) // 4 * 4, b'\0')
