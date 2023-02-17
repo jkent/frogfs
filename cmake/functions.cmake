@@ -4,8 +4,9 @@ if(ESP_PLATFORM)
     set(PROJECT_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/build/esp-idf)
 endif()
 
-if(NOT CMAKE_BUILD_EARLY_EXPANSION)
-    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+if((NOT CMAKE_BUILD_EARLY_EXPANSION) AND (NOT CMAKE_NO_PIP_INSTALL))
     set(Python3_VENV ${PROJECT_BINARY_DIR}/CMakeFiles/venv/bin/python)
 
     add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/CMakeFiles/venv.stamp ${PROJECT_BINARY_DIR}/CMakeFiles/venv
@@ -19,6 +20,14 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
         COMMAND ${CMAKE_COMMAND} -E touch ${PROJECT_BINARY_DIR}/CMakeFiles/venv_requirements.stamp
         DEPENDS ${PROJECT_BINARY_DIR}/CMakeFiles/venv.stamp ${frogfs_DIR}/requirements.txt
         COMMENT "Installing Python requirements"
+    )
+elseif(CMAKE_NO_PIP_INSTALL)
+    set(Python3_VENV python3)
+
+    add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/CMakeFiles/venv ${PROJECT_BINARY_DIR}/CMakeFiles/venv_requirements.stamp
+        COMMAND ${CMAKE_COMMAND} -E touch ${PROJECT_BINARY_DIR}/CMakeFiles/venv
+        COMMAND ${CMAKE_COMMAND} -E touch ${PROJECT_BINARY_DIR}/CMakeFiles/venv_requirements.stamp
+        COMMENT "Fake fulfilling Python requirements"
     )
 endif()
 
