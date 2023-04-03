@@ -137,7 +137,7 @@ static const void *find_object(frogfs_fs_t *fs, const char *path)
     LOGV(__func__, "%s", path);
 
     uint32_t hash = djb2_hash(path);
-    LOGV(__func__, "hash %08x", hash);
+    LOGV(__func__, "hash %08"PRIx32, hash);
 
     int first = 0;
     int last = fs->header->num_objects - 1;
