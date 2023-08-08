@@ -30,7 +30,7 @@ root directory and within that directory run:
 git clone --recursive https://github.com/jkent/frogfs
 ```
 
-Using the CMake build system, it is straightforward to generate or embed espfs
+Using the CMake build system, it is straightforward to generate or embed frogfs
 images in your binary.
 
 
