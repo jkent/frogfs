@@ -19,7 +19,7 @@
 
 #if defined(ESP_PLATFORM)
 # include <esp_partition.h>
-# include <esp_spi_flash.h>
+# include <spi_flash_mmap.h>
 #endif
 
 #include <assert.h>
