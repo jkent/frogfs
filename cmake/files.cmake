@@ -15,6 +15,8 @@ set(frogfs_IDF_SRC
 )
 
 set(frogfs_IDF_PRIV_REQ
+   esp_partition
+   vfs
    spi_flash
 )
 
