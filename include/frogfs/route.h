@@ -12,21 +12,21 @@ extern "C" {
 
 
 /*************************
- * \section Espfs Routes
+ * \section Frogfs Routes
  *************************/
 
 /**
- * \brief Espfs GET route handler
+ * \brief Frogfs GET route handler
  */
 cwhttpd_status_t frogfs_route_get(cwhttpd_conn_t *conn);
 
 /**
- * \brief Espfs template route handler
+ * \brief Frogfs template route handler
  */
 cwhttpd_status_t frogfs_route_tpl(cwhttpd_conn_t *conn);
 
 /**
- * \brief Espfs index route handler
+ * \brief Frogfs index route handler
  */
 cwhttpd_status_t frogfs_route_index(cwhttpd_conn_t *conn);
 

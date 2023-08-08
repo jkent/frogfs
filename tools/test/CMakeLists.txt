@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.5)
 
 project(test)
 
-set(CONFIG_ESPFS_USE_HEATSHRINK y)
-set(CONFIG_ESPFS_LOG_LEVEL_VERBOSE y)
+set(CONFIG_FROGFS_USE_HEATSHRINK y)
+set(CONFIG_FROGFS_LOG_LEVEL_VERBOSE y)
 
 include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/include.cmake)
 
