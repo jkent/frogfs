@@ -72,7 +72,7 @@ static esp_err_t frogfs_get_empty(int *index)
     return ESP_ERR_NOT_FOUND;
 }
 
-static void frogfs_get_overlay(vfs_frogfs_t *vfs, char *overlay_path, char *path,
+static void frogfs_get_overlay(vfs_frogfs_t *vfs, char *overlay_path, const char *path,
                                size_t len)
 {
     size_t out_len;

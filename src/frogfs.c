@@ -19,7 +19,7 @@
 
 #if defined(ESP_PLATFORM)
 # include <esp_partition.h>
-# include <esp_spi_flash.h>
+# include <spi_flash_mmap.h>
 #endif
 
 #include <assert.h>
@@ -462,9 +462,20 @@ ssize_t frogfs_fseek(frogfs_file_t *f, long offset, int mode)
             return f->file_pos;
         }
 
-        while (new_pos > f->file_pos) {
+        size_t bytes_to_consume = new_pos - f->file_pos;
+        while (bytes_to_consume) {
             uint8_t buf[16];
-            frogfs_fread(f, buf, sizeof(buf));
+            ssize_t bytes_read = frogfs_fread(f, buf, bytes_to_consume > sizeof(buf) ? sizeof(buf) : bytes_to_consume);
+            if (bytes_read < 0) {
+              // fread error
+              LOGE(__func__, "fread() error at file_pos 0x%x", f->file_pos);
+              return -1;
+            }
+            else if (bytes_read == 0) {
+              // reached EOF
+              break;
+            }
+            bytes_to_consume -= bytes_read;
         }
     }
 #endif

@@ -7,7 +7,7 @@
 #include "frogfs/frogfs_format.h"
 
 #if defined(ESP_PLATFORM)
-# include <esp_spi_flash.h>
+#include "spi_flash_mmap.h"
 #endif
 
 #include <stdint.h>
