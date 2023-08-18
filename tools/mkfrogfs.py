@@ -1,197 +1,260 @@
 #!/usr/bin/env python
 
-import configparser
-import csv
-import gzip
+import json
 import os
-import sys
 from argparse import ArgumentParser
 from struct import Struct
+from subprocess import PIPE, Popen
+from sys import executable, stderr
 from zlib import crc32
 
-import heatshrink2
-from hiyapyco import odyldo
-from sortedcontainers import SortedDict
+frogfs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+frogfs_tools_dir = os.path.join(frogfs_dir, 'tools')
 
+os.environ['FROGFS_DIR'] = frogfs_dir
+os.environ['NODE_PREFIX'] = os.environ['BUILD_DIR']
+os.environ['NODE_PATH'] = os.path.join(os.environ['BUILD_DIR'], 'node_modules')
 
-frogfs_fs_header_t = Struct('<IBBHIHH')
-# magic, len, version_major, version_minor, binary_len, num_objects, reserved
-FROGFS_MAGIC = 0x676F7246 # Frog
-FROGFS_VERSION_MAJOR = 1
-FROGFS_VERSION_MINOR = 0
+frogfs_head_t = Struct('<IBBHIHB')
+# magic, len, ver_major, ver_minor, bin_len, num_objs, align
+FROGFS_MAGIC        = 0x474F5246 # FROG
+FROGFS_VER_MAJOR    = 1
+FROGFS_VER_MINOR    = 0
 
-frogfs_hashtable_entry_t = Struct('<II')
+frogfs_hash_t = Struct('<II')
 # hash, offset
 
-frogfs_sorttable_entry_t = Struct('<I')
+frogfs_sort_t = Struct('<I')
 # offset
 
-frogfs_object_header_t = Struct('<BBHHH')
-# type, len, index, path_len, reserved
-FROGFS_TYPE_FILE = 0
-FROGFS_TYPE_DIR  = 1
+frogfs_obj_t = Struct('<BBHH')
+# len, type, index, path_len
+FROGFS_TYPE_FILE    = 0
+FROGFS_TYPE_DIR     = 1
 
-frogfs_file_header_t = Struct('<IIHBB')
-# data_len, file_len, flags, compression, reserved
-FROGFS_FLAG_GZIP  = (1 << 0)
-FROGFS_FLAG_CACHE = (1 << 1)
-FROGFS_COMPRESSION_NONE       = 0
-FROGFS_COMPRESSION_HEATSHRINK = 1
+frogfs_file_t = Struct('<BBHHBBI')
+# len, type, index, path_len, compression, reserved, data_len
+FROGFS_FILE_COMP_NONE       = 0
+FROGFS_FILE_COMP_DEFLATE    = 1
+FROGFS_FILE_COMP_HEATSHRINK = 2
 
-frogfs_heatshrink_header_t = Struct('<BBH')
-# window_sz2, lookahead_sz2
+frogfs_file_comp_t = Struct('<BBHHBBII')
+# len, type, index, path_len, compression, options, data_len, uncompressed_len
 
-frogfs_crc32_footer_t = Struct('<I')
+frogfs_fs_foot_t = Struct('<I')
 # crc32
+
+def load_preprocessors():
+    global pp_dict
+
+    pp_dict = {}
+    for path in {frogfs_tools_dir, 'tools'}:
+        if not os.path.exists(path):
+            continue
+        for file in sorted(os.listdir(path)):
+            if file.startswith('compress-'):
+                filepath = os.path.join(path, file)
+                name, _ = os.path.splitext(file.removeprefix('compress-'))
+                pp_dict[name] = {'file': filepath, 'type': 'compressor'}
+            elif file.startswith('transform-'):
+                filepath = os.path.join(path, file)
+                name, _ = os.path.splitext(file.removeprefix('transform-'))
+                pp_dict[name] = {'file': filepath, 'type': 'transformer'}
+
+    return pp_dict
+
+def load_state():
+    global state
+
+    state = {}
+    if os.path.exists(root + '.json'):
+        with open(root + '.json', 'r') as f:
+            state = json.load(f)
+
+    state = {path: entry
+             for (path, entry)
+             in state.items()
+             if not entry['rules'].get('discard', False)}
+
+    if skip_directories:
+        state = {path: entry
+                 for (path, entry)
+                 in state.items()
+                 if not os.path.isdir(os.path.join(root, path))}
 
 def djb2_hash(s):
     hash = 5381
-    for c in s.encode('utf8'):
+    for c in s.encode('utf-8'):
         hash = ((hash << 5) + hash ^ c) & 0xFFFFFFFF
     return hash
 
-def load_state(path):
-    state = SortedDict()
-    state_file = os.path.join(args.src_dir, '.state')
-    with open(state_file, newline='') as f:
-        index = 0
-        reader = csv.reader(f, quoting=csv.QUOTE_NONNUMERIC)
-        for data in reader:
-            path, type, _, flags, _, compressor = data
-            hash = djb2_hash(path)
-            flags = () if not flags else tuple(flags.split(','))
-            if 'discard' in flags:
-                continue
-            state[(hash, path)] = {
-                'index': index,
-                'type': type,
-                'flags': flags,
-                'compressor': compressor,
-            }
-            index += 1
+def make_dir_obj(path, hash, index):
+    encoded_path = path.encode('utf-8') + b'\0'
+    path_len = len(encoded_path)
 
-    return state
+    obj = frogfs_obj_t.pack(frogfs_obj_t.size, FROGFS_TYPE_DIR, index,
+            path_len)
 
-def make_dir_object(item):
-    print(f'{item[0][0]:08x} {item[0][1]:<34s} dir')
+    print(f'       - D {path:<60s} {hash:08X}', file=stderr)
 
-    path = item[0][1].encode('utf8') + b'\0'
-    path = path.ljust((len(path) + 3) // 4 * 4, b'\0')
-    header = frogfs_object_header_t.pack(FROGFS_TYPE_DIR,
-            frogfs_object_header_t.size, item[1]['index'], len(path), 0)
-    return header + path
+    return obj + encoded_path
 
-def make_file_object(item, data):
-    global config
+def make_file_obj(path, hash, index):
+    encoded_path = path.encode('utf-8') + b'\0'
+    path_len = len(encoded_path)
+    compression = FROGFS_FILE_COMP_NONE
 
-    flags = 0
-    compression = FROGFS_COMPRESSION_NONE
-    initial_data_len = len(data)
-    inital_data = data
+    with open(os.path.join(root, path), 'rb') as f:
+        data = f.read()
+    uncompressed_len = data_len = len(data)
 
-    if 'cache' in item[1]['flags']:
-        flags |= FROGFS_FLAG_CACHE
+    obj = frogfs_file_t.pack(frogfs_file_t.size, FROGFS_TYPE_FILE,
+            index, path_len, compression, 0, data_len)
+    uncompressed_obj = obj + encoded_path + data
 
-    if item[1]['compressor'] == 'gzip':
-        flags |= FROGFS_FLAG_GZIP
-        level = int(config['gzip']['level'])
-        level = min(max(level, 0), 9)
-        data = gzip.compress(data, level)
-    elif item[1]['compressor'] == 'heatshrink':
-        compression = FROGFS_COMPRESSION_HEATSHRINK
-        window_sz2 = int(config['heatshrink']['window_sz2'])
-        lookahead_sz2 = int(config['heatshrink']['lookahead_sz2'])
-        data = frogfs_heatshrink_header_t.pack(window_sz2, lookahead_sz2, 0) + \
-                heatshrink2.compress(data, window_sz2=window_sz2,
-                lookahead_sz2=lookahead_sz2)
+    if 'compress' in state[path]['rules']:
+        if 'deflate' in state[path]['rules']['compress']:
+            compression = FROGFS_FILE_COMP_DEFLATE
+            options = state[path]['rules']['compress']['deflate']
+            level = options.setdefault('level', 9)
 
-    data_len = len(data)
+            data = pipe_script(pp_dict['deflate']['file'], options, data)
+            data_len = len(data)
+            obj = frogfs_file_comp_t.pack(frogfs_file_comp_t.size,
+                    FROGFS_TYPE_FILE, index, path_len, compression, level,
+                    data_len, uncompressed_len)
+            compressed_obj = obj + encoded_path + data
 
-    if data_len >= initial_data_len:
-        flags &= ~FROGFS_FLAG_GZIP
-        compression = FROGFS_COMPRESSION_NONE
-        data = inital_data
-        data_len = initial_data_len
+        elif 'heatshrink' in state[path]['rules']['compress']:
+            compression = FROGFS_FILE_COMP_HEATSHRINK
+            options = state[path]['rules']['compress']['heatshrink']
+            window = options.setdefault('window', 11)
+            lookahead = options.setdefault('lookahead', 4)
 
-    if initial_data_len < 1024:
-        initial_data_len_str = f'{initial_data_len:d} B'
-        data_len_str = f'{data_len:d} B'
-    elif initial_data_len < 1024 * 1024:
-        initial_data_len_str = f'{initial_data_len / 1024:.1f} KiB'
-        data_len_str = f'{data_len / 1024:.1f} KiB'
+            data = pipe_script(pp_dict['heatshrink']['file'], options, data)
+            data_len = len(data)
+            obj = frogfs_file_comp_t.pack(frogfs_file_comp_t.size,
+                    FROGFS_TYPE_FILE, index, path_len, compression,
+                    lookahead << 4 | window, data_len, uncompressed_len)
+            compressed_obj = obj + encoded_path + data
+
+        if len(compressed_obj) < len(uncompressed_obj):
+            if compression == FROGFS_FILE_COMP_DEFLATE:
+                comp = 'd '
+            elif compression == FROGFS_FILE_COMP_HEATSHRINK:
+                comp = 'hs'
+            size = sz_str(uncompressed_len) + ' -> ' + sz_str(data_len)
+            obj = compressed_obj
+
+        else:
+            compression = FROGFS_FILE_COMP_NONE
+
+    if compression == FROGFS_FILE_COMP_NONE:
+        comp = '  '
+        size = '              ' + sz_str(uncompressed_len)
+        obj = uncompressed_obj
+
+    print(f'       - F {path:<32s} {comp} {size} {hash:08X}', file=stderr)
+
+    return obj
+
+def round_up(n, m):
+    return ((n + m - 1) // m) * m
+
+def sz_str(bytes):
+    if bytes < 1024:
+        s = f'{bytes:>4d}     B'
+    elif bytes < 1024 * 1024:
+        s = f'{bytes / 1024:>6.1f} KiB'
+    elif bytes < 1024 * 1024 * 1024:
+        s = f'{bytes / 1024 / 1024:>6.1f} MiB'
+    elif bytes < 1024 * 1024 * 1024 * 1024:
+        s = f'{bytes / 1024 / 1024 / 1024:>6.1f} GiB'
+    return s
+
+def pipe_script(script, args, data):
+    _, extension = os.path.splitext(script)
+    if extension == '.js':
+        command = ['node']
+    elif extension == '.py':
+        command = [executable]
     else:
-        initial_data_len_str = f'{initial_data_len / 1024 / 1024:.1f} MiB'
-        data_len_str = f'{data_len / 1024 / 1024:.1f} MiB'
+        raise Exception(f'unhandled file extension for {script}')
 
-    percent = 100.0
-    if initial_data_len > 0:
-        percent *= data_len / initial_data_len
+    command.append(script)
+    for arg, value in args.items():
+        command.append('--' + arg)
+        if value is not None:
+            command.append(str(value))
 
-    stats = f'{initial_data_len_str:<9s} -> {data_len_str:<9s} ({percent:.1f}%)'
-    print(f'{item[0][0]:08x} {item[0][1]:<34s} file {stats}')
+    process = Popen(command, stdin=PIPE, stdout=PIPE)
+    data, _ = process.communicate(input=data)
 
-    if flags & FROGFS_FLAG_GZIP:
-        initial_data_len = data_len
-
-    path = item[0][1].encode('utf8') + b'\0'
-    path = path.ljust((len(path) + 3) // 4 * 4, b'\0')
-    header = frogfs_object_header_t.pack(FROGFS_TYPE_FILE,
-            frogfs_object_header_t.size + frogfs_file_header_t.size,
-            item[1]['index'], len(path), 0) + frogfs_file_header_t.pack(
-            data_len, initial_data_len, flags, compression, 0)
-
-    return header + path + data
+    return data
 
 def main():
-    global args, config
+    global skip_directories, root
 
     parser = ArgumentParser()
-    parser.add_argument('src_dir', metavar='SRC', help='source directory')
-    parser.add_argument('dst_bin', metavar='DST', help='destination binary')
-    parser.add_argument('--config', help='user configuration')
-    args = parser.parse_args()
+    parser.add_argument('--align', metavar='ALIGN',
+                        help='data alignment, in bytes',
+                        default=4)
+    parser.add_argument('--skip-directories',
+                        help='skip directory entries',
+                        action='store_true', default=False)
+    parser.add_argument('root', metavar='ROOT', help='root directory')
+    parser.add_argument('output', metavar='OUTPUT', help='output binary')
+    arguments = parser.parse_args()
 
-    config = configparser.ConfigParser()
-    config.read(os.path.join(args.src_dir, '.config'))
+    align = arguments.align
+    skip_directories = arguments.skip_directories
+    root = arguments.root
+    output = arguments.output
 
-    state = load_state(args.src_dir)
+    load_preprocessors()
+    load_state()
 
-    num_objects = len(state)
-    offset = frogfs_fs_header_t.size + \
-            (frogfs_hashtable_entry_t.size * num_objects) + \
-            (frogfs_sorttable_entry_t.size * num_objects)
-    hashtable = b''
-    sorttable = bytearray(frogfs_sorttable_entry_t.size * num_objects)
-    objects = b''
+    num_objs = len(state)
+    head_len = round_up(frogfs_head_t.size, align)
+    hash_len = round_up(frogfs_hash_t.size * num_objs, align)
+    sort_len = round_up(frogfs_sort_t.size * num_objs, align)
 
-    for item in state.items():
-        abspath = os.path.join(args.src_dir, item[0][1])
-        if item[1]['type'] == 'dir':
-            object = make_dir_object(item)
-        elif item[1]['type'] == 'file':
-            if not os.path.exists(abspath):
-                continue
-            with open(abspath, 'rb') as f:
-                data = f.read()
-            object = make_file_object(item, data)
+    hashlist = []
+    hashes = bytearray(hash_len)
+    sorts = bytearray(sort_len)
+    data = b''
+    offset = head_len + hash_len + sort_len
+
+    for index, path in enumerate(state.keys()):
+        hash = djb2_hash(path)
+        hashlist.append((hash, path, index))
+
+    for position, (hash, path, index) in enumerate(sorted(hashlist)):
+        if os.path.isdir(os.path.join(root, path)):
+            obj = make_dir_obj(path, hash, index)
         else:
-            print(f'unknown object type {type}', file=sys.stderr)
-            sys.exit(1)
-        hashtable += frogfs_hashtable_entry_t.pack(item[0][0], offset)
-        frogfs_sorttable_entry_t.pack_into(sorttable,
-                frogfs_sorttable_entry_t.size * item[1]['index'], offset)
-        objects += object
-        offset += len(object)
+            obj = make_file_obj(path, hash, index)
+        obj = obj.ljust(round_up(len(obj), align), b'\0')
 
-    binary_len = offset + frogfs_crc32_footer_t.size
-    header = frogfs_fs_header_t.pack(FROGFS_MAGIC, frogfs_fs_header_t.size,
-            FROGFS_VERSION_MAJOR, FROGFS_VERSION_MINOR, binary_len, num_objects,
-            0)
-    binary = header + hashtable + sorttable + objects
-    binary += frogfs_crc32_footer_t.pack(crc32(binary) & 0xFFFFFFFF)
+        frogfs_hash_t.pack_into(hashes,
+                frogfs_hash_t.size * position, hash, offset)
+        frogfs_sort_t.pack_into(sorts, frogfs_sort_t.size * index,
+                offset)
 
-    with open(args.dst_bin, 'wb') as f:
-        f.write(binary)
+        data += obj
+        offset += len(obj)
+
+    bin_len = offset + frogfs_fs_foot_t.size
+    head = frogfs_head_t.pack(FROGFS_MAGIC, head_len, FROGFS_VER_MAJOR,
+            FROGFS_VER_MINOR, bin_len, num_objs, align)
+    head = head.ljust(head_len, b'\0')
+
+    bin = head + hashes + sorts + data
+    foot = frogfs_fs_foot_t.pack(crc32(bin) & 0xFFFFFFFF)
+    bin += foot
+
+    with open(output, 'wb') as f:
+        f.write(bin)
 
 if __name__ == '__main__':
     main()

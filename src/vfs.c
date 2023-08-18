@@ -2,16 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "frogfs_priv.h"
 #include "log.h"
 #include "frogfs/frogfs.h"
 #include "frogfs/vfs.h"
 
-#include <esp_err.h>
-#include <esp_vfs.h>
+#include "esp_err.h"
+#include "esp_vfs.h"
 
 #include <dirent.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -25,46 +25,40 @@
 # define CONFIG_FROGFS_MAX_PARTITIONS 1
 #endif
 
-typedef enum {
-    VFS_FROGFS_USE_OVERLAY = (1 << 0),
-} vfs_frogfs_flags_t;
+#define HAVE_OVERLAY() (vfs->overlay[0])
 
 typedef struct {
-    bool used;
-    bool overlay;
-    union {
-        int fd;
-        frogfs_file_t *file;
-    };
-} vfs_frogfs_file_t;
+    int fd;
+    frogfs_f_t *f;
+} frogfs_vfs_f_t;
+
+#ifdef CONFIG_VFS_SUPPORT_DIR
+typedef struct {
+    DIR *dir;
+#ifdef CONFIG_FROGFS_SUPPORT_DIR
+    frogfs_d_t *d;
+#endif
+    long offset;
+    struct dirent e;
+} frogfs_vfs_d_t;
+#endif
 
 typedef struct {
     frogfs_fs_t *fs;
-    vfs_frogfs_flags_t flags;
     char base_path[ESP_VFS_PATH_MAX + 1];
-    char overlay_path[ESP_VFS_PATH_MAX + 1];
+    char overlay[ESP_VFS_PATH_MAX + 1];
     size_t max_files;
-    vfs_frogfs_file_t files[];
-} vfs_frogfs_t;
+    frogfs_vfs_f_t files[];
+} frogfs_vfs_t;
 
-typedef struct {
-    DIR *overlay_dir;
-    int offset;
-    char path[256];
-    bool done;
-    struct dirent e;
-} vfs_frogfs_dir_t;
-
-static vfs_frogfs_t *s_vfs_frogfs[CONFIG_FROGFS_MAX_PARTITIONS];
-
-esp_err_t esp_vfs_register_common(const char* base_path, size_t len, const esp_vfs_t* vfs, void* ctx, int *vfs_index);
+static frogfs_vfs_t *s_frogfs_vfs[CONFIG_FROGFS_MAX_PARTITIONS];
 
 static esp_err_t frogfs_get_empty(int *index)
 {
     int i;
 
     for (i = 0; i < CONFIG_FROGFS_MAX_PARTITIONS; i++) {
-        if (s_vfs_frogfs[i] == NULL) {
+        if (s_frogfs_vfs[i] == NULL) {
             *index = i;
             return ESP_OK;
         }
@@ -72,106 +66,92 @@ static esp_err_t frogfs_get_empty(int *index)
     return ESP_ERR_NOT_FOUND;
 }
 
-static void frogfs_get_overlay(vfs_frogfs_t *vfs, char *overlay_path, const char *path,
-                               size_t len)
+static void frogfs_get_overlay(frogfs_vfs_t *vfs, char *overlay,
+                               const char *path, size_t len)
 {
     size_t out_len;
 
-    strncpy(overlay_path, vfs->overlay_path, len - 1);
-    overlay_path[len - 1] = '\0';
-    out_len = strlen(overlay_path);
-    if (len - out_len > 1) {
-        strncpy(overlay_path + out_len, "/", len - out_len - 1);
-        out_len += 1;
-        strncpy(overlay_path + out_len, path, len - out_len - 1);
-        overlay_path[len - out_len - 1] = '\0';
-    }
+    out_len = strlcpy(overlay, vfs->overlay, len);
+    out_len = strlcpy(overlay + out_len, "/", len - out_len);
+    strlcpy(overlay + out_len, path, len - out_len);
 }
 
-static ssize_t vfs_frogfs_write(void *ctx, int fd, const void *data,
+static ssize_t frogfs_vfs_write(void *ctx, int fd, const void *data,
                                 size_t size)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (fd < 0 || fd >= vfs_frogfs->max_files) {
+    if (fd < 0 || fd >= vfs->max_files) {
         return -1;
     }
 
-    if (!vfs_frogfs->files[fd].used) {
-        return -1;
-    }
-
-    if (vfs_frogfs->files[fd].overlay) {
-        return write(vfs_frogfs->files[fd].fd, data, size);
+    if (vfs->files[fd].fd >= 0) {
+        return write(vfs->files[fd].fd, data, size);
     }
 
     return -1;
 }
 
-static off_t vfs_frogfs_lseek(void *ctx, int fd, off_t size, int mode)
+static off_t frogfs_vfs_lseek(void *ctx, int fd, off_t size, int mode)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (fd < 0 || fd >= vfs_frogfs->max_files) {
+    if (fd < 0 || fd >= vfs->max_files) {
         return -1;
     }
 
-    if (!vfs_frogfs->files[fd].used) {
-        return -1;
+    if (vfs->files[fd].fd >= 0) {
+        return lseek(vfs->files[fd].fd, size, mode);
     }
 
-    if (vfs_frogfs->files[fd].overlay) {
-        return lseek(vfs_frogfs->files[fd].fd, size, mode);
+    if (vfs->files[fd].f != NULL) {
+        frogfs_f_t *f = vfs->files[fd].f;
+        return frogfs_seek(f, size, mode);
     }
 
-    frogfs_file_t *fp = vfs_frogfs->files[fd].file;
-    return frogfs_fseek(fp, size, mode);
+    return -1;
 }
 
-static ssize_t vfs_frogfs_read(void *ctx, int fd, void *data, size_t size)
+static ssize_t frogfs_vfs_read(void *ctx, int fd, void *data, size_t size)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (fd < 0 || fd >= vfs_frogfs->max_files) {
+    if (fd < 0 || fd >= vfs->max_files) {
         return -1;
     }
 
-    if (!vfs_frogfs->files[fd].used) {
-        return -1;
+    if (vfs->files[fd].fd >= 0) {
+        return read(vfs->files[fd].fd, data, size);
     }
 
-    if (vfs_frogfs->files[fd].overlay) {
-        return read(vfs_frogfs->files[fd].fd, data, size);
+    if (vfs->files[fd].f != NULL) {
+        frogfs_f_t *f = vfs->files[fd].f;
+        return frogfs_read(f, data, size);
     }
 
-    frogfs_file_t *fp = vfs_frogfs->files[fd].file;
-    return frogfs_fread(fp, data, size);
+    return -1;
 }
 
-static int vfs_frogfs_open(void *ctx, const char *path, int flags, int mode)
+static int frogfs_vfs_open(void *ctx, const char *path, int flags, int mode)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
     int fd;
-    for (fd = 0; fd < vfs_frogfs->max_files; fd++) {
-        if (!vfs_frogfs->files[fd].used) {
+    for (fd = 0; fd < vfs->max_files; fd++) {
+        if (vfs->files[fd].fd < 0 && vfs->files[fd].f == NULL) {
             break;
         }
     }
-
-    if (fd >= vfs_frogfs->max_files) {
+    if (fd >= vfs->max_files) {
         return -1;
     }
 
-    if (vfs_frogfs->flags & VFS_FROGFS_USE_OVERLAY) {
-        char overlay_path[256];
+    if (HAVE_OVERLAY()) {
+        char overlay[PATH_MAX];
 
-        frogfs_get_overlay(vfs_frogfs, overlay_path, path,
-                           sizeof(overlay_path));
-        vfs_frogfs->files[fd].fd = open(overlay_path, flags, mode);
-        if (vfs_frogfs->files[fd].fd >= 0) {
-            vfs_frogfs->files[fd].used = true;
-            vfs_frogfs->files[fd].overlay = true;
+        frogfs_get_overlay(vfs, overlay, path, sizeof(overlay));
+        vfs->files[fd].fd = open(overlay, flags, mode);
+        if (vfs->files[fd].fd >= 0) {
             return fd;
         }
     }
@@ -180,156 +160,169 @@ static int vfs_frogfs_open(void *ctx, const char *path, int flags, int mode)
         return -1;
     }
 
-    vfs_frogfs->files[fd].file = frogfs_fopen(vfs_frogfs->fs, path);
-    if (vfs_frogfs->files[fd].file != NULL) {
-        vfs_frogfs->files[fd].used = true;
-        vfs_frogfs->files[fd].overlay = false;
+    const frogfs_obj_t *obj = frogfs_obj_from_path(vfs->fs, path);
+    if (obj == NULL) {
+        return -1;
+    }
+
+    vfs->files[fd].f = frogfs_open(vfs->fs, obj, 0);
+    if (vfs->files[fd].f != NULL) {
         return fd;
     }
 
     return -1;
 }
 
-static int vfs_frogfs_close(void *ctx, int fd)
+static int frogfs_vfs_close(void *ctx, int fd)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (fd < 0 || fd >= vfs_frogfs->max_files) {
+    if (fd < 0 || fd >= vfs->max_files) {
         return -1;
     }
 
-    if (!vfs_frogfs->files[fd].used) {
-        return -1;
+    if (vfs->files[fd].fd >= 0) {
+        int overlay_fd = vfs->files[fd].fd;
+        vfs->files[fd].fd = -1;
+        return close(overlay_fd);
     }
 
-    vfs_frogfs->files[fd].used = false;
-
-    if (vfs_frogfs->files[fd].overlay) {
-        return close(vfs_frogfs->files[fd].fd);
+    if (vfs->files[fd].f) {
+        frogfs_f_t *f = vfs->files[fd].f;
+        frogfs_close(f);
+        vfs->files[fd].f = NULL;
+        return 0;
     }
 
-    frogfs_file_t *fp = vfs_frogfs->files[fd].file;
-    frogfs_fclose(fp);
-    return 0;
+    return -1;
 }
 
-static int vfs_frogfs_fstat(void *ctx, int fd, struct stat *st)
+static int frogfs_vfs_fstat(void *ctx, int fd, struct stat *st)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (fd < 0 || fd >= vfs_frogfs->max_files) {
+    if (fd < 0 || fd >= vfs->max_files) {
         return -1;
     }
 
-    if (!vfs_frogfs->files[fd].used) {
-        return -1;
+    if (vfs->files[fd].fd >= 0) {
+        return fstat(vfs->files[fd].fd, st);
     }
 
-    if (vfs_frogfs->files[fd].overlay) {
-        return fstat(vfs_frogfs->files[fd].fd, st);
+    if (vfs->files[fd].f != NULL) {
+        frogfs_f_t *f = vfs->files[fd].f;
+        memset(st, 0, sizeof(struct stat));
+        st->st_mode = S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH |
+                S_IXOTH | S_IFREG;
+
+        frogfs_stat_t fst;
+        frogfs_stat(vfs->fs, (void *) f->file, &fst);
+        st->st_size = (f->flags & FROGFS_OPEN_RAW && fst.size_compressed) ?
+                fst.size_compressed : fst.size;
+        st->st_spare4[0] = FROGFS_MAGIC;
+        st->st_spare4[1] = fst.compression;
+        return 0;
     }
 
-    frogfs_file_t *fp = vfs_frogfs->files[fd].file;
-    memset(st, 0, sizeof(struct stat));
-    st->st_mode = S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH |
-            S_IFREG;
-    st->st_size = fp->fh->file_len;
-    st->st_spare4[0] = FROGFS_MAGIC;
-    st->st_spare4[1] = fp->fh->flags | (fp->fh->compression << 16);
-    return 0;
+    return -1;
 }
 
-static int vfs_frogfs_stat(void *ctx, const char *path, struct stat *st)
+static int frogfs_vfs_stat(void *ctx, const char *path, struct stat *st)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (vfs_frogfs->flags & VFS_FROGFS_USE_OVERLAY) {
-        char overlay_path[256];
-        frogfs_get_overlay(vfs_frogfs, overlay_path, path,
-                           sizeof(overlay_path));
+    if (HAVE_OVERLAY()) {
+        char overlay[PATH_MAX];
+        frogfs_get_overlay(vfs, overlay, path, sizeof(overlay));
 
-        int res = stat(overlay_path, st);
+        int res = stat(overlay, st);
         if (res >= 0) {
             return res;
         }
     }
 
-    frogfs_stat_t s;
-    if (!frogfs_stat(vfs_frogfs->fs, path, &s)) {
+    const frogfs_obj_t *obj = frogfs_obj_from_path(vfs->fs, path);
+    if (obj == NULL) {
         return -1;
     }
 
+    frogfs_stat_t s;
+    frogfs_stat(vfs->fs, obj, &s);
     memset(st, 0, sizeof(struct stat));
     st->st_mode = S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
-    st->st_mode |= (s.type == FROGFS_TYPE_FILE) ? S_IFREG : S_IFDIR;
+    st->st_mode |= (s.type == FROGFS_OBJ_TYPE_FILE) ? S_IFREG : S_IFDIR;
     st->st_size = s.size;
     st->st_spare4[0] = FROGFS_MAGIC;
-    st->st_spare4[1] = s.flags | (s.compression << 16);
+    st->st_spare4[1] = s.compression;
     return 0;
 }
 
-static int vfs_frogfs_link(void *ctx, const char *n1, const char *n2)
+static int frogfs_vfs_link(void *ctx, const char *n1, const char *n2)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (!vfs_frogfs->flags & VFS_FROGFS_USE_OVERLAY) {
+    if (!HAVE_OVERLAY()) {
         return -1;
     }
 
-    char overlay_n1[256], overlay_n2[256];
-    frogfs_get_overlay(vfs_frogfs, overlay_n1, (char *)n1, sizeof(overlay_n1));
-    frogfs_get_overlay(vfs_frogfs, overlay_n2, (char *)n2, sizeof(overlay_n2));
+    char overlay_n1[PATH_MAX], overlay_n2[PATH_MAX];
+    frogfs_get_overlay(vfs, overlay_n1, (char *)n1, sizeof(overlay_n1));
+    frogfs_get_overlay(vfs, overlay_n2, (char *)n2, sizeof(overlay_n2));
 
     return link(overlay_n1, overlay_n2);
 }
 
-static int vfs_frogfs_unlink(void *ctx, const char *path)
+static int frogfs_vfs_unlink(void *ctx, const char *path)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (!vfs_frogfs->flags & VFS_FROGFS_USE_OVERLAY) {
+    if (!HAVE_OVERLAY()) {
         return -1;
     }
 
-    char overlay_path[256];
-    frogfs_get_overlay(vfs_frogfs, overlay_path, (char *)path, sizeof(overlay_path));
+    char overlay[PATH_MAX];
+    frogfs_get_overlay(vfs, overlay, (char *)path, sizeof(overlay));
 
-    return unlink(overlay_path);
+    return unlink(overlay);
 }
 
-static int vfs_frogfs_rename(void *ctx, const char *src, const char *dst)
+static int frogfs_vfs_rename(void *ctx, const char *src, const char *dst)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (!vfs_frogfs->flags & VFS_FROGFS_USE_OVERLAY) {
+    if (!HAVE_OVERLAY()) {
         return -1;
     }
 
-    char overlay_src[256], overlay_dst[256];
-    frogfs_get_overlay(vfs_frogfs, overlay_src, (char *)src, sizeof(overlay_src));
-    frogfs_get_overlay(vfs_frogfs, overlay_dst, (char *)dst, sizeof(overlay_dst));
+    char overlay_src[PATH_MAX], overlay_dst[PATH_MAX];
+    frogfs_get_overlay(vfs, overlay_src, (char *) src, sizeof(overlay_src));
+    frogfs_get_overlay(vfs, overlay_dst, (char *) dst, sizeof(overlay_dst));
 
     struct stat st;
-    frogfs_stat_t s;
-    if (stat(overlay_src, &st) < 0 && frogfs_stat(vfs_frogfs->fs, src, &s)) {
-        frogfs_file_t *src_file = frogfs_fopen(vfs_frogfs->fs, src);
-        if (!src_file) {
+    if (stat(overlay_src, &st) < 0) {
+        const frogfs_obj_t *obj = frogfs_obj_from_path(vfs->fs, src);
+        if (obj == NULL) {
             return -1;
         }
 
-        int dst_fd = open(overlay_dst, O_RDWR | O_CREAT | O_TRUNC,
-                S_IRUSR | S_IWUSR);
+        frogfs_f_t *src_file = frogfs_open(vfs->fs, obj, 0);
+        if (src_file == NULL) {
+            return -1;
+        }
+
+        int dst_fd = open(overlay_dst, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR |
+                S_IWUSR);
         if (dst_fd < 0) {
-            frogfs_fclose(src_file);
+            frogfs_close(src_file);
             return -1;
         }
 
         int chunk;
         char buf[512];
-        while ((chunk = frogfs_fread(src_file, buf, sizeof(buf))) > 0) {
+        while ((chunk = frogfs_read(src_file, buf, sizeof(buf))) > 0) {
             write(dst_fd, buf, chunk);
         }
-        frogfs_fclose(src_file);
+        frogfs_close(src_file);
         close(dst_fd);
         return 0;
     }
@@ -337,36 +330,40 @@ static int vfs_frogfs_rename(void *ctx, const char *src, const char *dst)
     return rename(overlay_src, overlay_dst);
 }
 
-static DIR* vfs_frogfs_opendir(void *ctx, const char *name)
+#ifdef CONFIG_VFS_SUPPORT_DIR
+static DIR* frogfs_vfs_opendir(void *ctx, const char *name)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
-    vfs_frogfs_dir_t *dir = calloc(1, sizeof(vfs_frogfs_dir_t));
-    if (!dir) {
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
+
+    frogfs_vfs_d_t *d = calloc(1, sizeof(frogfs_vfs_d_t));
+    if (d == NULL) {
         errno = ENOMEM;
         return NULL;
     }
 
-    strncpy(dir->path, name, sizeof(dir->path) - 1);
-    dir->path[sizeof(dir->path) - 1] = '\0';
-
-    frogfs_stat_t s;
-    if (!frogfs_stat(vfs_frogfs->fs, dir->path, &s) ||
-            s.type != FROGFS_TYPE_DIR) {
-        free(dir);
-        return NULL;
+    if (HAVE_OVERLAY()) {
+        char path[PATH_MAX];
+        snprintf(path, sizeof(path), "%s/%s", vfs->overlay, name);
+        d->dir = opendir(path);
     }
-    dir->offset = s.index + 1;
 
-    return (DIR *) dir;
+#ifdef CONFIG_FROGFS_SUPPORT_DIR
+    const frogfs_obj_t *obj = frogfs_obj_from_path(vfs->fs, name);
+    if (obj != NULL) {
+        d->d = frogfs_opendir(vfs->fs, obj);
+    }
+#endif
+
+    return (DIR *) d;
 }
 
-static int vfs_frogfs_readdir_r(void *ctx, DIR *pdir, struct dirent *entry,
+static int frogfs_vfs_readdir_r(void *ctx, DIR *pdir, struct dirent *entry,
         struct dirent **out_dirent);
-static struct dirent *vfs_frogfs_readdir(void *ctx, DIR *pdir)
+static struct dirent *frogfs_vfs_readdir(void *ctx, DIR *pdir)
 {
-    vfs_frogfs_dir_t *dir = (vfs_frogfs_dir_t *) pdir;
+    frogfs_vfs_d_t *dir = (frogfs_vfs_d_t *) pdir;
     struct dirent *out_dirent;
-    int err = vfs_frogfs_readdir_r(ctx, pdir, &dir->e, &out_dirent);
+    int err = frogfs_vfs_readdir_r(ctx, pdir, &dir->e, &out_dirent);
     if (err != 0) {
         errno = err;
         return NULL;
@@ -374,240 +371,239 @@ static struct dirent *vfs_frogfs_readdir(void *ctx, DIR *pdir)
     return out_dirent;
 }
 
-static int vfs_frogfs_readdir_r(void *ctx, DIR *pdir, struct dirent *entry,
+static int frogfs_vfs_readdir_r(void *ctx, DIR *pdir, struct dirent *entry,
         struct dirent **out_dirent)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
-    vfs_frogfs_dir_t *dir = (vfs_frogfs_dir_t *) pdir;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
+    frogfs_vfs_d_t *d = (frogfs_vfs_d_t *) pdir;
+    bool end = true;
 
-    if (dir->done) {
+    if (HAVE_OVERLAY() && d->dir) {
+        struct dirent *e;
+        char name[256] = {0};
+        rewinddir(d->dir);
+        while ((e = readdir(d->dir))) {
+            if (strcmp(e->d_name, entry->d_name) <= 0) {
+                continue;
+            }
+            if (name[0] == '\0' || strcmp(e->d_name, name) < 0) {
+                entry->d_ino = 0;
+                entry->d_type = e->d_type;
+                strcpy(entry->d_name, name);
+                end = false;
+            }
+        }
+    }
+
+#ifdef CONFIG_FROGFS_SUPPORT_DIR
+    if (d->d) {
+        do {
+            uint16_t pos = frogfs_telldir(d->d);
+            const frogfs_obj_t *obj = frogfs_readdir(d->d);
+
+            if (obj == NULL) {
+                break;
+            }
+
+            const char *path = frogfs_path_from_obj(obj);
+            const char *name = strrchr(path, '/');
+            if (name == NULL) {
+                name = path;
+            } else {
+                name++;
+            }
+
+            if (HAVE_OVERLAY()) {
+                int n = strcmp(name, entry->d_name);
+                if (n == 0) {
+                    continue;
+                }
+
+                if (n > 0) {
+                    frogfs_seekdir(d->d, pos);
+                    break;
+                }
+            }
+
+            entry->d_ino = 0;
+            if (obj->type == FROGFS_OBJ_TYPE_FILE) {
+                entry->d_type = DT_REG;
+            } else if (obj->type == FROGFS_OBJ_TYPE_DIR) {
+                entry->d_type = DT_DIR;
+            } else {
+                entry->d_type = DT_UNKNOWN;
+            }
+            strlcpy(entry->d_name, name, sizeof(entry->d_name));
+            end = false;
+        } while (false);
+    }
+#endif
+
+    if (end) {
         *out_dirent = NULL;
         return 0;
     }
 
-    while (dir->offset < vfs_frogfs->fs->header->num_objects) {
-        const char *path = frogfs_get_path(vfs_frogfs->fs, dir->offset);
-
-        if (vfs_frogfs->flags & VFS_FROGFS_USE_OVERLAY) {
-            char overlay_path[256];
-            frogfs_get_overlay(vfs_frogfs, overlay_path, (char *)path,
-                               sizeof(overlay_path));
-
-            struct stat st;
-            if (stat(path, &st)) {
-                dir->offset++;
-                continue;
-            }
-        }
-
-        frogfs_stat_t s;
-        frogfs_stat(vfs_frogfs->fs, path, &s);
-
-        const char *p = dir->path;
-        while (*p && *p++ == *path++);
-
-        if (path[0] != '/') {
-            dir->done = true;
-            *out_dirent = NULL;
-            return 0;
-        }
-        path++;
-        if (strchr(path, '/')) {
-            dir->offset++;
-            continue;
-        }
-
-        entry->d_ino = 0;
-        entry->d_type = (s.type == FROGFS_TYPE_DIR) ? DT_DIR : DT_REG;
-        strncpy(entry->d_name, path, sizeof(entry->d_name) - 1);
-        entry->d_name[sizeof(entry->d_name) - 1] = '\0';
-        dir->offset++;
-        *out_dirent = entry;
-        return 0;
-    }
-
-    if (vfs_frogfs->flags & VFS_FROGFS_USE_OVERLAY) {
-        if (!dir->overlay_dir) {
-            char overlay_path[256];
-            frogfs_get_overlay(vfs_frogfs, overlay_path, dir->path,
-                               sizeof(overlay_path));
-            dir->overlay_dir = opendir(overlay_path);
-            if (dir->overlay_dir == NULL) {
-                *out_dirent = NULL;
-                return 0;
-            }
-        }
-
-        int ret = readdir_r(dir->overlay_dir, entry, out_dirent);
-        if (ret != 0 || *out_dirent == NULL) {
-            dir->offset++;
-            return ret;
-        }
-    }
-
-    *out_dirent = NULL;
+    d->offset++;
+    *out_dirent = entry;
     return 0;
 }
 
-static long vfs_frogfs_telldir(void *ctx, DIR *pdir)
+static long frogfs_vfs_telldir(void *ctx, DIR *pdir)
 {
-    vfs_frogfs_dir_t *dir = (vfs_frogfs_dir_t *) pdir;
-    return dir->offset;
+    frogfs_vfs_d_t *d = (frogfs_vfs_d_t *) pdir;
+
+    return d->offset;
 }
 
-static void vfs_frogfs_seekdir(void *ctx, DIR *pdir, long offset)
+static void frogfs_vfs_seekdir(void *ctx, DIR *pdir, long offset)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
-    vfs_frogfs_dir_t *dir = (vfs_frogfs_dir_t *) pdir;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
+    frogfs_vfs_d_t *d = (frogfs_vfs_d_t *) pdir;
 
-    if (offset < dir->offset) {
-        if (dir->overlay_dir) {
-            closedir(dir->overlay_dir);
-        }
-        dir->offset = 0;
+    if (HAVE_OVERLAY()) {
+        rewinddir(d->dir);
     }
-    if (offset < vfs_frogfs->fs->header->num_objects) {
-        dir->offset = offset;
-    } else {
-        dir->offset = vfs_frogfs->fs->header->num_objects;
-    }
-    while (dir->offset < offset) {
-        struct dirent *tmp;
-        vfs_frogfs_readdir_r(ctx, pdir, &dir->e, &tmp);
-        if (tmp == NULL) {
+#ifdef CONFIG_FROGFS_SUPPORT_DIR
+    frogfs_rewinddir(d->d);
+#endif
+    d->offset = 0;
+
+    while (d->offset < offset) {
+        if (frogfs_vfs_readdir(ctx, pdir) == NULL) {
             break;
         }
     }
 }
 
-static int vfs_frogfs_closedir(void *ctx, DIR *pdir)
+static int frogfs_vfs_closedir(void *ctx, DIR *pdir)
 {
-    vfs_frogfs_dir_t *dir = (vfs_frogfs_dir_t *) pdir;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
+    frogfs_vfs_d_t *d = (frogfs_vfs_d_t *) pdir;
 
-    if (dir->overlay_dir) {
-        closedir(dir->overlay_dir);
+    if (HAVE_OVERLAY()) {
+        closedir(d->dir);
     }
-    free(dir);
+#ifdef CONFIG_FROGFS_SUPPORT_DIR
+    frogfs_closedir(d->d);
+#endif
+    free(d);
     return 0;
 }
 
-static int vfs_frogfs_mkdir(void *ctx, const char *name, mode_t mode)
+static int frogfs_vfs_mkdir(void *ctx, const char *name, mode_t mode)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (vfs_frogfs->flags & VFS_FROGFS_USE_OVERLAY) {
-        char overlay_path[256];
-        frogfs_get_overlay(vfs_frogfs, overlay_path, (char *)name,
-                           sizeof(overlay_path));
+    if (!HAVE_OVERLAY()) {
+        return -1;
+    }
 
-        return mkdir(overlay_path, mode);
+    char overlay[PATH_MAX];
+    frogfs_get_overlay(vfs, overlay, (char *)name, sizeof(overlay));
+    return mkdir(overlay, mode);
+}
+
+static int frogfs_vfs_rmdir(void *ctx, const char *name)
+{
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
+
+    if (!HAVE_OVERLAY()) {
+        return -1;
+    }
+
+    char overlay[PATH_MAX];
+    frogfs_get_overlay(vfs, overlay, (char *)name, sizeof(overlay));
+    return rmdir(overlay);
+}
+#endif
+
+static int frogfs_vfs_fcntl(void *ctx, int fd, int cmd, int arg)
+{
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
+
+    if (fd < 0 || fd >= vfs->max_files) {
+        return -1;
+    }
+
+    if (vfs->files[fd].fd >= 0) {
+        return fcntl(vfs->files[fd].fd, cmd, arg);
+    }
+
+    if (vfs->files[fd].f != NULL) {
+        if (cmd == F_REOPEN_RAW) {
+            const frogfs_fs_t *fs = vfs->files[fd].f->fs;
+            const frogfs_obj_t *obj = (const void *) vfs->files[fd].f->file;
+            frogfs_close(vfs->files[fd].f);
+            vfs->files[fd].f = frogfs_open(fs, obj, FROGFS_OPEN_RAW);
+            return 0;
+        }
     }
 
     return -1;
 }
 
-static int vfs_frogfs_rmdir(void *ctx, const char *name)
+static int frogfs_vfs_ioctl(void *ctx, int fd, int cmd, va_list args)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (vfs_frogfs->flags & VFS_FROGFS_USE_OVERLAY) {
-        char overlay_path[256];
-        frogfs_get_overlay(vfs_frogfs, overlay_path, (char *)name,
-                           sizeof(overlay_path));
-
-        return rmdir(overlay_path);
-    }
-
-    return -1;
-}
-
-
-static int vfs_frogfs_fcntl(void *ctx, int fd, int cmd, int arg)
-{
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
-
-    if (fd < 0 || fd >= vfs_frogfs->max_files) {
+    if (fd < 0 || fd >= vfs->max_files) {
         return -1;
     }
 
-    if (!vfs_frogfs->files[fd].used) {
-        return -1;
-    }
-
-    if (vfs_frogfs->files[fd].overlay) {
-        return fcntl(vfs_frogfs->files[fd].fd, cmd, arg);
-    }
-
-    return -1;
-}
-
-static int vfs_frogfs_ioctl(void *ctx, int fd, int cmd, va_list args)
-{
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
-
-    if (fd < 0 || fd >= vfs_frogfs->max_files) {
-        return -1;
-    }
-
-    if (!vfs_frogfs->files[fd].used) {
-        return -1;
-    }
-
-    if (vfs_frogfs->files[fd].overlay) {
+    if (vfs->files[fd].fd >= 0) {
         char *argp = va_arg(args, char *);
-        return ioctl(vfs_frogfs->files[fd].fd, cmd, argp);
+        return ioctl(vfs->files[fd].fd, cmd, argp);
     }
 
     return -1;
 }
 
-static int vfs_frogfs_fsync(void *ctx, int fd)
+static int frogfs_vfs_fsync(void *ctx, int fd)
 {
-    vfs_frogfs_t *vfs_frogfs = (vfs_frogfs_t *) ctx;
+    frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (fd < 0 || fd >= vfs_frogfs->max_files) {
+    if (fd < 0 || fd >= vfs->max_files) {
         return -1;
     }
 
-    if (!vfs_frogfs->files[fd].used) {
-        return -1;
-    }
-
-    if (vfs_frogfs->files[fd].overlay) {
-        return fsync(vfs_frogfs->files[fd].fd);
+    if (vfs->files[fd].fd >= 0) {
+        return fsync(vfs->files[fd].fd);
     }
 
     return -1;
 }
 
-esp_err_t esp_vfs_frogfs_register(const esp_vfs_frogfs_conf_t *conf)
+esp_err_t frogfs_vfs_register(const frogfs_vfs_conf_t *conf)
 {
-    // assert(conf->base_path != NULL);
+    assert(conf != NULL);
     assert(conf->fs != NULL);
 
-    const esp_vfs_t vfs = {
+    const esp_vfs_t funcs = {
         .flags = ESP_VFS_FLAG_CONTEXT_PTR,
-        .write_p = &vfs_frogfs_write,
-        .lseek_p = &vfs_frogfs_lseek,
-        .read_p = &vfs_frogfs_read,
-        .open_p = &vfs_frogfs_open,
-        .close_p = &vfs_frogfs_close,
-        .fstat_p = &vfs_frogfs_fstat,
-        .stat_p = &vfs_frogfs_stat,
-        .link_p = &vfs_frogfs_link,
-        .unlink_p = &vfs_frogfs_unlink,
-        .rename_p = &vfs_frogfs_rename,
-        .opendir_p = &vfs_frogfs_opendir,
-        .readdir_p = &vfs_frogfs_readdir,
-        .readdir_r_p = &vfs_frogfs_readdir_r,
-        .telldir_p = &vfs_frogfs_telldir,
-        .seekdir_p = &vfs_frogfs_seekdir,
-        .closedir_p = &vfs_frogfs_closedir,
-        .mkdir_p = &vfs_frogfs_mkdir,
-        .rmdir_p = &vfs_frogfs_rmdir,
-        .fcntl_p = &vfs_frogfs_fcntl,
-        .ioctl_p = &vfs_frogfs_ioctl,
-        .fsync_p = &vfs_frogfs_fsync,
+        .write_p = &frogfs_vfs_write,
+        .lseek_p = &frogfs_vfs_lseek,
+        .read_p = &frogfs_vfs_read,
+        .open_p = &frogfs_vfs_open,
+        .close_p = &frogfs_vfs_close,
+        .fstat_p = &frogfs_vfs_fstat,
+#ifdef CONFIG_VFS_SUPPORT_DIR
+        .stat_p = &frogfs_vfs_stat,
+        .link_p = &frogfs_vfs_link,
+        .unlink_p = &frogfs_vfs_unlink,
+        .rename_p = &frogfs_vfs_rename,
+        .opendir_p = &frogfs_vfs_opendir,
+        .readdir_p = &frogfs_vfs_readdir,
+        .readdir_r_p = &frogfs_vfs_readdir_r,
+        .telldir_p = &frogfs_vfs_telldir,
+        .seekdir_p = &frogfs_vfs_seekdir,
+        .closedir_p = &frogfs_vfs_closedir,
+        .mkdir_p = &frogfs_vfs_mkdir,
+        .rmdir_p = &frogfs_vfs_rmdir,
+#endif
+        .fcntl_p = &frogfs_vfs_fcntl,
+        .ioctl_p = &frogfs_vfs_ioctl,
+        .fsync_p = &frogfs_vfs_fsync,
     };
 
     int index;
@@ -615,35 +611,31 @@ esp_err_t esp_vfs_frogfs_register(const esp_vfs_frogfs_conf_t *conf)
         return ESP_ERR_INVALID_STATE;
     }
 
-    vfs_frogfs_t *vfs_frogfs = calloc(1, sizeof(vfs_frogfs_t) +
-            (sizeof(vfs_frogfs_file_t *) * conf->max_files));
-    if (vfs_frogfs == NULL) {
-        LOGE(__func__, "vfs_frogfs could not be alloc'd");
+    frogfs_vfs_t *vfs = calloc(1, sizeof(frogfs_vfs_t) +
+            (sizeof(frogfs_vfs_f_t) * conf->max_files));
+    if (vfs == NULL) {
+        LOGE("vfs could not be alloc'd");
         return ESP_ERR_NO_MEM;
     }
 
-    vfs_frogfs->fs = conf->fs;
-    vfs_frogfs->max_files = conf->max_files;
+    vfs->fs = conf->fs;
+    vfs->max_files = conf->max_files;
     if (conf->base_path) {
-        strncpy(vfs_frogfs->base_path, conf->base_path,
-                sizeof(vfs_frogfs->base_path) - 1);
-        vfs_frogfs->base_path[sizeof(vfs_frogfs->base_path) - 1] = '\0';
-    } else { 
-        vfs_frogfs->base_path[0] = '\0';
+        strlcpy(vfs->base_path, conf->base_path, sizeof(vfs->base_path));
     }
-    if (conf->overlay_path) {
-        vfs_frogfs->flags |= VFS_FROGFS_USE_OVERLAY;
-        strncpy(vfs_frogfs->overlay_path, conf->overlay_path,
-                sizeof(vfs_frogfs->overlay_path));
-        vfs_frogfs->overlay_path[sizeof(vfs_frogfs->overlay_path) - 1] = '\0';
+    if (conf->overlay) {
+        strlcpy(vfs->overlay, conf->overlay, sizeof(vfs->overlay));
+    }
+    for (int fd = 0; fd < vfs->max_files; fd++) {
+        vfs->files[fd].fd = -1;
     }
 
-    esp_err_t err = esp_vfs_register_common(vfs_frogfs->base_path, (vfs_frogfs->base_path[0])?strlen(vfs_frogfs->base_path):SIZE_MAX, &vfs, vfs_frogfs, NULL);
+    esp_err_t err = esp_vfs_register(vfs->base_path, &funcs, vfs);
     if (err != ESP_OK) {
-        free(vfs_frogfs);
+        free(vfs);
         return err;
     }
 
-    s_vfs_frogfs[index] = vfs_frogfs;
+    s_frogfs_vfs[index] = vfs;
     return ESP_OK;
 }

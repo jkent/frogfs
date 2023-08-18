@@ -1,25 +1,25 @@
 get_filename_component(frogfs_DIR ${CMAKE_CURRENT_LIST_DIR}/.. ABSOLUTE CACHE)
 
-set(frogfs_SRC
+set(libfrogfs_SRC
     ${frogfs_DIR}/src/frogfs.c
-    ${frogfs_DIR}/third-party/heatshrink/heatshrink_decoder.c
+    ${frogfs_DIR}/src/decomp_raw.c
 )
 
-set(frogfs_INC
+set(libfrogfs_INC
     ${frogfs_DIR}/include
-    ${frogfs_DIR}/third-party/heatshrink
 )
 
-set(frogfs_IDF_SRC
-    ${frogfs_DIR}/src/vfs.c
-)
+if ("${CONFIG_FROGFS_USE_DEFLATE}" STREQUAL "y")
+    list(APPEND libfrogfs_SRC ${frogfs_DIR}/src/decomp_deflate.c)
+endif()
 
-set(frogfs_IDF_PRIV_REQ
-   esp_partition
-   vfs
-   spi_flash
-)
+if ("${CONFIG_FROGFS_USE_HEATSHRINK}" STREQUAL "y")
+    set(heatshrink_DIR ${frogfs_DIR}/third-party/heatshrink)
+    list(APPEND libfrogfs_SRC ${frogfs_DIR}/src/decomp_heatshrink.c)
+    list(APPEND libfrogfs_SRC ${heatshrink_DIR}/heatshrink_decoder.c)
+    list(APPEND libfrogfs_INC ${heatshrink_DIR})
+endif()
 
-set(frogfs_cwhttpd_SRC
-    ${frogfs_DIR}/src/route.c
-)
+if(ESP_PLATFORM)
+    list(APPEND libfrogfs_SRC ${frogfs_DIR}/src/vfs.c)
+endif()

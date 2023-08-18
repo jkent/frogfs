@@ -10,31 +10,27 @@ extern "C" {
 
 #include "frogfs.h"
 
-#include <esp_err.h>
+#include "esp_err.h"
 
-
-typedef struct esp_vfs_frogfs_conf_t esp_vfs_frogfs_conf_t;
+#define F_REOPEN_RAW 1000
 
 /**
- * \brief Configuration structure for the \a esp_vfs_frogfs_register function
+ * \brief Configuration structure for the \a frogfs_vfs_register function
  */
-struct esp_vfs_frogfs_conf_t {
+typedef struct frogfs_vfs_conf_t {
     const char *base_path; /**< vfs path to mount the filesystem */
-    const char *overlay_path; /**< vfs overlay search path */
+    const char *overlay; /**< vfs overlay search path */
     frogfs_fs_t *fs; /**< the frogfs instance */
     size_t max_files; /**< maximum open files */
-};
+} frogfs_vfs_conf_t;
 
 /**
- * \brief Mount an frogfs fs handle under a vfs path
- *
- * \return ESP_OK if successful, ESP_ERR_NO_MEM if too many VFSes are
- *         registered
+ * \brief      Mount an frogfs fs handle under a vfs path
+ * \param[in]  conf vfs configuration
+ * \return     ESP_OK if successful, ESP_ERR_NO_MEM if too many VFSes are
+ *             registered
  */
-esp_err_t esp_vfs_frogfs_register(
-    const esp_vfs_frogfs_conf_t *conf /** [in] vfs configuration */
-);
-
+esp_err_t frogfs_vfs_register(const frogfs_vfs_conf_t *conf);
 
 #ifdef __cplusplus
 } /* extern "C" */

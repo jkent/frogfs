@@ -1,3 +1,0 @@
-filters:
-    '*.html': gzip
-    '*.txt': [zeroify, no-heatshrink]

@@ -1,15 +1,15 @@
-VFS
-===
+VFS API
+=======
 
 `frogfs/vfs.h`
 
 Functions
 ^^^^^^^^^
 
-.. doxygenfunction:: esp_vfs_frogfs_register
+.. doxygenfunction:: frogfs_vfs_register
 
-Structures
-^^^^^^^^^^
+Structs
+^^^^^^^
 
-.. doxygenstruct:: esp_vfs_frogfs_conf_t
+.. doxygenstruct:: frogfs_vfs_conf_t
     :members:

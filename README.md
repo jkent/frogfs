@@ -1,185 +1,243 @@
 # About FrogFS
 
 FrogFS (Fast Read-Only General-purpose File System) is a read-only filesystem
-designed for embedded use, including, but not limited to
-[ESP-IDF](https://github.com/espressif/esp-idf) and
-[ESP8266_RTOS_SDK](https://github.com/espressif/ESP8266_RTOS_SDK). There is
-also a [cross-platform example](https://github.com/jkent/cwhttpd-example)
-available. It originally was written to be used with libesphttpd and Clockwise
-HTTPd, but has been separated to allow other uses. There is a simple test
-Linux program in `tools/test` directory to read files from a FrogFS image.
+designed for embedded use. It can be easily used with a CMake project &mdash;
+including [ESP-IDF](https://github.com/espressif/esp-idf). It has built-in
+filters to save space; preprocessed HTML (`examples/files/test.html`) is
+reduced by 64.5% with the applied transforms and filters.
 
+Transforms include:
+  * babel-convert
+  * babel-minify
+  * html-minifier
+  * terminate
+  * uglify-js
+  * uglifycss
 
-## How it works
+Compression options include:
+  * none
+  * [zlib deflate](https://www.zlib.net/) (best compression)
+  * [heatshrink](https://github.com/atomicobject/heatshrink) (best speed)
 
-Under the hood, it uses a sorted hash table and does a binary search to locate
-file and directory entries. The FrogFS binary can be embedded in your
-application or it can be accessed via memory mapped I/O such as the SPI flash
-memory space on the ESP8266 or ESP32. A set of python tools are provided to
-compress and/or obfusicate the data stored, and then create a final FrogFS
-image binary. Current compression methods include heatshrink and gzip -- the
-later without decompression support.
+For an HTTP server, deflate compressed files can even be passed through
+untouched! This saves both processing time and bandwidth.
 
+With the ESP-IDF [VFS Interface](#vfs-interface), you can use FrogFS as a
+base file system &mdash; you can overlay a different file system such as FAT
+or SPIFFS to create a hybrid file system. To explain better, when opening a
+file for reading it will search the overlay file system, and then fall back
+to FrogFS. The overlay is an optional feature of course; and IDF's VFS lets
+you mount filesystems to any prefix path of your choosing.
 
-## Getting Started
+Included is a standalone binary with an embedded filesystem to test and verify
+functionality and an ESP-IDF example using Espressif's http server, with the
+filesystem mounted using VFS.
 
-To use this library with IDF, make a `components` directory in your project's
-root directory and within that directory run:
+# Getting started with ESP-IDF
 
-```sh
-git clone --recursive https://github.com/jkent/frogfs
-```
+To use this component with ESP-IDF, within your projects directory run
 
-Using the CMake build system, it is straightforward to generate or embed frogfs
-images in your binary.
+    idf.py add-dependency jkent/frogfs
 
+## Embedding a FrogFS image
 
-### Embedding a FrogFS image
+Embed FrogFS within your project binary with the folowing CMake function:
 
-```cmake
-target_add_frogfs(target path [NAME name] [CONFIG yaml])
-```
+    target_add_frogfs(<target> <path> [NAME name] [CONFIG yaml])
 
-Symbols will be named **name** or if not specified, the last path part of
-**path**.
+If **NAME** is not specified, it will default to the basename of **path**. If
+**CONFIG** is not specified, `default_config.yaml` will be used.
 
 As an example for ESP-IDF, in your project's toplevel CMakeLists.txt:
 
 ```cmake
-cmake_minimum_required(VERSION 3.5)
-
+cmake_minimum_required(VERSION 3.16)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(my_project)
-
-include(components/frogfs/cmake/functions.cmake)
-target_add_frogfs(my_project.elf html NAME frogfs CONFIG frogfs.yaml)
+target_add_frogfs(my_project.elf files NAME frogfs CONFIG frogfs.yaml)
 ```
 
-Where **html** is the path and name of the directory containing the root to
-use, **frogfs** is the name of the symbol to use, and **frogfs.yaml** is the
-configuration overrides. In C this results in these two symbols being defined:
+Where **target** `my_project.elf` must match your project's name and
+**path** `files` is either an absolute path or a path relative to your
+project's root. It should contain the files to embed in the resulting frogfs
+binary. In C, this results in these two global symbols being available to your
+application:
 
 ```C
 extern const uint8_t frogfs_bin[];
 extern const size_t frogfs_bin_len;
 ```
 
-### Making a FrogFS binary and flashing it
+## Making a FrogFS binary and flashing it
 
-There is also the option to create a binary without linking it with your
-application. A CMake function is provided to to output a binary with a new
-target `generate_${name}`. If **name** is not specified, the last path part of
-**path** is used:
+You have the option of creating a binary without linking it with your
+application. A CMake function is provided to output a binary with target
+`generate_${name}`.
+
+    declare_frogfs_bin(path [NAME name] [CONFIG yaml])
+
+If **NAME** is not specifed the default is the basename of **path**.
+
+Here's an example of what you can add to your toplevel CMakeLists.txt, with a
+directory named files:
 
 ```cmake
-declare_frogfs_bin(path [NAME name] [CONFIG yaml])
-```
+declare_frogfs_bin(files NAME frogfs)
 
-Again, for ESP-IDF, in your project main's CMakeLists.txt:
-
-```cmake
-set(name frogfs)
-declare_frogfs_bin(../html NAME ${name} CONFIG ../frogfs.yaml)
 idf_component_get_property(main_args esptool_py FLASH_ARGS)
 idf_component_get_property(sub_args esptool_py FLASH_SUB_ARGS)
-esptool_py_flash_target(${name}-flash "${main_args}" "${sub_args}" ALWAYS_PLAINTEXT)
-esptool_py_flash_to_partition(${name}-flash frogfs ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${COMPONENT_LIB}.dir/frogfs_${name}.bin)
-add_dependencies(${name}-flash generate_${name})
+esptool_py_flash_target(frogfs-flash "${main_args}" "${sub_args}" ALWAYS_PLAINTEXT)
+esptool_py_flash_to_partition(frogfs-flash storage ${BUILD_DIR}/CMakeFiles/frogfs.dir/frogfs.bin)
+add_dependencies(frogfs-flash generate_${name}_bin)
 ```
 
-In this case, **../html** is the directory to build from, **${name}** is the
-name of the binary name (without the .bin) and **frogfs.bin** and
-**frogfs.yaml** is the configuration overrides.
+In this case, **files** is the source directory to build the file system from, **frogfs** is the target prefix and binary filename (without the .bin) and
+**storage** is the name of the partition where the binary is flashed. You can
+invoke the flash process by running `idf.py frogfs-flash`.
 
+## Configuration
 
-### Configuration
+In the root of `frogfs` there is a `default_config.yaml` file that has sane
+defaults for HTTP usage. The yaml file is a bunch of filters that are applied
+top down to apply various actions. First, all transforms are applied, then a
+compressor is applied as a last optional step. Transforms and compressors can
+take optional command line arguments. Included transforms and compressors are
+found in the `frogs/tools` directory, and you can optionally supplement
+and/or override existing transforms and compressors.
 
-In the root of `frogfs` There is a `frogfs_defaults.yaml` file that has sane
-defaults for HTTP usage. The yaml file defines filters for the various actions
--- preprocessors and compressors -- to run before building the FrogFS image.
-The **config** file settings can enable or disable rules with wildcard matches
-or absolute matches. For example:
+Once a transform or compression option is enabled or disabled, it cannot be
+overriden later. Transforms are applied in descending order. You can prefix a
+transforms or the `compress` keyword with `no` to disable it. There are a
+couple of special keywords; `discard` which prevents inclusion and `no cache`,
+which causes preprocessing to run every time on matching objects.
 
-```yaml
-filters:
-    "index.html": no-html-minifier
-    "*.html": gzip
-    "*.txt": [zeroify, uncompressed]
-```
+## Usage
 
-All preprocessors can be prefixed with `no-` to skip the preprocessor for that
-glob pattern. There are currently only two compressors, `gzip` and
-`heatshrink`. Gzip is somewhat special in that FrogFS does not know how to
-decompress it. Its expected to be decompressed by a client browser. Basically,
-don't store your templates gzip compressed. There are also a few other special
-actions. They are `skip-preprocessing`, `uncompressed`, `cache`, `discard` and
-`zeroify`. Skip-preprocessing does what it sounds like, no preprocessors will
-run if it is specified. Uncompressed disables any compression option, cache is
-just a flag that is used to tell the browser that it should cache the file
-instead of re-downloading it the next visit. Discard means leave the specified
-files out of the FrogFS image. And finally zeroify null terminates data.
+Two interfaces are available: the [bare API](#bare-api) or when using IDF
+there is the [VFS interface](#vfs-interface) which builds on top of the bare
+API. You should use the VFS interface in IDF projects, as it uses the portable
+and familiar `stdio` C functions with it. There is nothing preventing you from
+using both at the same time, however.
 
-You can define your own preprocessors. Look at the config_default.yaml within
-frogfs for an example. Preprocessors must take data on stdin and produce data
-on stdout. Installation of preprocessors can be done with the **install**
-key or using the **npm** key for node.js.
+### Shared initialization
 
+Configuration requries defining a `frogfs_config_t` structure and passing it
+to `frogfs_init`. Two different ways to specify the filesystem:
 
-### Usage
-
-When using ESP_IDF, there are two ways you can use FrogFS. There is a low
-level interface and there is a VFS interface. The VFS interface is the
-recommended way to use FrogFS, since it allows you to use `stdio` operations
-on it. There is nothing preventing you from using both at the same time,
-however.
-
-
-#### Shared initialization
+  1. a memory address using the `addr` variable:
 
 ```C
-extern const uint8_t frogfs_bin[];
-
 frogfs_config_t frogfs_config = {
     .addr = frogfs_bin,
 };
+```
+
+ 2. a partition name using the `part_label` string:
+
+```C
+frogfs_config_t frogfs_config = {
+    .part_label = "storage",
+};
+```
+
+Then it is just a matter of passing the `frogfs_config` to `frogfs_init`
+function and checking its return variable:
+
+```C
 frogfs_fs_t *fs = frogfs_init(&frogfs_config);
 assert(fs != NULL);
 ```
+
+When done, and all file handles are closed, you can call `frogfs_deinit`:
 
 ```C
 frogfs_deinit(fs);
 ```
 
-You can also mount a filesystem from a flash partition. Instead of specifying
-**addr**, you would specify a **part_label** string.
+### VFS interface
 
+The VFS interface has a similar method of initialization; you define a
+`frogfs_vfs_conf_t` structure:
 
-#### VFS interface
+  * **base_path** - path to mount FrogFS
+  * **overlay_path** - an optional path to search before FrogFS
+  * **fs** - a `frogfs_fs_t` instance
+  * **max_files** - max number of files that can be open at a time
 
 ```C
-esp_vfs_frogfs_conf_t vfs_frogfs_conf = {
+frogfs_vfs_conf_t frogfs_vfs_conf = {
     .base_path = "/frogfs",
     .fs = fs,
     .max_files = 5,
 };
-esp_vfs_frogfs_register(&vfs_frogfs_conf);
+frogfs_vfs_register(&frogfs_vfs_conf);
 ```
 
-You can now use the system (open, read, close) or file stream (fopen, fread,
-fclose) functions to access files, with the FrogFS filesystem mounted to
-**/frogfs**.
+### Bare API
 
+  * frogfs_fs_t *[frogfs_init](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_init)(frogfs_config_t *conf)
+  * void [frogfs_deinit](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_deinit)(frogfs_fs_t *fs)
+  * const frogfs_obj_t *[frogfs_obj_from_path](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_obj_from_path)(const frogfs_fs_t *fs, const char *path)
+  * const frogfs_obj_t *[frogfs_obj_from_index](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_obj_from_index)(const frogfs_fs_t *fs, uint16_t index)
+  * const char *[frogfs_path_from_obj](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_path_from_obj)(const frogfs_obj_t *obj)
+  * const char *[frogfs_path_from_index](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_path_from_index)(const frogfs_fs_t *fs, uint16_t index)
+  * void [frogfs_stat](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_stat)(const frogfs_fs_t *fs, const frogfs_obj_t *obj, frogfs_stat_t *st)
+  * frogfs_f_t *[frogfs_open](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_open)(const frogfs_fs_t *fs, const frogfs_obj_t *obj, unsigned int flags)
+  * void [frogfs_close](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_close)(frogfs_f_t *f)
+  * size_t [frogfs_read](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_read)(frogfs_f_t *f, void *buf, size_t len)
+  * ssize_t [frogfs_seek](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_seek)(frogfs_f_t *f, long offset, int mode)
+  * size_t [frogfs_tell](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_tell)(frogfs_f_t *f)
+  * size_t [frogfs_access](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_access)(frogfs_f_t *f, void **buf)
+  * frogfs_d_t *[frogfs_opendir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_opendir)(frogfs_fs_t *fs, const frogfs_obj_t *obj)
+  * void [frogfs_closedir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_closedir)(frogfs_d_t *d)
+  * const frogfs_obj_t *[frogfs_readdir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_readdir)(frogfs_d_t *d)
+  * void [frogfs_rewinddir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_rewinddir)(frogfs_d_t *d)
+  * void [frogfs_seekdir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_seekdir)(frogfs_d_t *d, uint16_t loc)
+  * uint16_t [frogfs_telldir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_telldir)(frogfs_d_t *d)
 
-#### Raw interface
+# How it works
 
-```C
-const char *frogfs_get_path(frogfs_fs_t *fs, uint16_t index);
-bool frogfs_stat(frogfs_fs_t *fs, const char *path, frogfs_stat_t *s);
-frogfs_file_t *frogfs_fopen(frogfs_fs_t *fs, const char *path);
-void frogfs_fclose(frogfs_file_t *f);
-void frogfs_fstat(frogfs_file_t *f, const char *path, frogfs_stat_t *s);
-ssize_t frogfs_fread(frogfs_file_t *f, void *buf, size_t len);
-ssize_t frogfs_fseek(frogfs_file_t *f, long offset, int mode);
-size_t frogfs_ftell(frogfs_file_t *f);
-ssize_t frogfs_faccess(frogfs_file_t *f, void **buf);
-```
+Under the hood there are two tables for object lookup. First is the hash
+table consisting of djb2 path hashes which allows for fast lookups using a
+binary search algorithm. Secondly, there is a sort table that allows for
+listing of sibling and child objects. Directory objects can be made optional
+in both the generated binary and FrogFS library to save space without
+sacrificing compatibility.
+
+FrogFS binaries can be either embedded in your application, or accessed using
+memory mapped I/O. It is not possible (at this time) to use FrogFS without the
+file system binary existing in data address space.
+
+Creation of a FrogFS filesystem is a multi-step process spread out between two
+Python tools:
+
+  * `tools/preprocess.py`
+    - Recursively enumerate all objects in a given directory
+    - Apply transforms to objects as configured in yaml
+    - Save json file containing the state including timestamps
+
+  * `tools/mkfrogfs.py`
+    - Hash path using djb2 hash
+    - Loop over objects, if object is a file and specified, compress it
+    - Save FrogFS binary: header, hashtable, sorttable, objects, and footer
+
+You can add your own transforms by creating a `tools` directory in your
+projects root directory, with a filename starting with `transform-` and ending
+with `.js` or `.py`. Transform tools take data on stdin and produce output on
+stdout.
+
+Similarly you can add your own compressors by creating a `compress-` file.
+Compressors require you to allocate a compression id, however.
+
+Both transform and compress tools can accept arguments. Look at
+`default_config.yaml` for an example.
+
+# History and Acknowledgements
+
+FrogFS was split off of Chris Morgan (chmorgan)'s
+[libesphttpd](https://github.com/chmorgan/libesphttpd/) project (MPL 2.0),
+which is a fork of Jeroen Domburg (Sprite_tm)'s
+[libesphttpd](https://github.com/spritetm/libesphttpd/) (BEER-WARE). This project
+would never have existed without them.
+
+Thank you to all the contributors to this project.

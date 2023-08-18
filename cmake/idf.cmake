@@ -1,13 +1,14 @@
 include(${CMAKE_CURRENT_LIST_DIR}/files.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/functions.cmake)
 
 idf_component_register(
 SRCS
-    ${frogfs_SRC}
-    ${frogfs_IDF_SRC}
+    ${libfrogfs_SRC}
 INCLUDE_DIRS
-    ${frogfs_INC}
-PRIV_INCLUDE_DIRS
-    ${frogfs_PRIV_INC}
+    ${libfrogfs_INC}
 PRIV_REQUIRES
-    ${frogfs_IDF_PRIV_REQ}
+    vfs
+REQUIRES
+    esp_partition
+    spi_flash
 )

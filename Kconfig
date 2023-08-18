@@ -3,6 +3,8 @@ menu "FrogFS"
 choice
 	prompt "Log level"
 	default FROGFS_LOG_LEVEL_WARNING
+	help
+		This option sets the log level for FrogFS.
 
 config FROGFS_LOG_LEVEL_NONE
 	bool "None"
@@ -24,15 +26,40 @@ config FROGFS_LOG_LEVEL_VERBOSE
 
 endchoice # "Log level"
 
-config FROGFS_MAX_PARTITIONS
-	int "Maximum Number of Partitions"
-	default 1
-	range 1 10
+config FROGFS_BUILD_DIR
+	bool "Build file systems with directory entries"
+	default y
 	help
-		Define maximum number of partitions that can be mounted.
+		If enabled, FrogFS filesystems will be built with directory entries.
+
+config FROGFS_SUPPORT_DIR
+	bool "Provoide diretory related functions"
+	default y
+	help
+		If enabled, the following functions are provived in the FrogFS API:
+
+		frogfs_opendir, frogfs_closedir, frogfs_readdir, frogfs_rewinddir,
+		frogfs_seekdir, frogfs_telldir
+
+config FROGFS_USE_DEFLATE
+	bool "Use zlib deflate"
+	default y
+	help
+		If enabled, this will enable support for decompressing files using
+		the zlib deflate algorithm.
 
 config FROGFS_USE_HEATSHRINK
-	bool "Use heatshrink decompressor"
+	bool "Use heatshrink"
 	default y
+	help
+		If enabled, this will enable support for decompressing files using
+		the heatshrink algorithm.
+
+config FROGFS_MAX_PARTITIONS
+	int "Max partitions"
+	default 1
+	help
+		This option specifies the number of partitions that can be mounted
+		using VFS at the same time.
 
 endmenu

@@ -131,7 +131,7 @@ cwhttpd_status_t frogfs_route_get(cwhttpd_conn_t *conn)
         return status;
     }
 
-    frogfs_file_t *f = frogfs_fopen(conn->inst->frogfs, buf);
+    frogfs_f_t *f = frogfs_open(conn->inst->frogfs, buf);
     if (f == NULL) {
         return CWHTTPD_STATUS_NOTFOUND;
     }
@@ -145,7 +145,7 @@ cwhttpd_status_t frogfs_route_get(cwhttpd_conn_t *conn)
         const char *header = cwhttpd_get_header(conn, "Accept-Encoding");
         if (header && strstr(header, "gzip") == NULL) {
             LOGW(__func__, "client does not accept gzip!");
-            frogfs_fclose(f);
+            frogfs_close(f);
             TRY(cwhttpd_response(conn, 404));
             TRY(cwhttpd_send_header(conn, "Content-Type", "text/plain"));
             TRY(cwhttpd_send(conn, "only gzip file available", -1));
@@ -171,13 +171,13 @@ cwhttpd_status_t frogfs_route_get(cwhttpd_conn_t *conn)
 
     ssize_t len;
     TRY(cwhttpd_chunk_start(conn, st.size));
-    while ((len = frogfs_fread(f, buf, sizeof(buf))) > 0) {
+    while ((len = frogfs_read(f, buf, sizeof(buf))) > 0) {
         TRY(cwhttpd_send(conn, buf, len));
     }
     TRY(cwhttpd_chunk_end(conn));
 
 cleanup:
-    frogfs_fclose(f);
+    frogfs_close(f);
     return r;
 }
 
@@ -204,7 +204,7 @@ cwhttpd_status_t frogfs_route_tpl(cwhttpd_conn_t *conn)
 
     const char *mimetype = cwhttpd_get_mimetype(buf);
 
-    frogfs_file_t *f = frogfs_fopen(conn->inst->frogfs, buf);
+    frogfs_f_t *f = frogfs_open(conn->inst->frogfs, buf);
     if (f == NULL) {
         return CWHTTPD_STATUS_NOTFOUND;
     }
@@ -221,7 +221,7 @@ cwhttpd_status_t frogfs_route_tpl(cwhttpd_conn_t *conn)
     int token_pos = -1;
     char token[32];
     do {
-        len = frogfs_fread(f, buf, FILE_CHUNK_LEN);
+        len = frogfs_read(f, buf, FILE_CHUNK_LEN);
         int raw_count = 0;
         uint8_t *p = (uint8_t *) buf;
         if (len > 0) {
@@ -272,7 +272,7 @@ cwhttpd_status_t frogfs_route_tpl(cwhttpd_conn_t *conn)
 cleanup:
     /* we're done */
     cb(conn, NULL, &user);
-    frogfs_fclose(f);
+    frogfs_close(f);
     return r;
 }
 
@@ -308,7 +308,7 @@ cwhttpd_status_t frogfs_route_index(cwhttpd_conn_t *conn)
         return CWHTTPD_STATUS_DONE;
     }
 
-    const char *parent = frogfs_get_path(conn->inst->frogfs, st.index);
+    const char *parent = frogfs_path_from_index(conn->inst->frogfs, st.index);
     uint16_t start_index = 0;
     uint16_t current_index = start_index = st.index;
     bool files = false;
@@ -331,7 +331,7 @@ cwhttpd_status_t frogfs_route_index(cwhttpd_conn_t *conn)
             conn->request.url, conn->request.url));
 
     do {
-        const char *path = frogfs_get_path(conn->inst->frogfs, current_index);
+        const char *path = frogfs_path_from_index(conn->inst->frogfs, current_index);
         if (path != NULL) {
             frogfs_stat(conn->inst->frogfs, path, &st);
         }
@@ -339,7 +339,7 @@ cwhttpd_status_t frogfs_route_index(cwhttpd_conn_t *conn)
         if (path == NULL && !files) {
             files = true;
             current_index = start_index;
-            path = frogfs_get_path(conn->inst->frogfs, current_index);
+            path = frogfs_path_from_index(conn->inst->frogfs, current_index);
             frogfs_stat(conn->inst->frogfs, path, &st);
         } else if (path == NULL && files) {
             break;

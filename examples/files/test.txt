@@ -1,0 +1,47 @@
+Hello World! This is a test text file which should be compressed with
+heatshrink.
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas quis egestas
+eros. Sed vitae pretium libero. Vivamus purus turpis, egestas id dictum eget,
+congue quis enim. Nunc vitae nisi sem. Phasellus sit amet est ultricies,
+sagittis risus non, rhoncus lacus. Donec a euismod arcu. Vivamus tempus augue
+tellus, vitae tincidunt mauris volutpat sed. In vehicula a nunc a rutrum.
+Vivamus sed lobortis magna.
+
+Praesent cursus odio ut tortor varius, eget tincidunt tellus sodales. Aenean
+luctus neque at egestas porta. Ut consequat, lectus non sagittis euismod, quam
+erat pellentesque libero, sodales finibus massa mi sed magna. Donec eget neque
+non erat aliquam tincidunt. Donec accumsan pulvinar diam, sit amet dignissim
+mauris congue eu. Fusce rhoncus tincidunt augue ut sollicitudin. Suspendisse
+hendrerit orci non sapien aliquam, vitae venenatis mi hendrerit.
+
+Proin vehicula nunc vel mi elementum sagittis. Aliquam erat volutpat. Ut vel
+est eu urna vulputate egestas at quis ex. Aenean in ex nec dui tempus lobortis.
+Curabitur vitae turpis nisi. Etiam sit amet lacus pretium, porttitor nisi eu,
+consectetur orci. Curabitur nec velit magna. Suspendisse id blandit nibh, vel
+luctus mauris. Nulla iaculis ligula mauris, pharetra varius quam cursus et.
+Class aptent taciti sociosqu ad litora torquent per conubia nostra, per
+inceptos himenaeos. Duis sem ipsum, mattis sit amet nibh id, suscipit porta
+justo. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed tempus
+Zligula magna, sed mattis mauris bibendum sit amet. Nulla enim justo, consequat
+eu pretium sit amet, mollis at augue. Suspendisse et risus ullamcorper, sodales
+velit eget, tincidunt dui. Donec vestibulum metus at mi consectetur,
+consectetur tempor elit condimentum.
+
+Integer placerat tortor et ultrices tincidunt. Ut in convallis ex. Nunc in
+sollicitudin sem, vitae tincidunt risus. In scelerisque mauris eget est
+fermentum, ut ornare quam malesuada. Proin tempus consequat dui, eu consequat
+leo luctus sit amet. Pellentesque eu faucibus tellus. Integer sit amet purus id
+mauris egestas feugiat nec vitae eros. In dui massa, semper nec egestas quis,
+faucibus sed velit. Nunc commodo mollis sem, in gravida mauris suscipit non.
+Vivamus eleifend commodo dui, vel rhoncus ante viverra nec. Sed varius libero
+non molestie dignissim.
+
+Praesent tortor justo, dapibus ut pharetra eget, ultricies rutrum lacus. Proin
+aliquet sodales vehicula. Nulla at turpis in tortor rhoncus vestibulum in a
+purus. Vivamus quis lacus nisi. Suspendisse eget ligula tristique, consectetur
+lorem sit amet, consectetur erat. Suspendisse elit leo, congue quis quam vel,
+condimentum faucibus eros. In hac habitasse platea dictumst. Nullam commodo
+nisi quis quam tincidunt suscipit nec eu ligula. Fusce pellentesque, mauris id
+posuere pulvinar, lorem velit tempus libero, eget condimentum ipsum risus quis
+libero.

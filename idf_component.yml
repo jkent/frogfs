@@ -1,0 +1,7 @@
+version: "1.0.0"
+description: FrogFS is a read-only file system for embedded use.
+url: https://github.com/jkent/frogfs
+dependencies:
+  idf:
+    version: ">=5.1.0"
+  zlib: "~1.2"

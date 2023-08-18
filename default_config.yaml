@@ -1,0 +1,23 @@
+filters:
+  '*.css':
+    - uglifycss
+
+  '*.html':
+    - html-minifier
+    - compress deflate:
+        level: 9
+
+  '*.js':
+    - babel-convert
+    - uglify-js
+
+  #'*.txt':
+  #  - terminate
+
+  '*.woff*':
+    - no compress
+
+  '*':
+    - compress heatshrink:
+        window: 11
+        lookahead: 4
