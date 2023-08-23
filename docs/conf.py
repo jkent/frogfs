@@ -16,7 +16,7 @@ import sys
 # -- Project information -----------------------------------------------------
 
 project = 'FrogFS'
-copyright = '2022, FrogFS contributors'
+copyright = '2023, FrogFS contributors'
 author = 'Jeff Kent <jeff@jkent.net>'
 
 # -- General configuration ------------------------------------------------

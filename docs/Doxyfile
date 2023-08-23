@@ -21,6 +21,7 @@ PROJECT_NAME = "FrogFS Programming Guide"
 ## and used to include in API reference documentation
 
 INPUT = \
+    ../include/frogfs/format.h \
     ../include/frogfs/frogfs.h \
     ../include/frogfs/route.h \
     ../include/frogfs/vfs.h \
@@ -36,7 +37,8 @@ MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = YES
 PREDEFINED             = \
     CONFIG_ENABLE_FLASH_MMAP=y \
-    CONFIG_FROGFS_USE_HEATSHRINK=y
+    CONFIG_FROGFS_USE_HEATSHRINK=y \
+    __attribute__((x))=
 
 ## Do not complain about not having dot
 ##
