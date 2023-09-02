@@ -9,7 +9,7 @@ dependencies:
     component_hash: null
     source:
       type: idf
-    version: 5.1.1
-manifest_hash: 22056c6a541a6b1ab4db218efe9731d8be461d7bde6f3b39a87f41febdcfe1c7
+    version: 5.0.3
+manifest_hash: 9c11c2e5dc6718c7cc6a5a0d8ab72306d81a4bb419a4ab75a1bdd5086ca61559
 target: esp32
 version: 1.0.0
