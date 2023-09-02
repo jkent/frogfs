@@ -54,11 +54,11 @@ def load_preprocessors():
         for file in sorted(os.listdir(path)):
             if file.startswith('compress-'):
                 filepath = os.path.join(path, file)
-                name, _ = os.path.splitext(file.removeprefix('compress-'))
+                name, _ = os.path.splitext(file[9:])
                 pp_dict[name] = {'file': filepath, 'type': 'compressor'}
             elif file.startswith('transform-'):
                 filepath = os.path.join(path, file)
-                name, _ = os.path.splitext(file.removeprefix('transform-'))
+                name, _ = os.path.splitext(file[10:])
                 pp_dict[name] = {'file': filepath, 'type': 'transformer'}
 
     return pp_dict

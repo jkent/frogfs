@@ -1,26 +1,30 @@
-const process = require('node:process');
+const { argv, env, exit, stdin, stdout, stderr } = require('process');
 
 try {
-	require('uglify-js/package')
+	require('uglify-js/package');
 } catch {
-	const { spawnSync } = require('node:child_process');
-	spawnSync('npm', ['--prefix=' + process.env.NODE_PREFIX, 'install', 'uglify-js'], {'stdio': ['ignore', 'ignore', 'inherit']});
-	spawnSync('node', process.argv.slice(1), {'stdio': 'inherit'});
-	process.exit(0);
+	const { spawnSync } = require('child_process');
+	let result = spawnSync('npm', ['--prefix=' + env.NODE_PREFIX, 'install', 'uglify-js'], {'stdio': ['ignore', 'ignore', 'inherit']});
+	if (result.status != 0) {
+		stderr.write("npm failed to run, is it installed?\n");
+		exit(result.status);
+	}
+	result = spawnSync('node', argv.slice(1), {'stdio': 'inherit'});
+	exit(result.status);
 }
 
 const uglifyjs = require('uglify-js');
 
 var input = '';
-process.stdin.setEncoding('utf-8');
-process.stdin.on('data', (data) => {
+stdin.setEncoding('utf-8');
+stdin.on('data', (data) => {
 	input = input.concat(data.toString());
 });
-process.stdin.on('close', () => {
+stdin.on('close', () => {
 	let result = uglifyjs.minify(input, {toplevel: true});
-    if (result.code === undefined) {
-        process.exit(1)
-    }
-	process.stdout.write(result.code);
-	process.exit(0);
+	if (result.code === undefined) {
+		exit(1)
+	}
+	stdout.write(result.code);
+	exit(0);
 });

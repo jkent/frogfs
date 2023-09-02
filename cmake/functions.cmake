@@ -59,7 +59,7 @@ macro(generate_frogfs_rules path)
 endmacro()
 
 function(target_add_frogfs target path)
-    LIST(POP_FRONT ARGV)
+    LIST(REMOVE_AT ARGV 0)
     generate_frogfs_rules(${ARGV})
 
     add_custom_command(OUTPUT ${output}_bin.c

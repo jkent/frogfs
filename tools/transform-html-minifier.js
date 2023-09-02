@@ -1,12 +1,16 @@
-const process = require('node:process');
+const { argv, env, exit, stdin, stdout, stderr } = require('process');
 
 try {
-	require('html-minifier/package')
+	require('html-minifier/package');
 } catch {
-	const { spawnSync } = require('node:child_process');
-	spawnSync('npm', ['--prefix=' + process.env.NODE_PREFIX, 'install', 'html-minifier'], {'stdio': ['ignore', 'ignore', 'inherit']});
-	spawnSync('node', process.argv.slice(1), {'stdio': 'inherit'});
-	process.exit(0);
+	const { spawnSync } = require('child_process');
+	let result = spawnSync('npm', ['--prefix=' + env.NODE_PREFIX, 'install', 'html-minifier'], {'stdio': ['ignore', 'ignore', 'inherit']});
+	if (result.status != 0) {
+                stderr.write("npm failed to run, is it installed?\n");
+		exit(result.status);
+	}
+	result = spawnSync('node', argv.slice(1), {'stdio': 'inherit'});
+	exit(result.status);
 }
 
 const html_minifier = require('html-minifier');
@@ -24,12 +28,12 @@ const options = {
 };
 
 var input = '';
-process.stdin.setEncoding('utf-8');
-process.stdin.on('data', (data) => {
+stdin.setEncoding('utf-8');
+stdin.on('data', (data) => {
 	input = input.concat(data.toString());
 });
-process.stdin.on('close', () => {
+stdin.on('close', () => {
 	let output = html_minifier.minify(input, options);
-	process.stdout.write(output);
-	process.exit(0);
+	stdout.write(output);
+	exit(0);
 });
