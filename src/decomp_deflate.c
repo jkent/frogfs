@@ -50,8 +50,7 @@ static void close_deflate(frogfs_f_t *f)
 
 static ssize_t read_deflate(frogfs_f_t *f, void *buf, size_t len)
 {
-    frogfs_file_comp_t *file =
-            (frogfs_file_comp_t *) f->file;
+    frogfs_file_comp_t *file = (frogfs_file_comp_t *) f->file;
     size_t start_in, start_out;
     int ret;
 
@@ -86,8 +85,7 @@ static ssize_t read_deflate(frogfs_f_t *f, void *buf, size_t len)
 
 static ssize_t seek_deflate(frogfs_f_t *f, long offset, int mode)
 {
-    frogfs_file_comp_t *file =
-            (frogfs_file_comp_t *) f->file;
+    frogfs_file_comp_t *file = (frogfs_file_comp_t *) f->file;
     ssize_t new_pos = STREAM(f)->total_out;
 
     if (mode == SEEK_SET) {
