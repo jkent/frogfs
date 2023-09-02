@@ -1,11 +1,16 @@
-const { argv, env, exit, stdin, stdout, stderr } = require('process');
+const { argv, env, exit, platform, stdin, stdout, stderr } = require('process');
 
 try {
 	require('@babel/core/package');
 	require('@babel/preset-env/package');
 } catch {
 	const { spawnSync } = require('child_process');
-	let result = spawnSync('npm', ['--prefix=' + env.NODE_PREFIX, 'install', '@babel/core', '@babel/preset-env'], {'stdio': ['ignore', 'ignore', 'inherit']});
+	let result = null;
+	if (platform == 'win32') {
+		result = spawnSync('cmd', ['/C', 'npm', '--prefix=' + env.NODE_PREFIX, 'install', '@babel/core', '@babel/preset-env'], {'stdio': ['ignore', 'ignore', 'inherit']});
+	} else {
+		result = spawnSync('npm', ['--prefix=' + env.NODE_PREFIX, 'install', '@babel/core', '@babel/preset-env'], {'stdio': ['ignore', 'ignore', 'inherit']});
+	}
 	if (result.status != 0) {
 		stderr.write("npm failed to run, is it installed?\n");
 		exit(result.status);
