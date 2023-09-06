@@ -359,6 +359,7 @@ def preprocess(path, object):
 
 def run_preprocessors():
     '''Run preprocessors on all objects as needed'''
+    first = True
     for path, object in g.paths.items():
         skip = True
 
@@ -393,6 +394,9 @@ def run_preprocessors():
                 skip = False
 
         if not skip:
+            if first:
+                first = False
+                print(file=stderr)
             preprocess(path, object)
 
 def filter_paths():

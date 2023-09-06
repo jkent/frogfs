@@ -50,7 +50,7 @@ macro(generate_frogfs_rules path)
         DEPENDS ${Python3_VENV}_requirements.stamp ${ARG_CONFIG}
         BYPRODUCTS $ENV{NODE_PATH} ${output}-cache ${output}-state.json ${output}.bin
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        COMMENT "Creating FrogFS binary ${ARG_NAME}.bin"
+        COMMENT "Running mkfrogfs.py for ${ARG_NAME}.bin"
         USES_TERMINAL
     )
 endmacro()
