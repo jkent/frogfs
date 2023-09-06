@@ -23,9 +23,12 @@
                 "limitSymbolsToIncludedHeaders": false
             },
             "defines": [
+                "__DOXYGEN__=y",
                 "CONFIG_FREERTOS_HZ=100",
-                "CONFIG_FROGFS_SUPPORT_DIR=y",
-                "CONFIG_VFS_SUPPORT_DIR=y"
+                "CONFIG_VFS_SUPPORT_DIR=1",
+                "CONFIG_FROGFS_SUPPORT_DIR=1",
+                "CONFIG_FROGFS_USE_DEFLATE=1",
+                "CONFIG_FROGFS_USE_HEATSHRINK=1"
             ],
             "cStandard": "c11",
             "cppStandard": "c++17",

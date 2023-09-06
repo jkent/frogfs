@@ -57,7 +57,7 @@ frogfs_fs_t *frogfs_init(frogfs_config_t *conf)
 
     fs->decomp_funcs = conf->decomp_funcs;
 
-    fs->head = (frogfs_head_t *)conf->addr;
+    fs->head = (const void *) conf->addr;
     if (fs->head == NULL) {
 #if defined (ESP_PLATFORM)
         esp_partition_subtype_t subtype = conf->part_label ?
@@ -95,12 +95,8 @@ frogfs_fs_t *frogfs_init(frogfs_config_t *conf)
         goto err_out;
     }
 
-    fs->hashes = (const void *) fs->head + ((fs->head->len +
-            fs->head->align - 1) / fs->head->align) * fs->head->align;
-    size_t hashes_len = sizeof(frogfs_hash_t) * fs->head->num_objs;
-
-    fs->sorted = (const void *) fs->hashes + ((hashes_len +
-            fs->head->align - 1) / fs->head->align) * fs->head->align;
+    fs->hashes = (const void *) fs->head + align(fs->head->len,
+            fs->head->align);
 
     return fs;
 
@@ -158,7 +154,7 @@ const frogfs_obj_t *frogfs_obj_from_path(const frogfs_fs_t *fs,
     }
 
     /* be optimistic and test the first match */
-    frogfs_obj_t *obj = (void *) fs->head + entry->offset;
+    const frogfs_obj_t *obj = (const void *) fs->head + entry->offset;
     if (strcmp(path, frogfs_path_from_obj(obj)) == 0) {
         LOGV("object %d", middle);
         return obj;
@@ -178,7 +174,7 @@ const frogfs_obj_t *frogfs_obj_from_path(const frogfs_fs_t *fs,
     /* walk through canidates and look for a match */
     do {
         if (middle != skip) {
-            obj = (void *) fs->head + entry->offset;
+            obj = (const void *) fs->head + entry->offset;
             if (strcmp(path, frogfs_path_from_obj(obj)) == 0) {
                 LOGV("object %d", middle);
                 return obj;
@@ -192,19 +188,6 @@ const frogfs_obj_t *frogfs_obj_from_path(const frogfs_fs_t *fs,
     return NULL;
 }
 
-const frogfs_obj_t *frogfs_obj_from_index(const frogfs_fs_t *fs, uint16_t index)
-{
-    assert(fs != NULL);
-
-    if (index >= fs->head->num_objs) {
-        return NULL;
-    }
-
-    const frogfs_sort_t *entry = fs->sorted + index;
-    const frogfs_obj_t *obj = (const void *) fs->head + entry->offset;
-    return obj;
-}
-
 const char *frogfs_path_from_obj(const frogfs_obj_t *obj)
 {
     if (obj == NULL) {
@@ -214,12 +197,6 @@ const char *frogfs_path_from_obj(const frogfs_obj_t *obj)
     return (const char *) obj + obj->len;
 }
 
-const char *frogfs_path_from_index(const frogfs_fs_t *fs, uint16_t index)
-{
-    const frogfs_obj_t *obj = frogfs_obj_from_index(fs, index);
-    return frogfs_path_from_obj(obj);
-}
-
 void frogfs_stat(const frogfs_fs_t *fs, const frogfs_obj_t *obj,
         frogfs_stat_t *st)
 {
@@ -227,7 +204,6 @@ void frogfs_stat(const frogfs_fs_t *fs, const frogfs_obj_t *obj,
     assert(obj != NULL);
 
     memset(st, 0, sizeof(*st));
-    st->index = obj->index;
     st->type = obj->type;
     if (obj->type == FROGFS_OBJ_TYPE_FILE) {
         const frogfs_file_t *file = (const void *) obj;
@@ -261,19 +237,20 @@ frogfs_f_t *frogfs_open(const frogfs_fs_t *fs, const frogfs_obj_t *obj,
 
     f->fs = fs;
     f->file = file;
-    f->data_start = (void *) obj + obj->len + obj->path_len;
+    f->data_start = (void *) obj + align(obj->len + obj->path_len,
+            f->fs->head->align);
     f->data_ptr = f->data_start;
     f->flags = flags;
 
     if (file->compression == 0 || flags & FROGFS_OPEN_RAW) {
         f->decomp_funcs = &frogfs_decomp_raw;
     }
-#ifdef CONFIG_FROGFS_USE_DEFLATE
+#if defined(CONFIG_FROGFS_USE_DEFLATE)
     else if (file->compression == FROGFS_COMP_DEFLATE) {
         f->decomp_funcs = &frogfs_decomp_deflate;
     }
 #endif
-#ifdef CONFIG_FROGFS_USE_HEATSHRINK
+#if defined(CONFIG_FROGFS_USE_HEATSHRINK)
     else if (file->compression == FROGFS_COMP_HEATSHRINK) {
         f->decomp_funcs = &frogfs_decomp_heatshrink;
     }
@@ -356,7 +333,7 @@ size_t frogfs_tell(frogfs_f_t *f)
     return -1;
 }
 
-size_t frogfs_access(frogfs_f_t *f, void **buf)
+size_t frogfs_access(frogfs_f_t *f, const void **buf)
 {
     assert(f != NULL);
 
@@ -364,7 +341,7 @@ size_t frogfs_access(frogfs_f_t *f, void **buf)
     return f->file->data_len;
 }
 
-#ifdef CONFIG_FROGFS_SUPPORT_DIR
+#if defined(CONFIG_FROGFS_SUPPORT_DIR)
 frogfs_d_t *frogfs_opendir(frogfs_fs_t *fs, const frogfs_obj_t *obj)
 {
     assert(fs != NULL);
@@ -374,24 +351,16 @@ frogfs_d_t *frogfs_opendir(frogfs_fs_t *fs, const frogfs_obj_t *obj)
         return NULL;
     }
 
-    const char *path = frogfs_path_from_obj(obj);
-    size_t path_len = strlen(path);
-    frogfs_d_t *d = calloc(1, sizeof(frogfs_d_t) + path_len + 2);
+    frogfs_d_t *d = calloc(1, sizeof(frogfs_d_t));
     if (d == NULL) {
         LOGE("calloc failed");
         return NULL;
     }
 
     d->fs = fs;
-    d->index = obj->index;
-    d->obj = obj;
-    d->path_len = path_len;
-    if (path_len == 0) {
-        strcpy(d->path, path);
-    } else {
-        sprintf(d->path, "%s/", path);
-        d->path_len++;
-    }
+    d->dir = (const void *) obj;
+    d->children = (const void *) obj + align(obj->len + obj->path_len,
+            fs->head->align);
 
     return d;
 }
@@ -407,34 +376,26 @@ void frogfs_closedir(frogfs_d_t *d)
 
 const frogfs_obj_t *frogfs_readdir(frogfs_d_t *d)
 {
-    while (d->index + 1 < d->fs->head->num_objs) {
-        const frogfs_obj_t *obj = frogfs_obj_from_index(d->fs, d->index + 1);
-        const char *path = frogfs_path_from_obj(obj);
+    const frogfs_obj_t *obj = NULL;
 
-        if (strncmp(d->path, path, d->path_len) != 0) {
-            break;
-        }
-
-        d->index++;
-        if (strchr(&path[d->path_len], '/') == NULL) {
-            return obj;
-        }
+    if (d->dir->child_count > d->index) {
+        obj = (const void *) d->fs->head + d->children[d->index++].offset;
     }
 
-    return NULL;
+    return obj;
 }
 
 void frogfs_rewinddir(frogfs_d_t *d)
 {
     assert(d != NULL);
 
-    d->index = d->obj->index;
+    d->index = 0;
 }
 
 void frogfs_seekdir(frogfs_d_t *d, uint16_t loc)
 {
     assert(d != NULL);
-    assert(loc >= d->obj->index && loc < d->fs->head->num_objs);
+    assert(loc < d->dir->child_count);
 
     d->index = loc;
 }

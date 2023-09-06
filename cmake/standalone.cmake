@@ -16,16 +16,17 @@ target_link_libraries(frogfs
 )
 endif()
 
-get_cmake_property(_variableNames VARIABLES)
-list(SORT _variableNames)
-foreach(_variableName ${_variableNames})
+get_cmake_property(_vars VARIABLES)
+list(SORT _vars)
+foreach(_var ${_vars})
     unset(MATCHED)
-    string(REGEX MATCH "^CONFIG_" MATCHED ${_variableName})
+    string(REGEX MATCH "^CONFIG_" MATCHED ${_var})
     if(NOT MATCHED)
         continue()
     endif()
-    target_compile_definitions(frogfs
-    PUBLIC
-        "${_variableName}=${${_variableName}}"
-    )
+    if("${${_var}}" STREQUAL "y")
+        target_compile_definitions(frogfs PUBLIC "${_var}=1")
+    else()
+        target_compile_definitions(frogfs PUBLIC "${_var}=${${_var}}")
+    endif()
 endforeach()

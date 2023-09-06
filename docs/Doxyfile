@@ -36,8 +36,7 @@ ENABLE_PREPROCESSING   = YES
 MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = YES
 PREDEFINED             = \
-    CONFIG_ENABLE_FLASH_MMAP=y \
-    CONFIG_FROGFS_USE_HEATSHRINK=y \
+    __DOXYGEN__=y \
     __attribute__((x))=
 
 ## Do not complain about not having dot

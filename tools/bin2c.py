@@ -3,50 +3,51 @@
 from argparse import ArgumentParser
 import os
 
-def main():
+
+def save_array_c(src_path, dst_path, symbol):
+    length = os.path.getsize(src_path)
+
+    with open(src_path, 'rb') as src_f:
+        with open(dst_path, 'w') as dst_f:
+            dst_f.write('#include <stddef.h>\n')
+            dst_f.write('#include <stdint.h>\n')
+            dst_f.write('\n')
+            dst_f.write(f'const size_t {symbol}_len = {length};\n')
+            dst_f.write(f'const __attribute__((aligned(4))) uint8_t {symbol}[] = {{\n')
+            while True:
+                data = src_f.read(12)
+                if not data:
+                    break
+                data = [f'0x{byte:02X}' for byte in data]
+                s = ', '.join(data)
+                dst_f.write(f'    {s},\n')
+            dst_f.write('};\n')
+
+def save_asm_c(src_path, dst_path, symbol):
+    length = os.path.getsize(src_path)
+
+    with open(dst_path, 'w') as dst_f:
+        dst_f.write('asm (\n')
+        dst_f.write('    ".section .rodata\\n"\n')
+        dst_f.write('    ".balign 4\\n"\n')
+        dst_f.write(f'    ".global {symbol}_len\\n"\n')
+        dst_f.write(f'    "{symbol}_len:\\n"\n')
+        dst_f.write(f'    ".int {length}\\n"\n')
+        dst_f.write(f'    ".global {symbol}\\n"\n')
+        dst_f.write(f'    "{symbol}:\\n"\n')
+        dst_f.write(f'    ".incbin \\"{src_path}\\"\\n"\n')
+        dst_f.write('    ".balign 4\\n"\n')
+        dst_f.write('    ".section .text\\n"\n')
+        dst_f.write(');\n')
+
+if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--use-array', action='store_true', help='use slower but portable array method')
+    parser.add_argument('--use-array', action='store_true',
+            help='use slower but portable array method')
     parser.add_argument('binary', metavar='BINARY', help='source binary data')
     parser.add_argument('output', metavar='OUTPUT', help='destination C source')
     args = parser.parse_args()
 
-    use_array = args.use_array
-    bin = args.binary
-    output = args.output
-
-    bin_len = os.path.getsize(bin)
-    var = os.path.basename(bin).translate(str.maketrans('-.', '__'))
-
-    if use_array:
-        with open(bin, 'rb') as in_f:
-            with open(output, 'w') as out_f:
-                out_f.write('#include <stddef.h>\n')
-                out_f.write('#include <stdint.h>\n')
-                out_f.write('\n')
-                out_f.write(f'const size_t {var}_len = {bin_len};\n')
-                out_f.write(f'const __attribute__((aligned(4))) uint8_t {var}[] = {{\n')
-                while True:
-                    data = in_f.read(12)
-                    if not data:
-                        break
-                    data = [f'0x{byte:02X}' for byte in data]
-                    s = ', '.join(data)
-                    out_f.write(f'    {s},\n')
-                out_f.write('};\n')
-    else:
-        with open(output, 'w') as f:
-            f.write('asm (\n')
-            f.write('    ".section .rodata\\n"\n')
-            f.write('    ".balign 4\\n"\n')
-            f.write(f'    ".global {var}_len\\n"\n')
-            f.write(f'    "{var}_len:\\n"\n')
-            f.write(f'    ".int {bin_len}\\n"\n')
-            f.write(f'    ".global {var}\\n"\n')
-            f.write(f'    "{var}:\\n"\n')
-            f.write(f'    ".incbin \\"{bin}\\"\\n"\n')
-            f.write('    ".balign 4\\n"\n')
-            f.write('    ".section .text\\n"\n')
-            f.write(');\n')
-
-if __name__ == '__main__':
-    main()
+    symbol = os.path.basename(args.binary).translate(str.maketrans('-.', '__'))
+    fn = save_array_c if args.use_array else save_asm_c
+    fn(args.binary, args.output, symbol)

@@ -3,6 +3,11 @@ VFS API
 
 `frogfs/vfs.h`
 
+Defines
+^^^^^^^
+
+.. doxygendefine:: F_REOPEN_RAW
+
 Functions
 ^^^^^^^^^
 

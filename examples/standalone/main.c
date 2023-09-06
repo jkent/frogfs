@@ -31,7 +31,7 @@ static void usage(const char *argv0)
     fputs("    --seek-end N\n", stderr);
     fputs("    --read [N]\n", stderr);
     fputs("    --drain\n", stderr);
-#ifdef CONFIG_FROGFS_SUPPORT_DIR
+#if CONFIG_FROGFS_SUPPORT_DIR
     fputs("    --ls PATH\n", stderr);
 #endif
     exit(EXIT_FAILURE);
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
             {"seek-end", required_argument, 0, 0},
             {"read",     required_argument, 0, 0},
             {"drain",    no_argument,       0, 0},
-#ifdef CONFIG_FROGFS_SUPPORT_DIR
+#if CONFIG_FROGFS_SUPPORT_DIR
             {"ls",       required_argument, 0, 0},
 #endif
             {0,          0,                 0, 0}
@@ -268,7 +268,7 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Read %d bytes.\n", bytes_read);
             }
 
-#ifdef CONFIG_FROGFS_SUPPORT_DIR
+#if CONFIG_FROGFS_SUPPORT_DIR
             if (strcmp("ls", long_options[option_index].name) == 0) {
                 const frogfs_obj_t *obj = frogfs_obj_from_path(fs, optarg);
                 if (obj == NULL) {

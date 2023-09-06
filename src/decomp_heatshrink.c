@@ -26,7 +26,7 @@ typedef struct {
 
 static int open_heatshrink(frogfs_f_t *f, unsigned int flags)
 {
-    frogfs_file_comp_t *file = (frogfs_file_comp_t *) f->file;
+    const frogfs_file_comp_t *file = (const frogfs_file_comp_t *) f->file;
 
     decomp_priv_t *data = malloc(sizeof(decomp_priv_t));
     if (data == NULL) {
@@ -58,7 +58,7 @@ static void close_heatshrink(frogfs_f_t *f)
 
 static ssize_t read_heatshrink(frogfs_f_t *f, void *buf, size_t len)
 {
-    frogfs_file_comp_t *file = (frogfs_file_comp_t *) f->file;
+    const frogfs_file_comp_t *file = (const frogfs_file_comp_t *) f->file;
     size_t rlen, decoded = 0;
 
     while (decoded < len) {
@@ -105,7 +105,7 @@ static ssize_t read_heatshrink(frogfs_f_t *f, void *buf, size_t len)
 
 static ssize_t seek_heatshrink(frogfs_f_t *f, long offset, int mode)
 {
-    frogfs_file_comp_t *file = (frogfs_file_comp_t *) f->file;
+    const frogfs_file_comp_t *file = (const frogfs_file_comp_t *) f->file;
     ssize_t new_pos = PRIV(f)->file_pos;
 
     if (mode == SEEK_SET) {

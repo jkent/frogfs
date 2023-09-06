@@ -11,9 +11,6 @@ filters:
     - babel-convert
     - uglify-js
 
-  #'*.txt':
-  #  - terminate
-
   '*.woff*':
     - no compress
 

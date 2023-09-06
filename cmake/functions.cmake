@@ -38,27 +38,19 @@ macro(generate_frogfs_rules path)
     if(DEFINED ARG_CONFIG)
         set(ARG_CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_CONFIG})
     endif()
-    set(output ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/frogfs.dir/${ARG_NAME})
+    set(output ${BUILD_DIR}/${ARG_NAME})
     make_directory(${output})
 
-    add_custom_target(frogfs_preprocess_${ARG_NAME}
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${output}
-        COMMAND ${CMAKE_COMMAND} -E env BUILD_DIR=${BUILD_DIR} ${Python3_VENV_EXECUTABLE} ${frogfs_DIR}/tools/preprocess.py ${ARG_CONFIG} ${path} ${output}
-        DEPENDS ${Python3_VENV}_requirements.stamp ${ARG_CONFIG}
-        BYPRODUCTS $ENV{NODE_PATH} ${output} ${output}.json
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        COMMENT "Preprocessing ${path}"
-        USES_TERMINAL
-    )
-
-    if(NOT "${CONFIG_FROGFS_BUILD_DIR}" STREQUAL "y")
-        set(SKIP_DIRS "--skip-directories")
+    if("${CONFIG_FROGFS_BUILD_DIR}" STREQUAL "y")
+        set(directories "--dirs")
     endif()
 
-    add_custom_command(OUTPUT ${output}.bin
-        COMMAND ${CMAKE_COMMAND} -E env BUILD_DIR=${BUILD_DIR} ${Python3_VENV_EXECUTABLE} ${frogfs_DIR}/tools/mkfrogfs.py ${SKIP_DIRS} ${output} ${output}.bin
-        DEPENDS frogfs_preprocess_${ARG_NAME} ${output}.json
-        COMMENT "Creating frogfs binary ${ARG_NAME}.bin"
+    add_custom_target(frogfs_preprocess_${ARG_NAME}
+        COMMAND ${CMAKE_COMMAND} -E env BUILD_DIR=${BUILD_DIR} ${Python3_VENV_EXECUTABLE} ${frogfs_DIR}/tools/mkfrogfs.py ${directories} ${ARG_CONFIG} ${path} ${output}.bin
+        DEPENDS ${Python3_VENV}_requirements.stamp ${ARG_CONFIG}
+        BYPRODUCTS $ENV{NODE_PATH} ${output}-cache ${output}-state.json ${output}.bin
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Creating FrogFS binary ${ARG_NAME}.bin"
         USES_TERMINAL
     )
 endmacro()
@@ -78,5 +70,5 @@ endfunction()
 function(declare_frogfs_bin path)
     generate_frogfs_rules(${ARGV})
 
-    add_custom_target(generate_${ARG_NAME}_bin DEPENDS ${output}.bin)
+    add_custom_target(generate_${ARG_NAME}_bin DEPENDS frogfs_preprocess_${ARG_NAME} ${output}.bin)
 endfunction()

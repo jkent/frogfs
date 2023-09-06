@@ -58,7 +58,6 @@ typedef struct frogfs_fs_t {
 #endif
     const frogfs_head_t *head; /**< fs header pointer */
     const frogfs_hash_t *hashes; /**< hash table pointer */
-    const frogfs_sort_t *sorted; /**< sort table pointer */
     const frogfs_decomp_t *decomp_funcs; /**< decompressor list */
 } frogfs_fs_t;
 
@@ -66,7 +65,6 @@ typedef struct frogfs_fs_t {
  * \brief Structure filled by the \a frogfs_stat function
  */
 typedef struct frogfs_stat_t {
-    uint16_t index; /**< file index */
     frogfs_type_t type; /**< object type */
     frogfs_comp_t compression; /**< compression type */
     size_t size; /**< uncompressed file size */
@@ -86,16 +84,15 @@ typedef struct frogfs_f_t {
     void *decomp_priv; /**< decompressor private data */
 } frogfs_f_t;
 
-#ifdef CONFIG_FROGFS_SUPPORT_DIR
+#if defined(CONFIG_FROGFS_SUPPORT_DIR) || defined(__DOXYGEN__)
 /**
  * \brief Structure describing a frogfs directory object
  */
 typedef struct frogfs_d_t {
     const frogfs_fs_t *fs; /**< frogfs fs pointer */
-    const frogfs_obj_t *obj; /**< frogfs object */
+    const frogfs_dir_t *dir; /**< frogfs object */
+    const frogfs_sort_t *children; /**< sort table */
     uint16_t index; /**< current index */
-    size_t path_len; /**< frogs path length with trailing slash */
-    char path[]; /**< frogfs path with trailing slash */
 } frogfs_d_t;
 #endif
 
@@ -148,28 +145,11 @@ const frogfs_obj_t *frogfs_obj_from_path(const frogfs_fs_t *fs,
         const char *path);
 
 /**
- * \brief      Get frogfs object for index
- * \param[in]  fs    \a frogfs_fs_t pointer
- * \param[in]  index object index
- * \return     \a frogfs_obj_t pointer or \a NULL if the index is out of range
- */
-const frogfs_obj_t *frogfs_obj_from_index(const frogfs_fs_t *fs,
-        uint16_t index);
-
-/**
  * \brief      Get path for frogfs object
  * \param[in]  obj \a frogfs_obj_t pointer
  * \return     path string or \a NULL if object is NULL
  */
 const char *frogfs_path_from_obj(const frogfs_obj_t *obj);
-
-/**
- * \brief      Get path for sorted frogfs object index
- * \param[in]  fs    \a frogfs_fs_t pointer
- * \param[in]  index object index
- * \return     path string or \a NULL if the index is out of range
- */
-const char *frogfs_path_from_index(const frogfs_fs_t *fs, uint16_t index);
 
 /**
  * \brief      Get information about a frogfs object
@@ -227,9 +207,9 @@ size_t frogfs_tell(frogfs_f_t *f);
  * \param[out] buf pointer pointer to buf
  * \return     length of raw data
  */
-size_t frogfs_access(frogfs_f_t *f, void **buf);
+size_t frogfs_access(frogfs_f_t *f, const void **buf);
 
-#ifdef CONFIG_FROGFS_SUPPORT_DIR
+#if defined(CONFIG_FROGFS_SUPPORT_DIR) || defined(__DOXYGEN__)
 /**
  * \brief      Open a directory for reading child objects
  * \param[in]  fs  \a frogfs_fs_t pointer
