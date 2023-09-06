@@ -347,7 +347,7 @@ def preprocess(path, object):
                 percent = 0
                 if object['len'] != 0:
                     percent = len(compressed) / object['len']
-                print(f'done ({percent * 100:.1f}%)')
+                print(f'done ({percent * 100:.1f}%)', file=stderr)
                 object['uncompressed_len'] = len(data)
                 data = compressed
                 object['compressed'] = True
