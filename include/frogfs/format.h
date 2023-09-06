@@ -4,9 +4,11 @@
 
 #pragma once
 
-#include <stdint.h>
-
+#if defined(ESP_PLATFORM)
 #include "sdkconfig.h"
+#endif
+
+#include <stdint.h>
 
 
 /**
