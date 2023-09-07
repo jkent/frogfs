@@ -175,12 +175,15 @@ frogfs_vfs_register(&frogfs_vfs_conf);
 
 ### Bare API
 
+#### Filesystem functions:
+
   * frogfs_fs_t *[frogfs_init](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_init)(frogfs_config_t *conf)
   * void [frogfs_deinit](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_deinit)(frogfs_fs_t *fs)
+
+#### Object functions:
+
   * const frogfs_obj_t *[frogfs_obj_from_path](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_obj_from_path)(const frogfs_fs_t *fs, const char *path)
-  * const frogfs_obj_t *[frogfs_obj_from_index](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_obj_from_index)(const frogfs_fs_t *fs, uint16_t index)
   * const char *[frogfs_path_from_obj](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_path_from_obj)(const frogfs_obj_t *obj)
-  * const char *[frogfs_path_from_index](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_path_from_index)(const frogfs_fs_t *fs, uint16_t index)
   * void [frogfs_stat](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_stat)(const frogfs_fs_t *fs, const frogfs_obj_t *obj, frogfs_stat_t *st)
   * frogfs_f_t *[frogfs_open](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_open)(const frogfs_fs_t *fs, const frogfs_obj_t *obj, unsigned int flags)
   * void [frogfs_close](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_close)(frogfs_f_t *f)
@@ -188,6 +191,9 @@ frogfs_vfs_register(&frogfs_vfs_conf);
   * ssize_t [frogfs_seek](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_seek)(frogfs_f_t *f, long offset, int mode)
   * size_t [frogfs_tell](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_tell)(frogfs_f_t *f)
   * size_t [frogfs_access](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_access)(frogfs_f_t *f, void **buf)
+
+#### Directory Functions:
+
   * frogfs_d_t *[frogfs_opendir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_opendir)(frogfs_fs_t *fs, const frogfs_obj_t *obj)
   * void [frogfs_closedir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_closedir)(frogfs_d_t *d)
   * const frogfs_obj_t *[frogfs_readdir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_readdir)(frogfs_d_t *d)
@@ -197,40 +203,35 @@ frogfs_vfs_register(&frogfs_vfs_conf);
 
 # How it works
 
-Under the hood there are two tables for object lookup. First is the hash
-table consisting of djb2 path hashes which allows for fast lookups using a
-binary search algorithm. Secondly, there is a sort table that allows for
-listing of sibling and child objects. Directory objects can be made optional
-in both the generated binary and FrogFS library to save space without
-sacrificing compatibility.
+Under the hood there is a hash table consisting of djb2 path hashes which
+allows for fast lookups using a binary search algorithm. Directory objects have
+a sort table of child objects. Directory support is optional for both the
+library and the FrogFS binary. It is not required for both to match for
+compatibility, however.
 
 FrogFS binaries can be either embedded in your application, or accessed using
 memory mapped I/O. It is not possible (at this time) to use FrogFS without the
 file system binary existing in data address space.
 
-Creation of a FrogFS filesystem is a multi-step process spread out between two
-Python tools:
-
-  * `tools/preprocess.py`
-    - Recursively enumerate all objects in a given directory
-    - Apply transforms to objects as configured in yaml
-    - Save json file containing the state including timestamps
+Creation of a FrogFS filesystem is a multi-step process handled by a single
+tool:
 
   * `tools/mkfrogfs.py`
+    - Recursively enumerate all objects in a given directory
+    - Apply transforms to objects as configured in yaml
+    - Compress files to files as configured in yaml
+    - Save json file containing the state including file timestamps
     - Hash path using djb2 hash
-    - Loop over objects, if object is a file and specified, compress it
-    - Save FrogFS binary: header, hashtable, sorttable, objects, and footer
+    - Save FrogFS binary: header, hashtable, objects, and footer
 
 You can add your own transforms by creating a `tools` directory in your
 projects root directory, with a filename starting with `transform-` and ending
 with `.js` or `.py`. Transform tools take data on stdin and produce output on
-stdout.
-
-Similarly you can add your own compressors by creating a `compress-` file.
-Compressors require you to allocate a compression id, however.
+stdout. Similarly you can add your own compressors by creating a `compress-` 
+file.
 
 Both transform and compress tools can accept arguments. Look at
-`default_config.yaml` for an example.
+`default_config.yaml` for an examples.
 
 # History and Acknowledgements
 
