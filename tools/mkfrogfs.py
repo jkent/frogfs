@@ -537,8 +537,8 @@ if __name__ == '__main__':
     config = load_config(config_file)
     for obj in objects.values():
         apply_rules(config['filters'], obj)
-    objects = filter_objects(objects)
     dirty |= run_preprocessors(objects)
+    objects = filter_objects(objects)
     dirty |= not os.path.exists(state_file) 
     dirty |= not os.path.exists(output_file)
     if not dirty:
