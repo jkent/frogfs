@@ -18,15 +18,9 @@ def main():
         print(COMPRESSOR_ID)
         sys.exit(0)
 
-    try:
-        from heatshrink2 import compress
-    except:
-        from subprocess import DEVNULL, call
-        code = call([sys.executable, '-m', 'pip', 'install', 'heatshrink2'],
-                stdout=DEVNULL)
-        if code != 0:
-            print('could not install heatshrink2', file=sys.stderr)
-        from heatshrink2 import compress
+    from frogfs import needs
+    needs('heatshrink2')
+    from heatshrink2 import compress
 
     data = sys.stdin.buffer.read()
     data = compress(data, args.window, args.lookahead)

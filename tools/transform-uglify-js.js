@@ -1,24 +1,12 @@
-const { argv, env, exit, platform, stdin, stdout, stderr } = require('process');
+const { needs, relaunch } = require('frogfs');
 
-try {
-	require('uglify-js/package');
-} catch {
-	const { spawnSync } = require('child_process');
-	let result = null;
-	if (platform == 'win32') {
-		result = spawnSync('cmd', ['/C', 'npm', '--prefix=' + env.NODE_PREFIX, 'install', 'uglify-js'], {'stdio': ['ignore', 'ignore', 'inherit']});
-	} else {
-		result = spawnSync('npm', ['--prefix=' + env.NODE_PREFIX, 'install', 'uglify-js'], {'stdio': ['ignore', 'ignore', 'inherit']});
-	}
-	result = spawnSync('npm', ['--prefix=' + env.NODE_PREFIX, 'install', 'uglify-js'], {'stdio': ['ignore', 'ignore', 'inherit']});
-	if (result.status != 0) {
-		stderr.write("npm failed to run, is it installed?\n");
-		exit(result.status);
-	}
-	result = spawnSync('node', argv.slice(1), {'stdio': 'inherit'});
-	exit(result.status);
+let installed = false;
+installed |= needs('uglify-js');
+if (installed) {
+	relaunch();
 }
 
+const { exit, stdin, stdout } = require('process');
 const uglifyjs = require('uglify-js');
 
 var input = '';
