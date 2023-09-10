@@ -5,6 +5,7 @@ const needs = (module) => {
     try {
         require(module + '/package');
     } catch {
+        stderr.write("installing... ");
         let result;
         const args = ['--quiet', '--no-progress', '--prefix=' + env.NODE_PREFIX,
                 'install', module];

@@ -501,9 +501,9 @@ if __name__ == '__main__':
     config_file = os.path.join(frogfs_dir, 'default_config.yaml')
 
     os.environ['FROGFS_DIR'] = frogfs_dir
-    build_dir = os.environ.get('BUILD_DIR', os.getcwd())
-    os.environ['NODE_PREFIX'] = build_dir
-    os.environ['NODE_PATH'] = os.path.join(build_dir, 'node_modules') + \
+    cmakefiles_dir = os.environ.get('CMAKEFILES_DIR', os.getcwd())
+    os.environ['NODE_PREFIX'] = cmakefiles_dir
+    os.environ['NODE_PATH'] = os.path.join(cmakefiles_dir, 'node_modules') + \
             os.pathsep + g_tools_dir
 
     parser = ArgumentParser()
@@ -525,8 +525,8 @@ if __name__ == '__main__':
     g_root_dir = args.root
     output_file = args.output
     output_name, _ = os.path.splitext(os.path.basename(output_file))
-    state_file = os.path.join(build_dir, output_name + '-state.json')
-    g_cache_dir = os.path.join(build_dir, output_name + '-cache')
+    g_cache_dir = os.path.join(cmakefiles_dir, output_name + '-cache')
+    state_file = os.path.join(cmakefiles_dir, output_name + '-cache-state.json')
     g_transforms = collect_transforms()
     g_compressors = collect_compressors()
 
