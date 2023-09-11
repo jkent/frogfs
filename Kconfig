@@ -26,7 +26,7 @@ config FROGFS_LOG_LEVEL_VERBOSE
 
 endchoice # "Log level"
 
-config FROGFS_INCLUDE_DIRS
+config FROGFS_BUILD_DIRS
 	bool "Build file systems with directory entries"
 	default n
 	help
