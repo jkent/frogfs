@@ -6,6 +6,7 @@
 #include "frogfs/frogfs.h"
 #include "frogfs/format.h"
 
+#define ZLIB_CONST
 #include "zlib.h"
 
 #include <stddef.h>

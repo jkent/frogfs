@@ -77,8 +77,8 @@ typedef struct frogfs_stat_t {
 typedef struct frogfs_f_t {
     const frogfs_fs_t *fs; /**< frogfs fs pointer */
     const frogfs_file_t *file; /**< file header pointer */
-    uint8_t *data_start; /**< data start pointer */
-    uint8_t *data_ptr; /**< current data pointer */
+    const void *data_start; /**< data start pointer */
+    const void *data_ptr; /**< current data pointer */
     unsigned int flags; /** open flags */
     const frogfs_decomp_funcs_t *decomp_funcs; /**< decompresor funcs */
     void *decomp_priv; /**< decompressor private data */

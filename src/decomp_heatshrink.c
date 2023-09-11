@@ -66,8 +66,8 @@ static ssize_t read_heatshrink(frogfs_f_t *f, void *buf, size_t len)
         size_t remain = file->data_len - (f->data_ptr - f->data_start);
         if (remain > 0) {
             HSD_sink_res res = heatshrink_decoder_sink(PRIV(f)->hsd,
-                    f->data_ptr, (remain > BUFFER_LEN) ? BUFFER_LEN : remain,
-                    &rlen);
+                    (uint8_t *) f->data_ptr, (remain > BUFFER_LEN) ?
+                    BUFFER_LEN : remain, &rlen);
             if (res < 0) {
                 LOGE("heatshrink_decoder_sink");
                 return -1;

@@ -237,7 +237,7 @@ frogfs_f_t *frogfs_open(const frogfs_fs_t *fs, const frogfs_obj_t *obj,
 
     f->fs = fs;
     f->file = file;
-    f->data_start = (void *) obj + align(obj->len + obj->path_len,
+    f->data_start = (const void *) obj + align(obj->len + obj->path_len,
             f->fs->head->align);
     f->data_ptr = f->data_start;
     f->flags = flags;
