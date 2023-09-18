@@ -11,11 +11,4 @@ menu "Example Configuration"
         default "mypassword"
         help
             WiFi password (WPA or WPA2) for the example to use.
-
-    config ESP_HTTPD_CONN_CLOSE_HEADER
-        bool "Send connection close header from request handlers"
-        default y
-        help
-            If this config item is set, Connection: close header will be set in handlers.
-            This closes HTTP connection and frees the server socket instantly.
 endmenu

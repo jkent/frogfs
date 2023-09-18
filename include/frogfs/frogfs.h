@@ -84,17 +84,22 @@ typedef struct frogfs_f_t {
     void *decomp_priv; /**< decompressor private data */
 } frogfs_f_t;
 
-#if defined(CONFIG_FROGFS_SUPPORT_DIR) || defined(__DOXYGEN__)
 /**
  * \brief Structure describing a frogfs directory object
  */
 typedef struct frogfs_d_t {
     const frogfs_fs_t *fs; /**< frogfs fs pointer */
+#if defined(CONFIG_FROGFS_SUPPORT_DIR) || defined(__DOXYGEN__)
     const frogfs_dir_t *dir; /**< frogfs object */
-    const frogfs_sort_t *children; /**< sort table */
+#endif
+    union {
+        const frogfs_obj_t *obj; /**< current frogfs object */
+#if defined(CONFIG_FROGFS_SUPPORT_DIR) || defined(__DOXYGEN__)
+        const frogfs_sort_t *children; /**< sort table */
+#endif
+    };
     uint16_t index; /**< current index */
 } frogfs_d_t;
-#endif
 
 /**
  * \brief Structure of function pointers that describe a decompressor
@@ -209,7 +214,6 @@ size_t frogfs_tell(frogfs_f_t *f);
  */
 size_t frogfs_access(frogfs_f_t *f, const void **buf);
 
-#if defined(CONFIG_FROGFS_SUPPORT_DIR) || defined(__DOXYGEN__)
 /**
  * \brief      Open a directory for reading child objects
  * \param[in]  fs  \a frogfs_fs_t pointer
@@ -252,7 +256,6 @@ void frogfs_seekdir(frogfs_d_t *d, uint16_t loc);
  * \return     object index
  */
 uint16_t frogfs_telldir(frogfs_d_t *d);
-#endif
 
 #ifdef __cplusplus
 } /* extern "C" */

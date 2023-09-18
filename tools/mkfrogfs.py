@@ -30,12 +30,12 @@ s_header = Struct('<IBBHIHBB')
 s_hash_entry = Struct('<II')
 
 # Object header
-# len, type, path_len
-s_object = Struct('<BBH')
+# len, type, path_len, data_len
+s_object = Struct('<BBHI')
 
 # Directory header
-# len, type, path_len, child_count
-s_dir = Struct('<BBHH')
+# len, type, path_len, data_len, child_count
+s_dir = Struct('<BBHIH')
 
 # Sort table entry
 # offset
@@ -399,7 +399,7 @@ def generate_dir_header(obj, paths) -> None:
     child_count = len(children)
     obj['size'] = s_sort_entry.size * child_count
     obj['header'] = s_dir.pack(s_dir.size, FROGFS_OBJ_TYPE_DIR, path_len,
-            child_count) + encoded_path
+            obj['size'], child_count) + encoded_path
     
 def generate_file_header(obj) -> None:
     '''Generate header and load data for a file object'''

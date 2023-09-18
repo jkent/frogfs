@@ -1,7 +1,6 @@
 [submodule "third-party/heatshrink"]
 	path = third-party/heatshrink
 	url = https://github.com/atomicobject/heatshrink.git
-[submodule "examples/cw/components/cwhttpd"]
-	path = examples/cw/components/cwhttpd
+[submodule "examples/clockwise/components/cwhttpd"]
+	path = examples/clockwise/components/cwhttpd
 	url = https://github.com/jkent/cwhttpd
-	branch = removeotaandwifi

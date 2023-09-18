@@ -41,7 +41,7 @@ macro(generate_frogfs_rules path)
     set(output ${BUILD_DIR}/${ARG_NAME})
     set(build_output ${BUILD_DIR}/CMakeFiles/${ARG_NAME})
 
-    if("${CONFIG_FROGFS_BUILD_DIR}" STREQUAL "y")
+    if("${CONFIG_FROGFS_BUILD_DIRS}" STREQUAL "y")
         set(directories "--dirs")
     endif()
 

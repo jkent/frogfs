@@ -1,23 +1,14 @@
-//#include "protocol_examples_common.h"
-//#include "file_serving_example_common.h"
-
-#include "esp_err.h"
-#include "esp_event.h"
-#include "esp_log.h"
-#include "esp_netif.h"
-#include "esp_system.h"
-#include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_err.h"
+#include "esp_event.h"
+#include "esp_netif.h"
+//#include "esp_system.h"
+#include "esp_wifi.h"
 #include "nvs_flash.h"
 
-#include "frogfs/frogfs.h"
-#include "frogfs/vfs.h"
 
-extern const uint8_t frogfs_bin[];
-TaskHandle_t main_task;
-
-extern esp_err_t start_http_server(const char *base_path);
+static TaskHandle_t current_task;
 
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
@@ -36,13 +27,15 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         retry_num = 0;
-        xTaskNotify(main_task, 0, eNoAction);
+        xTaskNotify(current_task, 0, eNoAction);
     }
 }
 
-esp_err_t wifi_init_sta(void)
+esp_err_t network_init(void)
 {
     esp_err_t err;
+
+    current_task = xTaskGetCurrentTaskHandle();
 
     err = esp_netif_init();
     if (err != ESP_OK) {
@@ -99,38 +92,4 @@ esp_err_t wifi_init_sta(void)
     xTaskNotifyWait(0, 0, NULL, portMAX_DELAY);
 
     return ESP_OK;
-}
-
-void app_main(void)
-{
-    main_task = xTaskGetCurrentTaskHandle();
-
-    // Mount frogfs
-    frogfs_config_t frogfs_config = {
-        .addr = frogfs_bin,
-    };
-    frogfs_fs_t *frogfs = frogfs_init(&frogfs_config);
-    assert(frogfs != NULL);
-
-    frogfs_vfs_conf_t frogfs_vfs_conf = {
-        .base_path = "/files",
-        .fs = frogfs,
-        .max_files = 5,
-    };
-    frogfs_vfs_register(&frogfs_vfs_conf);
-
-    // Initialize NVS
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
-            ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(ret);
-
-    // Initialize wifi in STA mode
-    ESP_ERROR_CHECK(wifi_init_sta());
-
-    // Start http server
-    ESP_ERROR_CHECK(start_http_server("/files"));
 }

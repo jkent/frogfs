@@ -1,16 +1,36 @@
 {
 	"folders": [
 		{
-			"name": "httpd",
-			"path": "examples/httpd"
+			"name": "clockwise",
+			"path": "examples/clockwise"
 		},
 		{
 			"name": "standalone",
 			"path": "examples/standalone"
 		},
 		{
+			"name": "httpd",
+			"path": "examples/httpd"
+		},
+		{
 			"name": "frogfs",
 			"path": "."
 		}
-	]
+	],
+	"settings": {
+		"files.associations": {
+			"stdlib.h": "c",
+			"zconf.h": "c",
+			"zlib.h": "c",
+			"time.h": "c",
+			"*.tcc": "c",
+			"bitset": "c",
+			"chrono": "c",
+			"random": "c",
+			"istream": "c",
+			"limits": "c",
+			"numeric": "c",
+			"string_view": "c"
+		}
+	}
 }

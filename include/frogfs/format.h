@@ -77,6 +77,7 @@ typedef struct __attribute__((packed)) frogfs_obj_t {
     uint8_t len; /**< header length */
     uint8_t type; /**< object type */
     uint16_t path_len; /**< path length (including null) */
+    uint32_t data_len; /**< data length */
 } frogfs_obj_t;
 
 #if defined(CONFIG_FROGFS_SUPPORT_DIR) || defined(__DOXYGEN__)
@@ -87,6 +88,7 @@ typedef struct __attribute__((packed)) frogfs_dir_t {
     uint8_t len; /**< header length */
     uint8_t type; /**< object type */
     uint16_t path_len; /**< path length (including null) */
+    uint32_t data_len; /**< data length */
     uint16_t child_count; /**< child object count */
 } frogfs_dir_t;
 

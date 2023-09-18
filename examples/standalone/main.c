@@ -23,17 +23,14 @@ static void usage(const char *argv0)
     fputs("\n", stderr);
     fputs("Actions:\n", stderr);
     fputs("    --help\n", stderr);
-    fputs("    --load BINARY\n", stderr);
-    fputs("    --stat PATH\n", stderr);
-    fputs("    --open PATH\n", stderr);
-    fputs("    --seek-cur N\n", stderr);
-    fputs("    --seek-set N\n", stderr);
-    fputs("    --seek-end N\n", stderr);
-    fputs("    --read [N]\n", stderr);
-    fputs("    --drain\n", stderr);
-#if CONFIG_FROGFS_SUPPORT_DIR
-    fputs("    --ls PATH\n", stderr);
-#endif
+    fputs("    --load=BINARY\n", stderr);
+    fputs("    --stat=PATH\n", stderr);
+    fputs("    --open=PATH\n", stderr);
+    fputs("    --seek-cur=N\n", stderr);
+    fputs("    --seek-set=N\n", stderr);
+    fputs("    --seek-end=N\n", stderr);
+    fputs("    --read[=N]\n", stderr);
+    fputs("    --ls[=PATH]\n", stderr);
     exit(EXIT_FAILURE);
 }
 
@@ -66,11 +63,9 @@ int main(int argc, char *argv[])
             {"seek-cur", required_argument, 0, 0},
             {"seek-set", required_argument, 0, 0},
             {"seek-end", required_argument, 0, 0},
-            {"read",     required_argument, 0, 0},
+            {"read",     optional_argument, 0, 0},
             {"drain",    no_argument,       0, 0},
-#if CONFIG_FROGFS_SUPPORT_DIR
-            {"ls",       required_argument, 0, 0},
-#endif
+            {"ls",       optional_argument, 0, 0},
             {0,          0,                 0, 0}
         };
 
@@ -232,54 +227,50 @@ int main(int argc, char *argv[])
 
                 char buf[16];
                 size_t bytes_read = 0;
-                size_t n = atoi(optarg);
-                while (bytes_read < n) {
-                    size_t chunk = n - bytes_read < sizeof(buf) ?
-                            n - bytes_read : sizeof(buf);
-                    ssize_t ret = frogfs_read(f, buf, chunk);
-                    if (ret < 0) {
-                        fputs("Error reading file.\n", stderr);
+                if (optarg) {
+                    size_t n = atoi(optarg);
+                    while (bytes_read < n) {
+                        size_t chunk = n - bytes_read < sizeof(buf) ?
+                                n - bytes_read : sizeof(buf);
+                        ssize_t ret = frogfs_read(f, buf, chunk);
+                        if (ret < 0) {
+                            fputs("Error reading file.\n", stderr);
+                            exit(EXIT_FAILURE);
+                        }
+                        fwrite(buf, ret, 1, stdout);
+                        bytes_read += ret;
+                        if (ret < chunk) {
+                            break;
+                        }
+                    }
+                } else {
+                    ssize_t ret;
+                    while ((ret = frogfs_read(f, buf, sizeof(buf))) > 0) {
+                        fwrite(buf, ret, 1, stdout);
+                        bytes_read += ret;
+                    }
+                }
+                fflush(stdout);
+                fprintf(stderr, "Read %d bytes.\n", bytes_read);
+            }
+
+            if (strcmp("ls", long_options[option_index].name) == 0) {
+                const frogfs_obj_t *obj;
+
+                if (optarg) {
+                    obj = frogfs_obj_from_path(fs, optarg);
+                    if (obj == NULL) {
+                        fprintf(stderr, "No such object '%s'.\n", optarg);
                         exit(EXIT_FAILURE);
                     }
-                    fwrite(buf, ret, 1, stdout);
-                    bytes_read += ret;
-                    if (ret < chunk) {
-                        break;
+
+                    if (obj->type != FROGFS_OBJ_TYPE_DIR) {
+                        fprintf(stderr, "Object '%s' is not a directory.\n",
+                                optarg);
+                        exit(EXIT_FAILURE);
                     }
-                }
-                fflush(stdout);
-                fprintf(stderr, "Read %d bytes.\n", bytes_read);
-            }
-
-            if (strcmp("drain", long_options[option_index].name) == 0) {
-                if (f == NULL) {
-                    fputs("Error, no file open.\n", stderr);
-                    exit(EXIT_FAILURE);
-                }
-
-                char buf[16];
-                size_t bytes_read = 0;
-                ssize_t ret;
-                while ((ret = frogfs_read(f, buf, sizeof(buf))) > 0) {
-                    fwrite(buf, ret, 1, stdout);
-                    bytes_read += ret;
-                }
-                fflush(stdout);
-                fprintf(stderr, "Read %d bytes.\n", bytes_read);
-            }
-
-#if CONFIG_FROGFS_SUPPORT_DIR
-            if (strcmp("ls", long_options[option_index].name) == 0) {
-                const frogfs_obj_t *obj = frogfs_obj_from_path(fs, optarg);
-                if (obj == NULL) {
-                    fprintf(stderr, "No such object '%s'.\n", optarg);
-                    exit(EXIT_FAILURE);
-                }
-
-                if (obj->type != FROGFS_OBJ_TYPE_DIR) {
-                    fprintf(stderr, "Object '%s' is not a directory.\n",
-                            optarg);
-                    exit(EXIT_FAILURE);
+                } else {
+                    obj = NULL;
                 }
 
                 frogfs_d_t *d = frogfs_opendir(fs, obj);
@@ -295,13 +286,13 @@ int main(int argc, char *argv[])
                     } else if (obj->type == FROGFS_OBJ_TYPE_DIR) {
                         printf("%s/\n", path);
                     } else {
-                        fprintf(stderr, "Unknown object type for '%s'.\n");
+                        fprintf(stderr, "Unknown object type for '%d'.\n",
+                                obj->type);
                     }
                 }
 
                 frogfs_closedir(d);
             }
-#endif
         }
     }
 

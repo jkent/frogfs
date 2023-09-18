@@ -341,15 +341,15 @@ size_t frogfs_access(frogfs_f_t *f, const void **buf)
     return f->file->data_len;
 }
 
-#if defined(CONFIG_FROGFS_SUPPORT_DIR)
 frogfs_d_t *frogfs_opendir(frogfs_fs_t *fs, const frogfs_obj_t *obj)
 {
     assert(fs != NULL);
-    assert(obj != NULL);
 
-    if (obj->type != FROGFS_OBJ_TYPE_DIR) {
+#if defined(CONFIG_FROGFS_SUPPORT_DIR)
+    if (obj != NULL && obj->type != FROGFS_OBJ_TYPE_DIR) {
         return NULL;
     }
+#endif
 
     frogfs_d_t *d = calloc(1, sizeof(frogfs_d_t));
     if (d == NULL) {
@@ -358,9 +358,18 @@ frogfs_d_t *frogfs_opendir(frogfs_fs_t *fs, const frogfs_obj_t *obj)
     }
 
     d->fs = fs;
-    d->dir = (const void *) obj;
-    d->children = (const void *) obj + align(obj->len + obj->path_len,
-            fs->head->align);
+#if defined(CONFIG_FROGFS_SUPPORT_DIR)
+    if (obj) {
+        d->dir = (const void *) obj;
+        d->children = (const void *) obj + align(obj->len + obj->path_len,
+                fs->head->align);
+    } else {
+#endif
+        d->obj = (const void *) fs->hashes + align(sizeof(frogfs_hash_t) *
+                fs->head->num_objs, fs->head->align);
+#if defined(CONFIG_FROGFS_SUPPORT_DIR)
+    }
+#endif
 
     return d;
 }
@@ -378,9 +387,23 @@ const frogfs_obj_t *frogfs_readdir(frogfs_d_t *d)
 {
     const frogfs_obj_t *obj = NULL;
 
-    if (d->dir->child_count > d->index) {
-        obj = (const void *) d->fs->head + d->children[d->index++].offset;
+#if defined(CONFIG_FROGFS_SUPPORT_DIR)
+    if (d->dir) {
+        if (d->index < d->dir->child_count) {
+            obj = (const void *) d->fs->head + d->children[d->index++].offset;
+        }
+    } else {
+#endif
+        if (d->index < d->fs->head->num_objs) {
+            obj = d->obj;
+            d->obj = (const void *) d->obj + align(d->obj->len +
+                    d->obj->path_len, d->fs->head->align) +
+                    align(d->obj->data_len, d->fs->head->align);
+            d->index++;
+        }
+#if defined(CONFIG_FROGFS_SUPPORT_DIR)
     }
+#endif
 
     return obj;
 }
@@ -390,14 +413,33 @@ void frogfs_rewinddir(frogfs_d_t *d)
     assert(d != NULL);
 
     d->index = 0;
+    if (d->dir == NULL) {
+        d->obj = (const void *) d->fs->hashes + align(
+                sizeof(frogfs_hash_t) * d->fs->head->num_objs,
+                d->fs->head->align);
+    }
 }
 
 void frogfs_seekdir(frogfs_d_t *d, uint16_t loc)
 {
     assert(d != NULL);
-    assert(loc < d->dir->child_count);
 
-    d->index = loc;
+#if defined(CONFIG_FROGFS_SUPPORT_DIR)
+    if (d->dir) {
+        assert(loc < d->dir->child_count);
+        d->index = loc;
+    } else {
+#endif
+        assert(loc < d->fs->head->num_objs);
+        if (loc < d->index) {
+            frogfs_rewinddir(d);
+        }
+        while (loc < d->index) {
+            frogfs_readdir(d);
+        }
+#if defined(CONFIG_FROGFS_SUPPORT_DIR)
+    }
+#endif
 }
 
 uint16_t frogfs_telldir(frogfs_d_t *d)
@@ -406,4 +448,3 @@ uint16_t frogfs_telldir(frogfs_d_t *d)
 
     return d->index;
 }
-#endif

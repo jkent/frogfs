@@ -19,9 +19,10 @@ extern "C" {
  */
 typedef struct frogfs_vfs_conf_t {
     const char *base_path; /**< vfs path to mount the filesystem */
-    const char *overlay; /**< vfs overlay search path */
     frogfs_fs_t *fs; /**< the frogfs instance */
     size_t max_files; /**< maximum open files */
+    const char *overlay; /**< vfs overlay search path */
+    bool flat; /**< overlay has only file objects, like spiffs */
 } frogfs_vfs_conf_t;
 
 /**

@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/fcntl.h>
@@ -25,8 +26,6 @@
 # define CONFIG_FROGFS_MAX_PARTITIONS 1
 #endif
 
-#define HAVE_OVERLAY() (vfs->overlay[0])
-
 typedef struct {
     int fd;
     frogfs_f_t *f;
@@ -35,11 +34,11 @@ typedef struct {
 #ifdef CONFIG_VFS_SUPPORT_DIR
 typedef struct {
     DIR *dir;
-#ifdef CONFIG_FROGFS_SUPPORT_DIR
-    frogfs_d_t *d;
-#endif
+    DIR *overlay_dir;
+    struct dirent overlay_ent;
+    char overlay_path[PATH_MAX];
+    frogfs_d_t *frogfs_dir;
     long offset;
-    struct dirent e;
 } frogfs_vfs_d_t;
 #endif
 
@@ -47,6 +46,8 @@ typedef struct {
     frogfs_fs_t *fs;
     char base_path[ESP_VFS_PATH_MAX + 1];
     char overlay[ESP_VFS_PATH_MAX + 1];
+    bool have_overlay;
+    bool flat;
     size_t max_files;
     frogfs_vfs_f_t files[];
 } frogfs_vfs_t;
@@ -68,14 +69,14 @@ static esp_err_t frogfs_get_empty(int *index)
 
 char *frogfs_get_overlay(frogfs_vfs_t *vfs, const char *path)
 {
-    char *overlay = malloc(strlen(vfs->overlay) + strlen(path) + 2);
-    if (overlay == NULL) {
-        return NULL;
+    char *overlay = NULL;
+
+    if (vfs->have_overlay) {
+        if (asprintf(&overlay, "%s%s", vfs->overlay, path) < 0) {
+            return NULL;
+        }
     }
 
-    strcpy(overlay, vfs->overlay);
-    strcat(overlay, "/");
-    strcat(overlay, path);
     return overlay;
 }
 
@@ -149,7 +150,7 @@ static int frogfs_vfs_open(void *ctx, const char *path, int flags, int mode)
         return -1;
     }
 
-    if (HAVE_OVERLAY()) {
+    if (vfs->have_overlay) {
         char *overlay = frogfs_get_overlay(vfs, path);
         if (!overlay) {
             return -1;
@@ -163,7 +164,10 @@ static int frogfs_vfs_open(void *ctx, const char *path, int flags, int mode)
         }
     }
 
-    if (flags & (O_WRONLY | O_RDWR | O_CREAT | O_TRUNC)) {
+    if (((flags & O_ACCMODE) == O_WRONLY) | ((flags & O_ACCMODE) == O_RDWR)) {
+        return -1;
+    }
+    if (flags & (O_APPEND | O_CREAT | O_TRUNC)) {
         return -1;
     }
 
@@ -238,7 +242,7 @@ static int frogfs_vfs_stat(void *ctx, const char *path, struct stat *st)
 {
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (HAVE_OVERLAY()) {
+    if (vfs->have_overlay) {
         char *overlay = frogfs_get_overlay(vfs, path);
         if (!overlay) {
             return -1;
@@ -272,7 +276,7 @@ static int frogfs_vfs_link(void *ctx, const char *n1, const char *n2)
 {
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (!HAVE_OVERLAY()) {
+    if (!vfs->have_overlay) {
         return -1;
     }
 
@@ -297,7 +301,7 @@ static int frogfs_vfs_unlink(void *ctx, const char *path)
 {
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (!HAVE_OVERLAY()) {
+    if (!vfs->have_overlay) {
         return -1;
     }
 
@@ -316,7 +320,7 @@ static int frogfs_vfs_rename(void *ctx, const char *src, const char *dst)
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
     int ret = 0;
 
-    if (!HAVE_OVERLAY()) {
+    if (!vfs->have_overlay) {
         return -1;
     }
 
@@ -376,120 +380,112 @@ static DIR* frogfs_vfs_opendir(void *ctx, const char *path)
 {
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
+    if (vfs->flat && strcmp(path, "/") != 0) {
+        return NULL;
+    }
+
     frogfs_vfs_d_t *d = calloc(1, sizeof(frogfs_vfs_d_t));
     if (d == NULL) {
         errno = ENOMEM;
         return NULL;
     }
 
-    if (HAVE_OVERLAY()) {
-        char *overlay = frogfs_get_overlay(vfs, path);
-        if (overlay == NULL) {
-            return NULL;
-        }
-        d->dir = opendir(overlay);
-        free(overlay);
+    if (vfs->have_overlay) {
+        snprintf(d->overlay_path, sizeof(d->overlay_path), "%s%s",
+                vfs->overlay, path);
+        d->overlay_dir = opendir(d->overlay_path);
     }
 
-#ifdef CONFIG_FROGFS_SUPPORT_DIR
-    const frogfs_obj_t *obj = frogfs_obj_from_path(vfs->fs, path);
-    if (obj != NULL) {
-        d->d = frogfs_opendir(vfs->fs, obj);
+    if (vfs->flat) {
+        d->frogfs_dir = frogfs_opendir(vfs->fs, NULL);
+    } else {
+        const frogfs_obj_t *obj = frogfs_obj_from_path(vfs->fs, path);
+        if (obj != NULL) {
+            d->frogfs_dir = frogfs_opendir(vfs->fs, obj);
+        }
     }
-#endif
 
     return (DIR *) d;
 }
 
-static int frogfs_vfs_readdir_r(void *ctx, DIR *pdir, struct dirent *entry,
-        struct dirent **out_dirent);
+static int frogfs_vfs_readdir_r(void *ctx, DIR *pdir, struct dirent *ent,
+        struct dirent **out_ent);
 static struct dirent *frogfs_vfs_readdir(void *ctx, DIR *pdir)
 {
-    frogfs_vfs_d_t *dir = (frogfs_vfs_d_t *) pdir;
-    struct dirent *out_dirent;
-    int err = frogfs_vfs_readdir_r(ctx, pdir, &dir->e, &out_dirent);
+    frogfs_vfs_d_t *d = (frogfs_vfs_d_t *) pdir;
+    struct dirent *out_ent;
+
+    int err = frogfs_vfs_readdir_r(ctx, pdir, &d->overlay_ent, &out_ent);
     if (err != 0) {
         errno = err;
         return NULL;
     }
-    return out_dirent;
+
+    return out_ent;
 }
 
-static int frogfs_vfs_readdir_r(void *ctx, DIR *pdir, struct dirent *entry,
-        struct dirent **out_dirent)
+static int frogfs_vfs_readdir_r(void *ctx, DIR *pdir, struct dirent *ent,
+        struct dirent **out_ent)
 {
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
     frogfs_vfs_d_t *d = (frogfs_vfs_d_t *) pdir;
-    bool end = true;
+    char path[PATH_MAX];
+    const char *s;
 
-    if (HAVE_OVERLAY() && d->dir) {
-        struct dirent *e;
-        char name[256] = {0};
-        rewinddir(d->dir);
-        while ((e = readdir(d->dir))) {
-            if (strcmp(e->d_name, entry->d_name) <= 0) {
-                continue;
-            }
-            if (name[0] == '\0' || strcmp(e->d_name, name) < 0) {
-                entry->d_ino = 0;
-                entry->d_type = e->d_type;
-                strcpy(entry->d_name, name);
-                end = false;
+    if (!(d->offset & 0x1000000)) {
+        if (vfs->have_overlay && d->overlay_dir) {
+            struct dirent *new_ent;
+            if ((new_ent = readdir(d->overlay_dir)) != NULL) {
+                ent->d_ino = new_ent->d_ino;
+                ent->d_type = new_ent->d_type;
+                snprintf(ent->d_name, sizeof(ent->d_name), "/%.254s",
+                        new_ent->d_name);
+                *out_ent = ent;
+                d->offset++;
+                return 0;
             }
         }
+        d->offset = 0x1000000;
     }
 
-#ifdef CONFIG_FROGFS_SUPPORT_DIR
-    if (d->d) {
-        do {
-            uint16_t pos = frogfs_telldir(d->d);
-            const frogfs_obj_t *obj = frogfs_readdir(d->d);
-
-            if (obj == NULL) {
-                break;
+    if (d->frogfs_dir) {
+        while ((d->offset & ~0x1000000) < vfs->fs->head->num_objs) {
+            const frogfs_obj_t *obj = frogfs_readdir(d->frogfs_dir);
+            if (!obj) {
+                *out_ent = NULL;
+                return 0;
             }
 
-            const char *path = frogfs_path_from_obj(obj);
-            const char *name = strrchr(path, '/');
-            if (name == NULL) {
-                name = path;
-            } else {
-                name++;
-            }
-
-            if (HAVE_OVERLAY()) {
-                int n = strcmp(name, entry->d_name);
-                if (n == 0) {
+            d->offset += 1;
+            s = frogfs_path_from_obj(obj);
+            if (vfs->have_overlay) {
+                snprintf(path, sizeof(path), "%s/%s", vfs->overlay, s);
+                struct stat st;
+                if (stat(path, &st) == 0) {
                     continue;
                 }
 
-                if (n > 0) {
-                    frogfs_seekdir(d->d, pos);
-                    break;
+                if (!vfs->flat) {
+                    s = strrchr(s, '/');
+                    s = (s == NULL) ? "" : (s + 1);
                 }
             }
+            snprintf(path, sizeof(path), "/%s", s);
 
-            entry->d_ino = 0;
+            ent->d_ino = 0;
+            strlcpy(ent->d_name, path, sizeof(ent->d_name));
             if (obj->type == FROGFS_OBJ_TYPE_FILE) {
-                entry->d_type = DT_REG;
+                ent->d_type = DT_REG;
             } else if (obj->type == FROGFS_OBJ_TYPE_DIR) {
-                entry->d_type = DT_DIR;
-            } else {
-                entry->d_type = DT_UNKNOWN;
+                ent->d_type = DT_DIR;
             }
-            strlcpy(entry->d_name, name, sizeof(entry->d_name));
-            end = false;
-        } while (false);
-    }
-#endif
 
-    if (end) {
-        *out_dirent = NULL;
-        return 0;
+            *out_ent = ent;
+            return 0;
+        }
     }
 
-    d->offset++;
-    *out_dirent = entry;
+    *out_ent = NULL;
     return 0;
 }
 
@@ -505,12 +501,10 @@ static void frogfs_vfs_seekdir(void *ctx, DIR *pdir, long offset)
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
     frogfs_vfs_d_t *d = (frogfs_vfs_d_t *) pdir;
 
-    if (HAVE_OVERLAY()) {
-        rewinddir(d->dir);
+    if (vfs->have_overlay) {
+        rewinddir(d->overlay_dir);
     }
-#ifdef CONFIG_FROGFS_SUPPORT_DIR
-    frogfs_rewinddir(d->d);
-#endif
+    frogfs_rewinddir(d->frogfs_dir);
     d->offset = 0;
 
     while (d->offset < offset) {
@@ -525,12 +519,10 @@ static int frogfs_vfs_closedir(void *ctx, DIR *pdir)
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
     frogfs_vfs_d_t *d = (frogfs_vfs_d_t *) pdir;
 
-    if (HAVE_OVERLAY()) {
-        closedir(d->dir);
+    if (vfs->have_overlay) {
+        closedir(d->overlay_dir);
     }
-#ifdef CONFIG_FROGFS_SUPPORT_DIR
-    frogfs_closedir(d->d);
-#endif
+    frogfs_closedir(d->frogfs_dir);
     free(d);
     return 0;
 }
@@ -539,7 +531,7 @@ static int frogfs_vfs_mkdir(void *ctx, const char *path, mode_t mode)
 {
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (!HAVE_OVERLAY()) {
+    if (!vfs->have_overlay) {
         return -1;
     }
 
@@ -557,7 +549,7 @@ static int frogfs_vfs_rmdir(void *ctx, const char *path)
 {
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (!HAVE_OVERLAY()) {
+    if (!vfs->have_overlay) {
         return -1;
     }
 
@@ -633,7 +625,7 @@ static int frogfs_vfs_access(void *ctx, const char *path, int amode)
 {
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (HAVE_OVERLAY()) {
+    if (vfs->have_overlay) {
         char *overlay = frogfs_get_overlay(vfs, path);
         if (overlay == NULL) {
             return -1;
@@ -652,7 +644,7 @@ static int frogfs_vfs_truncate(void *ctx, const char *path, off_t length)
 {
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (!HAVE_OVERLAY()) {
+    if (!vfs->have_overlay) {
         return -1;
     }
 
@@ -687,7 +679,7 @@ static int frogfs_vfs_utime(void *ctx, const char *path,
 {
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
 
-    if (!HAVE_OVERLAY()) {
+    if (!vfs->have_overlay) {
         return -1;
     }
 
@@ -705,6 +697,7 @@ esp_err_t frogfs_vfs_register(const frogfs_vfs_conf_t *conf)
 {
     assert(conf != NULL);
     assert(conf->fs != NULL);
+    assert(conf->base_path != NULL);
 
     const esp_vfs_t funcs = {
         .flags = ESP_VFS_FLAG_CONTEXT_PTR,
@@ -751,12 +744,12 @@ esp_err_t frogfs_vfs_register(const frogfs_vfs_conf_t *conf)
 
     vfs->fs = conf->fs;
     vfs->max_files = conf->max_files;
-    if (conf->base_path) {
-        strlcpy(vfs->base_path, conf->base_path, sizeof(vfs->base_path));
-    }
+    strlcpy(vfs->base_path, conf->base_path, sizeof(vfs->base_path));
     if (conf->overlay) {
+        vfs->have_overlay = true;
         strlcpy(vfs->overlay, conf->overlay, sizeof(vfs->overlay));
     }
+    vfs->flat = conf->flat;
     for (int fd = 0; fd < vfs->max_files; fd++) {
         vfs->files[fd].fd = -1;
     }
