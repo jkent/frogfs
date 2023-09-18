@@ -9,10 +9,6 @@
 			"path": "examples/standalone"
 		},
 		{
-			"name": "httpd",
-			"path": "examples/httpd"
-		},
-		{
 			"name": "frogfs",
 			"path": "."
 		}
