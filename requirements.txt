@@ -1,1 +1,2 @@
+heatshrink2>=0.12.0
 pyyaml>=6.0.1

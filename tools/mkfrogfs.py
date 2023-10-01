@@ -1,5 +1,6 @@
 import json
 import os
+import zlib
 from argparse import ArgumentParser
 from fnmatch import fnmatch
 from shutil import which
@@ -8,50 +9,49 @@ from subprocess import PIPE, Popen
 from sys import executable, stderr
 from zlib import crc32
 
+import heatshrink2
 import yaml
-
 
 # Header
 FROGFS_MAGIC            = 0x474F5246 # FROG
 FROGFS_VER_MAJOR        = 1
 FROGFS_VER_MINOR        = 0
-FROGFS_FLAG_DIRS        = (1 << 0)
 
 # Object types
 FROGFS_OBJ_TYPE_FILE    = 0
 FROGFS_OBJ_TYPE_DIR     = 1
 
 # FrogFS header
-# magic, len, ver_major, ver_minor, bin_len, num_objs, align, flags
-s_header = Struct('<IBBHIHBB')
+# magic, bin_sz, num_ent, ver_majr, ver_minor
+s_head = Struct('<IBBHI')
 
 # Hash table entry
-# hash, offset
-s_hash_entry = Struct('<II')
+# hash, offs
+s_hash = Struct('<II')
 
-# Object header
-# len, type, path_len, data_len
-s_object = Struct('<BBHI')
+# Offset
+# offs
+s_offs = Struct("<I")
+
+# Entry header
+# parent, child_count, seg_sz, opts
+s_ent = Struct('<IHBB')
 
 # Directory header
-# len, type, path_len, data_len, child_count
-s_dir = Struct('<BBHIH')
-
-# Sort table entry
-# offset
-s_sort_entry = Struct('<I')
+# parent, child_count, seg_sz, opts
+s_dir = Struct('<IHBB')
 
 # File header
-# len, type, path_len, data_len, compression
-s_file = Struct('<BBHIB')
+# parent, child_count, seg_sz, opts, data_offs, data_sz
+s_file = Struct('<IHBBII')
 
 # Compressed file header
-# len, type, path_len, data_len, compression, options, res, expanded_len
-s_file_comp = Struct('<BBHIBBHI')
+# parent, child_count, seg_sz, opts, data_offs, data_sz, real_sz
+s_comp = Struct('<IHBBIII')
 
 # FrogFS footer
 # crc32
-s_footer = Struct('<I')
+s_foot = Struct('<I')
 
 
 def pipe_script(script: str, args: dict, data: bytes | bytearray) -> bytes:
@@ -72,7 +72,7 @@ def pipe_script(script: str, args: dict, data: bytes | bytearray) -> bytes:
         command.append(('--' if len(arg) > 1 else '-') + arg)
         if value is not None:
             command.append(str(value))
-    
+
     process = Popen(command, stdin=PIPE, stdout=PIPE)
     data, _ = process.communicate(input=data)
     code = process.returncode
@@ -95,23 +95,6 @@ def collect_transforms() -> dict:
                 transforms[name] = {'path': filepath}
     return transforms
 
-def collect_compressors() -> dict:
-    '''Find compressors in frogfs' tools directory and in ${CWD}/tools'''
-    compressors = {}
-    for path in (g_tools_dir, 'tools'):
-        if not os.path.exists(path):
-            continue
-
-        for file in os.listdir(path):
-            if file.startswith('compress-'):
-                name, _ = os.path.splitext(file[9:])
-                filepath = os.path.join(path, file)
-                compressors[name] = {
-                    'path': filepath,
-                    'id': int(pipe_script(filepath, {'id': None}, ''))
-                }
-    return compressors
-
 def djb2_hash(s: str) -> int:
     '''A simple string hashing algorithm'''
     hash = 5381
@@ -121,34 +104,31 @@ def djb2_hash(s: str) -> int:
 
 ### Stage 1 ###
 
-def collect_objects() -> dict:
+def collect_entries() -> dict:
     '''Collects all the path items from root directory'''
-    objects = {}
+    entries = {}
     for dir, _, files in os.walk(g_root_dir, followlinks=True):
         reldir = os.path.relpath(dir, g_root_dir).replace('\\', '/') \
                 .lstrip('.').lstrip('/')
-        absdir = os.path.abspath(dir)
-        obj = {
+        entry = {
             'path': reldir,
-            'hash': djb2_hash(reldir),
+            'seg': os.path.basename(reldir),
             'type': 'dir',
         }
-        objects[reldir] = obj
+        entries[reldir] = entry
 
         for file in files:
             relfile = os.path.join(reldir, file).replace('\\', '/')
-            absfile = os.path.join(absdir, file)
-            obj = {
+            entry = {
                 'path': relfile,
-                'hash': djb2_hash(relfile),
+                'seg': file,
                 'type': 'file',
-                'root_size': os.path.getsize(absfile),
             }
-            objects[relfile] = obj
+            entries[relfile] = entry
 
-    return dict(sorted(objects.items()))
+    return dict(sorted(entries.items()))
 
-def clean_removed(objects: dict) -> bool:
+def clean_removed(entries: dict) -> bool:
     '''Check if files have been removed from root directory'''
     removed = False
     for dir, _, files in os.walk(g_cache_dir, topdown=False, followlinks=True):
@@ -156,42 +136,38 @@ def clean_removed(objects: dict) -> bool:
                 .lstrip('.').lstrip('/')
         for file in files:
             relfile = os.path.join(reldir, file).replace('\\', '/')
-            if relfile not in objects.keys():
+            if relfile not in entries.keys():
                 os.unlink(os.path.join(g_cache_dir, relfile))
                 removed = True
-        if reldir not in objects.keys():
+        if reldir not in entries.keys():
             os.rmdir(os.path.join(g_cache_dir, reldir))
             removed = True
 
     return removed
 
-def load_state(file: str, objects: dict) -> bool:
+def load_state(file: str, entries: dict) -> bool:
     '''Loads previous state or initializes a empty one'''
 
-    data = {'options': {}, 'paths': {}}
+    paths = {}
     try:
         with open(file, 'r') as f:
-            data = json.load(f)
+            paths = json.load(f)
     except:
         pass
 
-    for path, state in data['paths'].items():
-        if path not in objects:
+    for path, state in paths.items():
+        if path not in entries:
             continue
-        object = objects[path]
-        object['transforms'] = state.get('transforms', {})
-        object['compressor'] = state.get('compressor')
-        object['expanded_sz'] = state.get('expanded_sz')
+        ent = entries[path]
+        ent['transforms'] = state.get('transforms', {})
+        ent['compressor'] = state.get('compressor')
+        ent['real_sz'] = state.get('real_sz')
 
-    options = {
-        'align': g_align,
-        'use_dirs': g_use_dirs,
-    }
-    dirty = data['options'] != options
-
-    for object in objects.values():
-        if dirty or 'transforms' not in object:
-            object['preprocess'] = True
+    dirty = False
+    for ent in entries.values():
+        if 'transforms' not in ent:
+            ent['preprocess'] = True
+            dirty = True
 
     return dirty
 
@@ -216,13 +192,13 @@ def load_config(file: str) -> dict:
                     config['filters'][path][filter_name] = args
     return config
 
-def apply_rules(filters: dict, obj: dict) -> None:
-    '''Applies preprocessing rules for a single object'''
+def apply_rules(filters: dict, entry: dict) -> None:
+    '''Applies preprocessing rules for a single entry'''
     transforms = {}
     compressor = None
 
     for filter, actions in filters.items():
-        if fnmatch(obj['path'], filter):
+        if fnmatch(entry['path'], filter):
             for action, args in actions.items():
                 action = action.split()
                 disable = False
@@ -245,7 +221,7 @@ def apply_rules(filters: dict, obj: dict) -> None:
                     elif action == 'discard':
                         transforms[action] = not disable
                     elif action in g_transforms:
-                        if obj['type'] == 'file':
+                        if entry['type'] == 'file':
                             transforms[action] = False if disable else args
                     else:
                         raise Exception(f'{action} is not a known transform')
@@ -253,37 +229,39 @@ def apply_rules(filters: dict, obj: dict) -> None:
                 if compress != None:
                     if compressor != None:
                         continue
-                    if obj['type'] == 'file':
+                    if compress not in ('deflate', 'heatshrink'):
+                        raise Exception(f'{compress} is not a valid compressor')
+                    if entry['type'] == 'file':
                         compressor = [compress, args]
 
-    if obj.setdefault('transforms', {}) != transforms or \
-                obj['transforms'].keys() != transforms.keys():
-        obj['transforms'] = transforms
-        obj['preprocess'] = True
-    
-    if obj['type'] == 'file' and \
-            obj.setdefault('compressor', None) != compressor:
-        obj['compressor'] = compressor
-        obj['preprocess'] = True
+    if entry.setdefault('transforms', {}) != transforms or \
+                entry['transforms'].keys() != transforms.keys():
+        entry['transforms'] = transforms
+        entry['preprocess'] = True
 
-def preprocess(obj: dict) -> None:
-    '''Run preprocessors for a given object'''
-    if 'discard' in obj['transforms']:
+    if entry['type'] == 'file' and \
+            entry.setdefault('compressor', None) != compressor:
+        entry['compressor'] = compressor
+        entry['preprocess'] = True
+
+def preprocess(entry: dict) -> None:
+    '''Run preprocessors for a given entry'''
+    if 'discard' in entry['transforms']:
         return
 
-    path = obj['path']
+    path = entry['path']
 
-    if obj['type'] == 'dir':
+    if entry['type'] == 'dir':
         if not os.path.exists(os.path.join(g_cache_dir, path)):
             os.mkdir(os.path.join(g_cache_dir, path))
 
-    if obj['type'] == 'file':
-        print(f'         - {obj["path"]}', file=stderr)
+    if entry['type'] == 'file':
+        print(f'         - {entry["path"]}', file=stderr)
 
         with open(os.path.join(g_root_dir, path), 'rb') as f:
             data = f.read()
 
-        for name, args in obj['transforms'].items():
+        for name, args in entry['transforms'].items():
             if name == 'cache':
                 continue
 
@@ -292,207 +270,209 @@ def preprocess(obj: dict) -> None:
             data = pipe_script(transform['path'], args, data)
             print('done', file=stderr)
 
-        if obj['compressor']:
-            name, args = obj['compressor']
+        if entry['compressor']:
+            name, args = entry['compressor']
             print(f'           - compress {name}... ', file=stderr, end='',
                     flush=True)
-            compressor = g_compressors[name]
-            compressed = pipe_script(compressor['path'], args, data)
+
+            if name == 'deflate':
+                level = args.get('level', 9)
+                compressed = zlib.compress(data, level)
+            elif name == 'heatshrink':
+                window = args.get('window', 11)
+                lookahead = args.get('lookahead', 4)
+                compressed = heatshrink2.compress(data, window, lookahead)
 
             if len(data) < len(compressed):
                 print('skipped', file=stderr)
-                obj['expanded_sz'] = None
+                entry['real_sz'] = None
             else:
                 percent = 0
                 size = os.path.getsize(os.path.join(g_root_dir, path))
                 if size != 0:
                     percent = len(compressed) / size
                 print(f'done ({percent * 100:.1f}%)', file=stderr)
-                obj['expanded_sz'] = len(data)
+                entry['real_sz'] = len(data)
                 data = compressed
 
         with open(os.path.join(g_cache_dir, path), 'wb') as f:
             f.write(data)
 
-def run_preprocessors(objects: dict) -> bool:
-    '''Run preprocessors on all objects as needed'''
+def run_preprocessors(entries: dict) -> bool:
+    '''Run preprocessors on all entries as needed'''
     dirty = False
-    for obj in objects.values():
-        path = obj['path']
+    for entry in entries.values():
+        path = entry['path']
 
-        if not obj.get('preprocess') and \
+        if not entry.get('preprocess') and \
                 not os.path.exists(os.path.join(g_cache_dir, path)):
-            obj['preprocess'] = True
+            entry['preprocess'] = True
 
-        if not obj.get('preprocess') and \
-                not obj['transforms'].get('cache', True):
-            obj['preprocess'] = True
+        if not entry.get('preprocess') and \
+                not entry['transforms'].get('cache', True):
+            entry['preprocess'] = True
 
         # if a file, check that the file is not newer
-        if not obj.get('preprocess') and obj['type'] == 'file':
+        if not entry.get('preprocess') and entry['type'] == 'file':
             root_mtime = os.path.getmtime(os.path.join(g_root_dir, path))
             cache_mtime = os.path.getmtime(os.path.join(g_cache_dir, path))
             if root_mtime > cache_mtime:
-                obj['preprocess'] = True
+                entry['preprocess'] = True
 
-        if obj.get('preprocess'):
+        if entry.get('preprocess'):
             dirty |= True
-            preprocess(obj)
+            preprocess(entry)
 
     return dirty
 
-def filter_objects(objects: dict) -> dict:
-    '''Filter out directory paths if use_dirs is False'''
-    if g_use_dirs:
-        return objects
-    return dict(filter(lambda obj: obj[1]['type'] != 'dir', objects.items()))
-
-def save_state(file: str, objects: dict) -> None:
+def save_state(file: str, entries: dict) -> None:
     '''Save current state'''
-    options = {
-        'align': g_align,
-        'use_dirs': g_use_dirs,
-    }
-    data = {'options': options, 'paths': {}}
+    paths = {}
 
-    for obj in objects.values():
+    for entry in entries.values():
         state = {
-            'type': obj['type'],
+            'type': entry['type'],
         }
-        if obj['transforms'] != {}:
-            state['transforms'] = obj['transforms']
+        if entry['transforms'] != {}:
+            state['transforms'] = entry['transforms']
 
-        if obj['type'] == 'file':
-            if obj['compressor'] is not None:
-                state['compressor'] = obj['compressor']
-            if obj['expanded_sz'] is not None:
-                state['expanded_sz'] = obj['expanded_sz']
-        data['paths'][obj['path']] = state
+        if entry['type'] == 'file':
+            if entry['compressor'] is not None:
+                state['compressor'] = entry['compressor']
+            if entry.get('real_sz') is not None:
+                state['real_sz'] = entry['real_sz']
+        paths[entry['path']] = state
 
     with open(file, 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(paths, f, indent=4)
 
 ### Stage 2 ###
 
-def generate_dir_header(obj, paths) -> None:
-    '''Generate header and data for a directory object'''
-    if obj['path'] == '':
+def generate_dir_header(ent: dict, entries: dict) -> None:
+    '''Generate header and data for a directory entry'''
+    if ent['path'] == '':
+        ent['parent'] = None
         depth = 0
     else:
-        depth = 1 + obj['path'].count('/')
+        depth = ent['path'].count('/') + 1
 
-    encoded_path = obj['path'].encode('utf-8') + b'\0'
-    path_len = len(encoded_path)
+    seg = ent['seg'].encode('utf-8')
 
     children = []
-    for path in paths:
+    for path, entry in entries.items():
         count = path.count('/')
-        if count != depth:
+        if count != depth or not entry['path']:
             continue
-        if path and count == 0 and depth == 0:
-            children.append(path)
-        elif path.startswith(obj['path'] + '/'):
-            _, segment = path.rsplit('/', 1)
-            children.append(segment)
-    obj['children'] = children
+        if (count == 0 and depth == 0) or path.startswith(ent['path'] + '/'):
+            children.append(entry)
+            if entry['path']:
+                entry['parent'] = ent
 
+    ent['children'] = children
     child_count = len(children)
-    obj['size'] = s_sort_entry.size * child_count
-    obj['header'] = s_dir.pack(s_dir.size, FROGFS_OBJ_TYPE_DIR, path_len,
-            obj['size'], child_count) + encoded_path
-    
-def generate_file_header(obj) -> None:
-    '''Generate header and load data for a file object'''
-    encoded_path = obj['path'].encode('utf-8') + b'\0'
-    path_len = len(encoded_path)
 
-    obj['size'] = os.path.getsize(os.path.join(g_cache_dir, obj['path']))
-    if obj.get('expanded_sz') is not None:
-        method = obj['compressor'][0]
-        compression = g_compressors[method]['id']
+    header = bytearray(s_dir.size + (4 * child_count) + len(seg))
+    s_dir.pack_into(header, 0, 0, child_count, len(seg), 0)
+    header[s_dir.size + (4 * child_count):] = seg
+    ent['header'] = header
+    ent['data_sz'] = 0
+
+def generate_file_header(ent) -> None:
+    '''Generate header and load data for a file entry'''
+    seg = ent['seg'].encode('utf-8')
+
+    data_sz = os.path.getsize(os.path.join(g_cache_dir, ent['path']))
+    if ent.get('real_sz') is not None:
+        method, args = ent['compressor']
         if method == 'deflate':
-            options = obj['compressor'][1].get('level', 9)
+            comp = 1
+            opts = args.get('level', 9)
         elif method == 'heatshrink':
-            window = obj['compressor'][1].get('window', 11)
-            lookahead = obj['compressor'][1].get('lookahead', 4)
-            options = lookahead << 4 | window
+            comp = 2
+            window = args.get('window', 11)
+            lookahead = args.get('lookahead', 4)
+            opts = lookahead << 4 | window
 
-        obj['header'] = s_file_comp.pack(s_file_comp.size,
-                FROGFS_OBJ_TYPE_FILE, path_len, obj['size'], compression,
-                options, 0, obj['expanded_sz']) + encoded_path
+        header = bytearray(s_comp.size + len(seg))
+        s_comp.pack_into(header, 0, 0, 0xFF00 | comp, len(seg), opts, 0,
+                data_sz, ent['real_sz'])
+        header[s_comp.size:] = seg
     else:
-        obj['header'] = s_file.pack(s_file.size,
-                FROGFS_OBJ_TYPE_FILE, path_len, obj['size'], 0) + encoded_path
+        header = bytearray(s_file.size + len(seg))
+        s_file.pack_into(header, 0, 0, 0xFF00, len(seg), 0, 0, data_sz)
+        header[s_file.size:] = seg
+
+    ent['header'] = header
+    ent['data_sz'] = data_sz
 
 def align(n: int) -> int:
     '''Return n rounded up to the next alignment'''
-    return ((n + g_align - 1) // g_align) * g_align
+    return ((n + 3) // 4) * 4
 
 def pad(data: bytes | bytearray) -> bytes:
     '''Return data padded with zeros to next alignment'''
     return data.ljust(align(len(data)), b'\0')
 
-def generate_frogfs_header(objects: dict) -> bytes:
-    '''Generate FrogFS header and calculate object offsets'''
-    num_objects = len(objects)
+def generate_frogfs_header(entries: dict) -> bytes:
+    '''Generate FrogFS header and calculate entry offsets'''
+    num_ent = len(entries)
 
-    binary_len = align(s_header.size) + align(s_hash_entry.size * num_objects)
-    for obj in objects.values():
-        obj['offset'] = binary_len
-        binary_len += align(len(obj['header'])) + align(obj['size'])
-    binary_len += s_footer.size
+    bin_sz = align(s_head.size) + align(s_hash.size * num_ent)
+    for entry in entries.values():
+        entry['header_offs'] = bin_sz
+        bin_sz += align(len(entry['header']))
 
-    flags = 0
-    if g_use_dirs:
-        flags = FROGFS_FLAG_DIRS
+    for entry in entries.values():
+        entry['data_offs'] = bin_sz
+        bin_sz += align(entry['data_sz'])
 
-    return s_header.pack(FROGFS_MAGIC, s_header.size, FROGFS_VER_MAJOR,
-            FROGFS_VER_MINOR, binary_len, num_objects, g_align, flags)
+    bin_sz += s_foot.size
 
-def generate_hashtable(objects: dict) -> bytes:
-    '''Generate hashtable for objects'''
-    objects = dict(sorted(objects.items(),
-            key=lambda obj: (obj[1]['hash'], obj[0])))
+    return s_head.pack(FROGFS_MAGIC, FROGFS_VER_MAJOR, FROGFS_VER_MINOR,
+            num_ent, bin_sz)
+
+def apply_fixups(entries: dict) -> None:
+    for entry in entries.values():
+        parent = entry['parent']
+        if parent:
+            s_offs.pack_into(entry['header'], 0, parent['header_offs'])
+        if entry['type'] == 'file':
+            s_offs.pack_into(entry['header'], 8, entry['data_offs'])
+            continue
+        for i, child in enumerate(entry['children']):
+            offs = child['header_offs']
+            s_offs.pack_into(entry['header'], s_dir.size + (i * 4), offs)
+
+def generate_hashtable(entries: dict) -> bytes:
+    '''Generate hashtable for entries'''
+    entries = {djb2_hash(k): v for k,v in entries.items()}
+    entries = dict(sorted(entries.items(), key=lambda e: e))
 
     data = b''
-    for obj in objects.values():
-        data += s_hash_entry.pack(obj['hash'], obj['offset'])
+    for hash, entry in entries.items():
+        data += s_hash.pack(hash, entry['header_offs'])
 
     return data
 
-def update_sorttables(objects: dict) -> None:
-    '''Build sorttables for directory objects'''
-    if not g_use_dirs:
-        return
-
-    for obj in objects.values():
-        if obj['type'] != 'dir':
-            continue
-
-        data = b''
-        for segment in obj['children']:
-            if obj['path']:
-                child = objects[obj['path'] + '/' + segment]
-            else:
-                child = objects[segment]
-            data += s_sort_entry.pack(child['offset'])
-        obj['data'] = data
-
-def gather_data(objects):
-    '''Gather all object data'''
+def gather_data(entries):
+    '''Gather all entry data'''
     data = b''
-    for obj in objects.values():
-        data += pad(obj['header'])
-        if obj['type'] == 'file':
-            with open(os.path.join(g_cache_dir, obj['path']), 'rb') as f:
+
+    # first gather the headers
+    for entry in entries.values():
+        data += pad(entry['header'])
+
+    # then gather the file data
+    for entry in entries.values():
+        if entry['type'] == 'file':
+            with open(os.path.join(g_cache_dir, entry['path']), 'rb') as f:
                 data += pad(f.read())
-        elif obj['type'] == 'dir':
-            data += pad(obj['data'])
+
     return data
 
 def generate_footer(data: bytes | bytearray) -> bytes:
     '''Generate FrogFS footer'''
-    return s_footer.pack(crc32(data) & 0xFFFFFFFF)
+    return s_foot.pack(crc32(data) & 0xFFFFFFFF)
 
 if __name__ == '__main__':
     frogfs_dir = os.path.join(os.path.dirname(__file__), '..')
@@ -507,61 +487,51 @@ if __name__ == '__main__':
             os.pathsep + g_tools_dir
 
     parser = ArgumentParser()
-    parser.add_argument('--align', metavar='ALIGN',
-                        help='data alignment, in bytes',
-                        default=4)
     parser.add_argument('--config', metavar='CONFIG',
                         help='YAML configuration file', default=config_file)
-    parser.add_argument('--dirs',
-                        help='include directory entries',
-                        action='store_true', default=False)
     parser.add_argument('root', metavar='ROOT', help='root directory')
     parser.add_argument('output', metavar='OUTPUT', help='output binary file')
     args = parser.parse_args()
- 
-    g_align = args.align
+
     config_file = args.config
-    g_use_dirs = args.dirs
     g_root_dir = args.root
     output_file = args.output
     output_name, _ = os.path.splitext(os.path.basename(output_file))
     g_cache_dir = os.path.join(cmakefiles_dir, output_name + '-cache')
     state_file = os.path.join(cmakefiles_dir, output_name + '-cache-state.json')
     g_transforms = collect_transforms()
-    g_compressors = collect_compressors()
 
     print("       - Stage 1", file=stderr)
-    objects = collect_objects()
-    dirty = clean_removed(objects)
-    dirty |= load_state(state_file, objects)
+    entries = collect_entries()
+    dirty = clean_removed(entries)
+    dirty |= load_state(state_file, entries)
     config = load_config(config_file)
-    for obj in objects.values():
-        apply_rules(config['filters'], obj)
-    dirty |= run_preprocessors(objects)
-    objects = filter_objects(objects)
-    dirty |= not os.path.exists(state_file) 
+    for entry in entries.values():
+        apply_rules(config['filters'], entry)
+    dirty |= run_preprocessors(entries)
+    dirty |= not os.path.exists(state_file)
     dirty |= not os.path.exists(output_file)
     if not dirty:
         dirty |= os.path.getmtime(state_file) > os.path.getmtime(output_file)
     if not dirty:
         print("         - Nothing to do!", file=stderr)
         exit(0)
-    save_state(state_file, objects)
+    save_state(state_file, entries)
 
     print("       - Stage 2", file=stderr)
-    for obj in objects.values():
-        if obj['type'] == 'dir':
-            generate_dir_header(obj, objects.keys())
-        if obj['type'] == 'file':
-            generate_file_header(obj)
-    
-    data = generate_frogfs_header(objects)
-    data += generate_hashtable(objects)
-    update_sorttables(objects)
-    data += gather_data(objects)
+    for entry in entries.values():
+        if entry['type'] == 'dir':
+            generate_dir_header(entry, entries)
+        if entry['type'] == 'file':
+            generate_file_header(entry)
+
+    data = generate_frogfs_header(entries)
+    data += generate_hashtable(entries)
+    apply_fixups(entries)
+    data += gather_data(entries)
     data += generate_footer(data)
 
     with open(output_file, 'wb') as f:
         f.write(data)
-    
+
     print("         - Output file written", file=stderr)

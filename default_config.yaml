@@ -1,17 +1,21 @@
 filters:
   '*.css':
     - uglifycss
-    - compress deflate
+    - compress deflate:
+        level: 9
 
   '*.html':
     - html-minifier
-    - compress deflate
+    - compress deflate:
+        level: 9
 
   '*.js':
-    - compress deflate
+    - compress deflate:
+        level: 9
 
   '*.svg':
-    - compress deflate
+    - compress deflate:
+        level: 9
 
   '*.woff*':
     - no compress

@@ -41,10 +41,6 @@ macro(generate_frogfs_rules path)
     set(output ${BUILD_DIR}/${ARG_NAME})
     set(build_output ${BUILD_DIR}/CMakeFiles/${ARG_NAME})
 
-    if("${CONFIG_FROGFS_BUILD_DIRS}" STREQUAL "y")
-        set(directories "--dirs")
-    endif()
-
     add_custom_target(frogfs_preprocess_${ARG_NAME}
         COMMAND ${CMAKE_COMMAND} -E env CMAKEFILES_DIR=${BUILD_DIR}/CMakeFiles ${Python3_VENV_EXECUTABLE} ${frogfs_DIR}/tools/mkfrogfs.py ${directories} ${ARG_CONFIG} ${path} ${output}.bin
         DEPENDS ${Python3_VENV}_requirements.stamp ${ARG_CONFIG}

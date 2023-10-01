@@ -227,11 +227,10 @@ tool:
 You can add your own transforms by creating a `tools` directory in your
 projects root directory, with a filename starting with `transform-` and ending
 with `.js` or `.py`. Transform tools take data on stdin and produce output on
-stdout. Similarly you can add your own compressors by creating a `compress-` 
-file.
+stdout.
 
-Both transform and compress tools can accept arguments. Look at
-`default_config.yaml` for an examples.
+Both transform and compresors can accept arguments. Look at
+`default_config.yaml` for examples.
 
 # History and Acknowledgements
 
@@ -241,4 +240,4 @@ which is a fork of Jeroen Domburg (Sprite_tm)'s
 [libesphttpd](https://github.com/spritetm/libesphttpd/) (BEER-WARE). This project
 would never have existed without them.
 
-Thank you to all the contributors to this project.
+Thank you to all the contributors to this project!
