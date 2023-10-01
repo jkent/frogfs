@@ -3,8 +3,8 @@
 FrogFS (Fast Read-Only General-purpose File System) is a read-only filesystem
 designed for embedded use. It can be easily used with a CMake project &mdash;
 including [ESP-IDF](https://github.com/espressif/esp-idf). It has built-in
-filters to save space; preprocessed HTML (`examples/files/test.html`) is
-reduced by 64.5% with the applied transforms and filters.
+filters to save space; preprocessed files in the `examples/files` directory are
+reduced by 52.2% with the default transforms and filters.
 
 Transforms include:
   * babel-convert
@@ -30,8 +30,11 @@ to FrogFS. The overlay is an optional feature of course; and IDF's VFS lets
 you mount filesystems to any prefix path of your choosing.
 
 Included is a standalone binary with an embedded filesystem to test and verify
-functionality and an ESP-IDF example using Espressif's http server, with the
-filesystem mounted using VFS.
+functionality and a clockwise HTTPd demo using the VFS system with a SPIFFS
+overlay. Be warned however, merged directory listings are slow due to the
+nature of the spiffs stat vfs function. In most applications, however, this is
+a non-issue. There is a configuration option to turn off the vfs directory
+merging, which only list files that are on FrogFS.
 
 # Getting started with ESP-IDF
 
@@ -91,7 +94,8 @@ esptool_py_flash_to_partition(frogfs-flash storage ${BUILD_DIR}/CMakeFiles/frogf
 add_dependencies(frogfs-flash generate_${name}_bin)
 ```
 
-In this case, **files** is the source directory to build the file system from, **frogfs** is the target prefix and binary filename (without the .bin) and
+In this case, **files** is the source directory to build the file system from,
+**frogfs** is the target prefix and binary filename (without the .bin) and
 **storage** is the name of the partition where the binary is flashed. You can
 invoke the flash process by running `idf.py frogfs-flash`.
 
@@ -100,15 +104,15 @@ invoke the flash process by running `idf.py frogfs-flash`.
 In the root of `frogfs` there is a `default_config.yaml` file that has sane
 defaults for HTTP usage. The yaml file is a bunch of filters that are applied
 top down to apply various actions. First, all transforms are applied, then a
-compressor is applied as a last optional step. Transforms and compressors can
-take optional command line arguments. Included transforms and compressors are
-found in the `frogs/tools` directory, and you can optionally supplement
-and/or override existing transforms and compressors.
+compressor is applied as an optional last step. Transforms and compressors can
+take optional command line arguments. Included transforms are found in the
+`frogs/tools` directory, and you can optionally supplement and/or override
+existing transforms.
 
 Once a transform or compression option is enabled or disabled, it cannot be
 overriden later. Transforms are applied in descending order. You can prefix a
 transforms or the `compress` keyword with `no` to disable it. There are a
-couple of special keywords; `discard` which prevents inclusion and `no cache`,
+couple of special keywords: `discard` which prevents inclusion and `no cache`,
 which causes preprocessing to run every time on matching objects.
 
 ## Usage
@@ -116,8 +120,8 @@ which causes preprocessing to run every time on matching objects.
 Two interfaces are available: the [bare API](#bare-api) or when using IDF
 there is the [VFS interface](#vfs-interface) which builds on top of the bare
 API. You should use the VFS interface in IDF projects, as it uses the portable
-and familiar `stdio` C functions with it. There is nothing preventing you from
-using both at the same time, however.
+and familiar `posix` and `stdio` C functions with it. There is nothing
+preventing you from mix and matching both at the same time, however.
 
 ### Shared initialization
 
@@ -163,6 +167,7 @@ The VFS interface has a similar method of initialization; you define a
   * **overlay_path** - an optional path to search before FrogFS
   * **fs** - a `frogfs_fs_t` instance
   * **max_files** - max number of files that can be open at a time
+  * **flat** - flattened directory structure, similar to spiffs
 
 ```C
 frogfs_vfs_conf_t frogfs_vfs_conf = {
@@ -182,10 +187,10 @@ frogfs_vfs_register(&frogfs_vfs_conf);
 
 #### Object functions:
 
-  * const frogfs_obj_t *[frogfs_obj_from_path](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_obj_from_path)(const frogfs_fs_t *fs, const char *path)
-  * const char *[frogfs_path_from_obj](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_path_from_obj)(const frogfs_obj_t *obj)
-  * void [frogfs_stat](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_stat)(const frogfs_fs_t *fs, const frogfs_obj_t *obj, frogfs_stat_t *st)
-  * frogfs_f_t *[frogfs_open](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_open)(const frogfs_fs_t *fs, const frogfs_obj_t *obj, unsigned int flags)
+  * const frogfs_entry_t *[frogfs_get_entry](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_get_entry)(const frogfs_fs_t *fs, const char *path)
+  * const char *[frogfs_get_path](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_get_path)(const frogfs_entry_t *entry)
+  * void [frogfs_stat](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_stat)(const frogfs_fs_t *fs, const frogfs_entry_t *entry, frogfs_stat_t *st)
+  * frogfs_f_t *[frogfs_open](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_open)(const frogfs_fs_t *fs, const frogfs_entry_t *entry, unsigned int flags)
   * void [frogfs_close](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_close)(frogfs_f_t *f)
   * size_t [frogfs_read](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_read)(frogfs_f_t *f, void *buf, size_t len)
   * ssize_t [frogfs_seek](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_seek)(frogfs_f_t *f, long offset, int mode)
@@ -194,20 +199,19 @@ frogfs_vfs_register(&frogfs_vfs_conf);
 
 #### Directory Functions:
 
-  * frogfs_d_t *[frogfs_opendir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_opendir)(frogfs_fs_t *fs, const frogfs_obj_t *obj)
+  * frogfs_d_t *[frogfs_opendir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_opendir)(frogfs_fs_t *fs, const frogfs_entry_t *entry)
   * void [frogfs_closedir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_closedir)(frogfs_d_t *d)
-  * const frogfs_obj_t *[frogfs_readdir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_readdir)(frogfs_d_t *d)
+  * const frogfs_entry_t *[frogfs_readdir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_readdir)(frogfs_d_t *d)
   * void [frogfs_rewinddir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_rewinddir)(frogfs_d_t *d)
   * void [frogfs_seekdir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_seekdir)(frogfs_d_t *d, uint16_t loc)
   * uint16_t [frogfs_telldir](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_telldir)(frogfs_d_t *d)
 
 # How it works
 
-Under the hood there is a hash table consisting of djb2 path hashes which
-allows for fast lookups using a binary search algorithm. Directory objects have
-a sort table of child objects. Directory support is optional for both the
-library and the FrogFS binary. It is not required for both to match for
-compatibility, however.
+Under the hood there is a hash table consisting of djb2 path hashes to entry
+offsets, which allow for fast lookups using a binary search algorithm. All
+entries except the root entry have a parent locator offset. Directory entries
+have a sorted list of offsets to child entries.
 
 FrogFS binaries can be either embedded in your application, or accessed using
 memory mapped I/O. It is not possible (at this time) to use FrogFS without the

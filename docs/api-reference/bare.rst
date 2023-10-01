@@ -7,14 +7,15 @@ Defines
 ^^^^^^^
 
 .. doxygendefine:: FROGFS_OPEN_RAW
+.. doxygendefine:: FROGFS_MAX_FLAT_DEPTH
 
 Functions
 ^^^^^^^^^
 
 .. doxygenfunction:: frogfs_init
 .. doxygenfunction:: frogfs_deinit
-.. doxygenfunction:: frogfs_obj_from_path
-.. doxygenfunction:: frogfs_path_from_obj
+.. doxygenfunction:: frogfs_get_entry
+.. doxygenfunction:: frogfs_get_path
 .. doxygenfunction:: frogfs_stat
 .. doxygenfunction:: frogfs_open
 .. doxygenfunction:: frogfs_close
@@ -33,8 +34,6 @@ Structs
 ^^^^^^^
 
 .. doxygenstruct:: frogfs_config_t
-    :members:
-.. doxygenstruct:: frogfs_decomp_t
     :members:
 .. doxygenstruct:: frogfs_fs_t
     :members:

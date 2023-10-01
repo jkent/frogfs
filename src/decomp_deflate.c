@@ -51,21 +51,20 @@ static void close_deflate(frogfs_f_t *f)
 
 static ssize_t read_deflate(frogfs_f_t *f, void *buf, size_t len)
 {
-    const frogfs_file_comp_t *file = (const frogfs_file_comp_t *) f->file;
     size_t start_in, start_out;
     int ret;
 
-    if (STREAM(f)->total_out == file->uncompressed_len) {
+    if (STREAM(f)->total_out == f->real_sz) {
         return 0;
     }
 
     start_in = STREAM(f)->total_in;
     start_out = STREAM(f)->total_out;
 
-    while (STREAM(f)->total_in < file->data_len &&
+    while (STREAM(f)->total_in < f->data_sz &&
             STREAM(f)->total_out - start_out < len) {
         STREAM(f)->next_in = f->data_ptr;
-        STREAM(f)->avail_in = file->uncompressed_len - \
+        STREAM(f)->avail_in = f->data_sz - \
                 (f->data_ptr - f->data_start);
         STREAM(f)->next_out = buf;
         STREAM(f)->avail_out = len;
@@ -86,22 +85,22 @@ static ssize_t read_deflate(frogfs_f_t *f, void *buf, size_t len)
 
 static ssize_t seek_deflate(frogfs_f_t *f, long offset, int mode)
 {
-    const frogfs_file_comp_t *file = (const frogfs_file_comp_t *) f->file;
+    const frogfs_comp_t *comp = (const void *) f->file;
     ssize_t new_pos = STREAM(f)->total_out;
 
     if (mode == SEEK_SET) {
         if (offset < 0) {
             return -1;
         }
-        if (offset > file->uncompressed_len) {
-            offset = file->uncompressed_len;
+        if (offset > comp->real_sz) {
+            offset = comp->real_sz;
         }
         new_pos = offset;
     } else if (mode == SEEK_CUR) {
         if (new_pos + offset < 0) {
             new_pos = 0;
-        } else if (new_pos > file->uncompressed_len) {
-            new_pos = file->uncompressed_len;
+        } else if (new_pos > comp->real_sz) {
+            new_pos = comp->real_sz;
         } else {
             new_pos += offset;
         }
@@ -109,10 +108,10 @@ static ssize_t seek_deflate(frogfs_f_t *f, long offset, int mode)
         if (offset > 0) {
             return -1;
         }
-        if (offset < -(ssize_t) file->uncompressed_len) {
+        if (offset < -(ssize_t) comp->real_sz) {
             offset = 0;
         }
-        new_pos = file->uncompressed_len + offset;
+        new_pos = comp->real_sz + offset;
     } else {
         return -1;
     }

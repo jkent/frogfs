@@ -9,13 +9,9 @@ Defines
 .. doxygendefine:: FROGFS_MAGIC
 .. doxygendefine:: FROGFS_VER_MAJOR
 .. doxygendefine:: FROGFS_VER_MINOR
-.. doxygendefine:: FROGFS_FLAG_DIRS
-
-Enums
-^^^^^
-
-.. doxygenenum:: frogfs_type_t
-.. doxygenenum:: frogfs_comp_t
+.. doxygendefine:: FROGFS_ISDIR
+.. doxygendefine:: FROGFS_ISFILE
+.. doxygendefine:: FROGFS_ISCOMP
 
 Structs
 ^^^^^^^
@@ -24,15 +20,13 @@ Structs
     :members:
 .. doxygenstruct:: frogfs_hash_t
     :members:
-.. doxygenstruct:: frogfs_obj_t
+.. doxygenstruct:: frogfs_entry_t
     :members:
 .. doxygenstruct:: frogfs_dir_t
     :members:
-.. doxygenstruct:: frogfs_sort_t
-    :members:
 .. doxygenstruct:: frogfs_file_t
     :members:
-.. doxygenstruct:: frogfs_file_comp_t
+.. doxygenstruct:: frogfs_comp_t
     :members:
 .. doxygenstruct:: frogfs_foot_t
     :members:

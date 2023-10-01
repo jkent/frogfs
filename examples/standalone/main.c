@@ -133,11 +133,11 @@ int main(int argc, char *argv[])
             }
 
             if (strcmp("stat", long_options[option_index].name) == 0) {
-                const frogfs_obj_t *obj = frogfs_obj_from_path(fs, argv[2]);
-                if (obj) {
+                const frogfs_entry_t *entry = frogfs_get_entry(fs, argv[2]);
+                if (entry) {
                     frogfs_stat_t stat;
-                    frogfs_stat(fs, obj, &stat);
-                    if (stat.type == FROGFS_OBJ_TYPE_FILE) {
+                    frogfs_stat(fs, entry, &stat);
+                    if (stat.type == FROGFS_ENTRY_TYPE_FILE) {
                         fprintf(stderr, "Object '%s' is a file.\n", optarg);
                         if (stat.compression == 0) {
                             fputs("File is not compressed.\n", stderr);
@@ -151,16 +151,13 @@ int main(int argc, char *argv[])
                             fputs("File is compressed with an unknown"
                                     "scheme.\n", stderr);
                         }
-                        fprintf(stderr, "File is %d bytes.\n", stat.size);
+                        fprintf(stderr, "File is %d bytes.\n", stat.real_sz);
                         if (stat.compression != 0) {
                             fprintf(stderr, "File is %d bytes compressed.\n",
-                                    stat.size_compressed);
+                                    stat.data_sz);
                         }
-                    } else if (stat.type == FROGFS_OBJ_TYPE_DIR) {
+                    } else if (stat.type == FROGFS_ENTRY_TYPE_DIR) {
                         fprintf(stderr, "Object '%s' is a directory.\n",
-                                optarg);
-                    } else {
-                        fprintf(stderr, "Object '%s' is an unknown type.\n",
                                 optarg);
                     }
                 } else {
@@ -174,18 +171,18 @@ int main(int argc, char *argv[])
                     f = NULL;
                 }
 
-                const frogfs_obj_t *obj = frogfs_obj_from_path(fs, optarg);
-                if (obj == NULL) {
+                const frogfs_entry_t *entry = frogfs_get_entry(fs, optarg);
+                if (entry == NULL) {
                     fprintf(stderr, "No such object '%s'.\n", optarg);
                     exit(EXIT_FAILURE);
                 }
 
-                if (obj->type != FROGFS_OBJ_TYPE_FILE) {
+                if (entry->child_count < 0xFF00) {
                     fprintf(stderr, "Object '%s' is not a file.\n", optarg);
                     exit(EXIT_FAILURE);
                 }
 
-                f = frogfs_open(fs, obj, 0);
+                f = frogfs_open(fs, entry, 0);
                 if (f == NULL) {
                     fprintf(stderr, "Error opening '%s'.\n", optarg);
                     exit(EXIT_FAILURE);
@@ -255,39 +252,36 @@ int main(int argc, char *argv[])
             }
 
             if (strcmp("ls", long_options[option_index].name) == 0) {
-                const frogfs_obj_t *obj;
+                const frogfs_entry_t *entry;
 
                 if (optarg) {
-                    obj = frogfs_obj_from_path(fs, optarg);
-                    if (obj == NULL) {
-                        fprintf(stderr, "No such object '%s'.\n", optarg);
+                    entry = frogfs_get_entry(fs, optarg);
+                    if (entry == NULL) {
+                        fprintf(stderr, "No such entry '%s'.\n", optarg);
                         exit(EXIT_FAILURE);
                     }
 
-                    if (obj->type != FROGFS_OBJ_TYPE_DIR) {
-                        fprintf(stderr, "Object '%s' is not a directory.\n",
+                    if (!FROGFS_ISDIR(entry)) {
+                        fprintf(stderr, "Entry '%s' is not a directory.\n",
                                 optarg);
                         exit(EXIT_FAILURE);
                     }
                 } else {
-                    obj = NULL;
+                    entry = NULL;
                 }
 
-                frogfs_d_t *d = frogfs_opendir(fs, obj);
+                frogfs_d_t *d = frogfs_opendir(fs, entry);
                 if (d == NULL) {
                     fprintf(stderr, "Error opening directory '%s'.\n");
                     exit(EXIT_FAILURE);
                 }
 
-                while (obj = frogfs_readdir(d)) {
-                    const char *path = frogfs_path_from_obj(obj);
-                    if (obj->type == FROGFS_OBJ_TYPE_FILE) {
-                        puts(path);
-                    } else if (obj->type == FROGFS_OBJ_TYPE_DIR) {
-                        printf("%s/\n", path);
+                while (entry = frogfs_readdir(d)) {
+                    const char *path = frogfs_get_path(fs, entry);
+                    if (FROGFS_ISFILE(entry)) {
+                        printf("F %s\n", path);
                     } else {
-                        fprintf(stderr, "Unknown object type for '%d'.\n",
-                                obj->type);
+                        printf("D %s\n", path);
                     }
                 }
 

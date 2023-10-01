@@ -22,7 +22,7 @@ typedef struct frogfs_vfs_conf_t {
     frogfs_fs_t *fs; /**< the frogfs instance */
     size_t max_files; /**< maximum open files */
     const char *overlay; /**< vfs overlay search path */
-    bool flat; /**< overlay has only file objects, like spiffs */
+    bool flat; /**< opendir/readdir returns full file paths, like spiffs */
 } frogfs_vfs_conf_t;
 
 /**

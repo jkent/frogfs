@@ -26,7 +26,7 @@ typedef struct {
 
 static int open_heatshrink(frogfs_f_t *f, unsigned int flags)
 {
-    const frogfs_file_comp_t *file = (const frogfs_file_comp_t *) f->file;
+    const frogfs_comp_t *comp = (const frogfs_comp_t *) f->file;
 
     decomp_priv_t *data = malloc(sizeof(decomp_priv_t));
     if (data == NULL) {
@@ -35,8 +35,9 @@ static int open_heatshrink(frogfs_f_t *f, unsigned int flags)
     }
     memset(data, 0, sizeof(*data));
 
-    uint8_t window = file->options & 0xf;
-    uint8_t lookahead = file->options >> 4;
+    uint8_t args = comp->entry.opts;
+    uint8_t window = args & 0xf;
+    uint8_t lookahead = args >> 4;
 
     data->hsd = heatshrink_decoder_alloc(BUFFER_LEN, window, lookahead);
     if (data->hsd == NULL) {
@@ -58,12 +59,11 @@ static void close_heatshrink(frogfs_f_t *f)
 
 static ssize_t read_heatshrink(frogfs_f_t *f, void *buf, size_t len)
 {
-    const frogfs_file_comp_t *file = (const frogfs_file_comp_t *) f->file;
     size_t rlen, decoded = 0;
 
     while (decoded < len) {
         /* feed data into the decoder */
-        size_t remain = file->data_len - (f->data_ptr - f->data_start);
+        size_t remain = f->data_sz - (f->data_ptr - f->data_start);
         if (remain > 0) {
             HSD_sink_res res = heatshrink_decoder_sink(PRIV(f)->hsd,
                     (uint8_t *) f->data_ptr, (remain > BUFFER_LEN) ?
@@ -88,7 +88,7 @@ static ssize_t read_heatshrink(frogfs_f_t *f, void *buf, size_t len)
 
         /* end of input data */
         if (remain == 0) {
-            if (PRIV(f)->file_pos == file->uncompressed_len) {
+            if (PRIV(f)->file_pos == f->real_sz) {
                 HSD_finish_res res = heatshrink_decoder_finish(PRIV(f)->hsd);
                 if (res < 0) {
                     LOGE("heatshink_decoder_finish");
@@ -105,22 +105,22 @@ static ssize_t read_heatshrink(frogfs_f_t *f, void *buf, size_t len)
 
 static ssize_t seek_heatshrink(frogfs_f_t *f, long offset, int mode)
 {
-    const frogfs_file_comp_t *file = (const frogfs_file_comp_t *) f->file;
+    const frogfs_comp_t *comp = (const frogfs_comp_t *) f->file;
     ssize_t new_pos = PRIV(f)->file_pos;
 
     if (mode == SEEK_SET) {
         if (offset < 0) {
             return -1;
         }
-        if (offset > file->uncompressed_len) {
-            offset = file->uncompressed_len;
+        if (offset > comp->real_sz) {
+            offset = comp->real_sz;
         }
         new_pos = offset;
     } else if (mode == SEEK_CUR) {
         if (new_pos + offset < 0) {
             new_pos = 0;
-        } else if (new_pos > file->uncompressed_len) {
-            new_pos = file->uncompressed_len;
+        } else if (new_pos > comp->real_sz) {
+            new_pos = comp->real_sz;
         } else {
             new_pos += offset;
         }
@@ -128,10 +128,10 @@ static ssize_t seek_heatshrink(frogfs_f_t *f, long offset, int mode)
         if (offset > 0) {
             return -1;
         }
-        if (offset < -(ssize_t) file->uncompressed_len) {
+        if (offset < -(ssize_t) comp->real_sz) {
             offset = 0;
         }
-        new_pos = file->uncompressed_len + offset;
+        new_pos = comp->real_sz + offset;
     } else {
         return -1;
     }

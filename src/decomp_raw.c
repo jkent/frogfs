@@ -14,7 +14,7 @@
 
 static ssize_t read_raw(frogfs_f_t *f, void *buf, size_t len)
 {
-    size_t remaining = f->file->data_len - (f->data_ptr - f->data_start);
+    size_t remaining = f->data_sz - (f->data_ptr - f->data_start);
 
     if (len > remaining) {
         len = remaining;
@@ -30,22 +30,21 @@ static ssize_t read_raw(frogfs_f_t *f, void *buf, size_t len)
 
 static ssize_t seek_raw(frogfs_f_t *f, long offset, int mode)
 {
-    const frogfs_file_t *file = f->file;
     ssize_t new_pos = f->data_ptr - f->data_start;
 
     if (mode == SEEK_SET) {
         if (offset < 0) {
             return -1;
         }
-        if (offset > file->data_len) {
-            offset = file->data_len;
+        if (offset > f->data_sz) {
+            offset = f->data_sz;
         }
         new_pos = offset;
     } else if (mode == SEEK_CUR) {
         if (new_pos + offset < 0) {
             new_pos = 0;
-        } else if (new_pos > file->data_len) {
-            new_pos = file->data_len;
+        } else if (new_pos > f->data_sz) {
+            new_pos = f->data_sz;
         } else {
             new_pos += offset;
         }
@@ -53,10 +52,10 @@ static ssize_t seek_raw(frogfs_f_t *f, long offset, int mode)
         if (offset > 0) {
             return -1;
         }
-        if (offset < -(ssize_t) file->data_len) {
+        if (offset < -(ssize_t) f->data_sz) {
             offset = 0;
         }
-        new_pos = file->data_len + offset;
+        new_pos = f->data_sz + offset;
     } else {
         return -1;
     }
