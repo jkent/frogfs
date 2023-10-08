@@ -36,13 +36,13 @@ macro(generate_frogfs_rules path)
         get_filename_component(ARG_NAME ${abspath} NAME)
     endif()
     if(DEFINED ARG_CONFIG)
-        set(ARG_CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_CONFIG})
+        set(MKFROGFS_ARGS ${MKFROGFS_ARGS} --config ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_CONFIG})
     endif()
     set(output ${BUILD_DIR}/${ARG_NAME})
     set(build_output ${BUILD_DIR}/CMakeFiles/${ARG_NAME})
 
     add_custom_target(frogfs_preprocess_${ARG_NAME}
-        COMMAND ${CMAKE_COMMAND} -E env CMAKEFILES_DIR=${BUILD_DIR}/CMakeFiles ${Python3_VENV_EXECUTABLE} ${frogfs_DIR}/tools/mkfrogfs.py ${directories} ${ARG_CONFIG} ${path} ${output}.bin
+        COMMAND ${CMAKE_COMMAND} -E env CMAKEFILES_DIR=${BUILD_DIR}/CMakeFiles ${Python3_VENV_EXECUTABLE} ${frogfs_DIR}/tools/mkfrogfs.py ${directories} ${MKFROGFS_ARGS} ${path} ${output}.bin
         DEPENDS ${Python3_VENV}_requirements.stamp ${ARG_CONFIG}
         BYPRODUCTS ${build_output}/node_modules ${build_output}-cache ${build_output}-state.json ${output}.bin
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
