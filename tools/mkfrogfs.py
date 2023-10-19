@@ -108,8 +108,9 @@ def collect_entries() -> dict:
     '''Collects all the path items from root directory'''
     entries = {}
     for dir, _, files in os.walk(g_root_dir, followlinks=True):
-        reldir = os.path.relpath(dir, g_root_dir).replace('\\', '/') \
-                .lstrip('.').lstrip('/')
+        reldir = os.path.relpath(dir, g_root_dir).replace('\\', '/')
+        if reldir == '.' or reldir.startswith('./'):
+            reldir = reldir[2:]
         entry = {
             'path': reldir,
             'seg': os.path.basename(reldir),
@@ -132,8 +133,9 @@ def clean_removed(entries: dict) -> bool:
     '''Check if files have been removed from root directory'''
     removed = False
     for dir, _, files in os.walk(g_cache_dir, topdown=False, followlinks=True):
-        reldir = os.path.relpath(dir, g_cache_dir).replace('\\', '/') \
-                .lstrip('.').lstrip('/')
+        reldir = os.path.relpath(dir, g_cache_dir).replace('\\', '/')
+        if reldir == '.' or reldir.startswith('./'):
+            reldir = reldir[2:]
         for file in files:
             relfile = os.path.join(reldir, file).replace('\\', '/')
             if relfile not in entries.keys():
