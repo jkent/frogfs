@@ -11,7 +11,7 @@ const needs = (module) => {
                 'install', module];
         const options = {'stdio': ['ignore', 'ignore', 'inherit']};
         if (platform == 'win32') {
-            result = spawnSync('cmd', ['/C', 'npm'] + args, options);
+            result = spawnSync('cmd', ['/C', 'npm', ...args], options);
         } else {
             result = spawnSync('npm', args, options);
         }
