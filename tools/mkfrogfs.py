@@ -7,6 +7,7 @@ from shutil import which
 from struct import Struct
 from subprocess import PIPE, Popen
 from sys import executable, stderr
+from typing import Union
 from zlib import crc32
 
 import heatshrink2
@@ -54,7 +55,7 @@ s_comp = Struct('<IHBBIII')
 s_foot = Struct('<I')
 
 
-def pipe_script(script: str, args: dict, data: bytes | bytearray) -> bytes:
+def pipe_script(script: str, args: dict, data: Union[bytes, bytearray]) -> bytes:
     '''Run a script with arguments and data to stdin, returning stdout data'''
     _, ext = os.path.splitext(script)
     if ext == '.js':
@@ -411,7 +412,7 @@ def align(n: int) -> int:
     '''Return n rounded up to the next alignment'''
     return ((n + 3) // 4) * 4
 
-def pad(data: bytes | bytearray) -> bytes:
+def pad(data: Union[bytes, bytearray]) -> bytes:
     '''Return data padded with zeros to next alignment'''
     return data.ljust(align(len(data)), b'\0')
 
@@ -472,7 +473,7 @@ def gather_data(entries):
 
     return data
 
-def generate_footer(data: bytes | bytearray) -> bytes:
+def generate_footer(data: Union[bytes, bytearray]) -> bytes:
     '''Generate FrogFS footer'''
     return s_foot.pack(crc32(data) & 0xFFFFFFFF)
 
