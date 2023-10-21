@@ -22,5 +22,8 @@ filters:
     - compress deflate:
         level: 9
 
-  - '*.woff?':
+  - '*.woff*':
     - no compress
+
+  - 'fruits':
+    - discard
