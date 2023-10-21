@@ -1,26 +1,26 @@
 filters:
-  '*.css':
+  - '*':
+    - compress heatshrink:
+        window: 11
+        lookahead: 4
+
+  - '*.css':
     - uglifycss
     - compress deflate:
         level: 9
 
-  '*.html':
+  - '*.html':
     - html-minifier
     - compress deflate:
         level: 9
 
-  '*.js':
+  - '*.js':
     - compress deflate:
         level: 9
 
-  '*.svg':
+  - '*.svg':
     - compress deflate:
         level: 9
 
-  '*.woff*':
+  - '*.woff?':
     - no compress
-
-  '*':
-    - compress heatshrink:
-        window: 11
-        lookahead: 4

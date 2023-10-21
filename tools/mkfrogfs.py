@@ -52,6 +52,25 @@ def collect_entries() -> dict:
 
     return dict(sorted(entries.items()))
 
+def load_config() -> dict:
+    '''Loads and normalizes configuration yaml file'''
+    with open(config_file, 'r') as f:
+        doc = yaml.safe_load(f)
+
+    config = {'filters': []}
+    for filter in doc['filters']:
+        for pattern, actions in filter.items():
+            normalized_actions = []
+            for action in actions:
+                if isinstance(action, dict):
+                    action = tuple(next(iter(action.items())))
+                if isinstance(action, str):
+                    action = (action, {})
+                normalized_actions.append(action)
+            config['filters'].append((pattern, normalized_actions))
+
+    return config
+
 ### Stage 1 ###
 
 def clean_removed() -> None:
@@ -98,82 +117,59 @@ def load_state() -> None:
             ent['preprocess'] = True
             dirty |= True
 
-def load_config() -> None:
-    '''Loads and normalizes configuration yaml file'''
-    global config
-
-    with open(config_file, 'r') as f:
-        doc = yaml.safe_load(f)
-
-    config = {'filters': {}}
-    for path, filters in doc['filters'].items():
-        config['filters'][path] = {}
-        if not filters:
-            continue
-        for filter in filters:
-            if isinstance(filter, str):
-                filter_name = filter
-                config['filters'][path][filter_name] = {}
-            elif isinstance(filter, dict):
-                for filter_name, args in filter.items():
-                    if not isinstance(args, dict):
-                        args = {}
-                    config['filters'][path][filter_name] = args
-
 def apply_rules() -> None:
     '''Applies preprocessing rules for entries'''
-    for entry in entries.values():
+    for ent in entries.values():
         xforms = {}
         comp = None
 
-        for filter, actions in config['filters'].items():
-            if not fnmatch(entry['path'], filter):
+        for filter, actions in config['filters']:
+            if not fnmatch(ent['path'], filter):
                 continue
+            for action, args in actions:
+                parts = action.split()
+                enable = True
 
-            for action, args in actions.items():
-                action = action.split()
-                disable = False
-                compress = None
-                if action[0] == 'no':
-                    disable = True
-                    action = action[1:]
-                if action[0] == 'compress':
-                    compress = False if disable else action[1]
-                    action = None
-                else:
-                    action = action[0]
+                if parts[0] == 'no':
+                    enable = False
+                    parts = parts[1:]
 
-                if action != None:
-                    if xforms.get(action, None) != None:
+                verb = parts[0]
+                if verb == 'compress':
+                    if ent['type'] == 'dir':
                         continue
-                    if action == 'cache':
-                        if disable:
-                            xforms[action] = False
-                    elif action == 'discard':
-                        xforms[action] = not disable
-                    elif action in transforms:
-                        if entry['type'] == 'file':
-                            xforms[action] = False if disable else args
-                    else:
-                        raise Exception(f'{action} is not a known transform')
-
-                if compress != None:
-                    if comp != None:
+                    if not enable:
+                        comp = None
                         continue
-                    if compress not in ('deflate', 'heatshrink'):
-                        raise Exception(f'{compress} is not a valid compressor')
-                    if entry['type'] == 'file':
-                        comp = [compress, args]
+                    if parts[1] in ('deflate', 'heatshrink'):
+                        comp = [parts[1], args]
+                        continue
+                    raise Exception(f'{parts[1]} is not a valid compress type')
 
-        if entry.setdefault('xforms', {}) != xforms or \
-                    entry['xforms'].keys() != xforms.keys():
-            entry['xforms'] = xforms
-            entry['preprocess'] = True
+                if verb == 'cache':
+                    xforms[verb] = enable
+                    continue
 
-        if entry['type'] == 'file' and \
-                entry.setdefault('comp', None) != comp:
-            entry['comp'] = comp
-            entry['preprocess'] = True
+                if verb == 'discard':
+                    xforms[verb] = not enable
+                    continue
+
+                if verb in transforms:
+                    xforms[verb] = args if enable else False
+                    continue
+
+                raise Exception(f'{verb} is not a known transform')
+
+        # if transforms changed, apply and preprocess
+        if ent.setdefault('xforms', {}) != xforms or \
+                    ent['xforms'].keys() != xforms.keys():
+            ent['xforms'] = xforms
+            ent['preprocess'] = True
+
+        # if is file and compression changed, apply and preprocess
+        if ent['type'] == 'file' and ent.setdefault('comp', None) != comp:
+            ent['comp'] = comp
+            ent['preprocess'] = True
 
 def preprocess(entry: dict) -> None:
     '''Run preprocessors for a given entry'''
@@ -296,6 +292,34 @@ def generate_file_header(ent) -> None:
 
     data_sz = os.path.getsize(os.path.join(cache_dir, ent['path']))
     if ent.get('real_sz') is not None:
+        method, args = ent['comp']
+        if method == 'deflate':
+            comp = 1
+            opts = args.get('level', 9)
+        elif method == 'heatshrink':
+            comp = 2
+            window = args.get('window', 11)
+            lookahead = args.get('lookahead', 4)
+            opts = lookahead << 4 | window
+
+        header = bytearray(format.comp.size + len(seg))
+        format.comp.pack_into(header, 0, 0, 0xFF00 | comp, len(seg), opts, 0,
+                data_sz, ent['real_sz'])
+        header[format.comp.size:] = seg
+    else:
+        header = bytearray(format.file.size + len(seg))
+        format.file.pack_into(header, 0, 0, 0xFF00, len(seg), 0, 0, data_sz)
+        header[format.file.size:] = seg
+
+    ent['header'] = header
+    ent['data_sz'] = data_sz
+
+def generate_file_header(ent) -> None:
+    '''Generate header and load data for a file entry'''
+    seg = ent['seg'].encode('utf-8')
+
+    data_sz = os.path.getsize(os.path.join(cache_dir, ent['path']))
+    if ent.get('comp') and ent.get('real_sz') is not None:
         method, args = ent['comp']
         if method == 'deflate':
             comp = 1
@@ -456,12 +480,12 @@ if __name__ == '__main__':
     data = b''
     transforms = collect_transforms()
     entries = collect_entries()
+    config  = load_config()
 
     # Stage 1
     print("       - Stage 1", file=stderr)
     clean_removed()
     load_state()
-    load_config()
     apply_rules()
     run_preprocessors()
     check_output()
