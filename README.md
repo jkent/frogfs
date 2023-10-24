@@ -55,8 +55,10 @@ As an example for ESP-IDF, in your project's toplevel CMakeLists.txt:
 
 ```cmake
 cmake_minimum_required(VERSION 3.16)
+
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(my_project)
+
 target_add_frogfs(my_project.elf files NAME frogfs CONFIG frogfs.yaml)
 ```
 
@@ -109,11 +111,10 @@ take optional command line arguments. Included transforms are found in the
 `frogs/tools` directory, and you can optionally supplement and/or override
 existing transforms.
 
-Once a transform or compression option is enabled or disabled, it cannot be
-overriden later. Transforms are applied in descending order. You can prefix a
-transforms or the `compress` keyword with `no` to disable it. There are a
-couple of special keywords: `discard` which prevents inclusion and `no cache`,
-which causes preprocessing to run every time on matching objects.
+Transforms are applied in descending order. You can prefix a transforms or the
+`compress` verb with `no` to disable it. There are a couple of special verbs:
+`discard` which prevents inclusion and `cache` (default), which caches the
+file in the build cache.
 
 ## Usage
 
@@ -217,24 +218,14 @@ FrogFS binaries can be either embedded in your application, or accessed using
 memory mapped I/O. It is not possible (at this time) to use FrogFS without the
 file system binary existing in data address space.
 
-Creation of a FrogFS filesystem is a multi-step process handled by a single
-tool:
-
-  * `tools/mkfrogfs.py`
-    - Recursively enumerate all objects in a given directory
-    - Apply transforms to objects as configured in yaml
-    - Compress files to files as configured in yaml
-    - Save json file containing the state including file timestamps
-    - Hash path using djb2 hash
-    - Save FrogFS binary: header, hashtable, objects, and footer
-
-You can add your own transforms by creating a `tools` directory in your
-projects root directory, with a filename starting with `transform-` and ending
-with `.js` or `.py`. Transform tools take data on stdin and produce output on
-stdout.
+Creation of a FrogFS filesystem is handled by a single tool,
+`tools/mkfrogfs.py`. It uses transforms in the `tools` directory, or you can
+add your own transforms by creating a `tools` directory in your projects root
+directory, with a filename starting with `transform-` and ending with `.js` or
+`.py`. Transform tools take data on stdin and produce output on stdout.
 
 Both transform and compresors can accept arguments. Look at
-`default_config.yaml` for examples.
+`examples/standalone/frogfs.yaml` for an example.
 
 # History and Acknowledgements
 

@@ -5,4 +5,4 @@ set(EXTRA_COMPONENT_DIRS ../..)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(clockwise)
 
-target_add_frogfs(clockwise.elf ../files NAME frogfs)
+target_add_frogfs(clockwise.elf ../files NAME frogfs CONFIG frogfs.yaml)
