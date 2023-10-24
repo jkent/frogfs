@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.16)
 
 project(example)
 
@@ -7,7 +7,7 @@ set(CONFIG_FROGFS_USE_DEFLATE y)
 set(CONFIG_FROGFS_USE_HEATSHRINK y)
 set(CONFIG_FROGFS_LOG_LEVEL_DEBUG y)
 
-include(../../CMakeLists.txt)
+include(../../cmake/standalone.cmake)
 
 add_executable(example
     main.c
