@@ -41,6 +41,7 @@ macro(generate_frogfs_rules)
     add_custom_target(frogfs_preprocess_${ARG_NAME}
         COMMAND ${Python3_VENV_EXECUTABLE} ${frogfs_DIR}/tools/mkfrogfs.py -C ${CMAKE_SOURCE_DIR} ${TOOLS} ${ARG_CONFIG} ${BUILD_DIR} ${OUTPUT}.bin
         DEPENDS ${Python3_VENV}_requirements.stamp ${ARG_CONFIG}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         BYPRODUCTS ${BUILD_DIR}/node_modules ${BUILD_DIR}/${ARG_NAME}-cache ${BUILD_DIR}/${ARG_NAME}-cache-state.json ${OUTPUT}.bin
         COMMENT "Running mkfrogfs.py for ${ARG_NAME}.bin"
         USES_TERMINAL

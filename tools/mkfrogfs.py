@@ -575,13 +575,13 @@ if __name__ == '__main__':
                           help='output binary file')
 
     args = argparse.parse_args()
+    tools_dirs = [os.path.abspath(p) for p in args.tools]
+    config_file = os.path.abspath(args.config_file)
+    build_dir = os.path.abspath(args.build_dir)
+    output_file = os.path.abspath(args.output_file)
     if args.work_dir:
         os.makedirs(args.work_dir, exist_ok=True)
         os.chdir(args.work_dir)
-    tools_dirs = args.tools
-    config_file = args.config_file
-    build_dir = args.build_dir
-    output_file = args.output_file
 
     output_name, _ = os.path.splitext(os.path.basename(output_file))
     cache_dir = os.path.join(build_dir, output_name + '-cache')
