@@ -4,7 +4,7 @@ FrogFS (Fast Read-Only General-purpose File System) is a read-only filesystem
 designed for embedded use. It can be easily used with a CMake project &mdash;
 including [ESP-IDF](https://github.com/espressif/esp-idf). It has built-in
 filters to save space; preprocessed files in the `examples/files` directory are
-reduced by 52.2% with the default transforms and filters.
+reduced by 52.2% with the default filters.
 
 Transforms include:
   * babel-convert
@@ -29,7 +29,7 @@ file for reading it will search the overlay file system, and then fall back
 to FrogFS. The overlay is an optional feature of course; and IDF's VFS lets
 you mount filesystems to any prefix path of your choosing.
 
-Included is a standalone binary with an embedded filesystem to test and verify
+Included is a standalone demo with an embedded filesystem to test and verify
 functionality and a clockwise HTTPd demo using the VFS system with a SPIFFS
 overlay. Be warned however, merged directory listings are slow due to the
 nature of the spiffs stat vfs function. In most applications, however, this is
@@ -46,10 +46,10 @@ To use this component with ESP-IDF, within your projects directory run
 
 Embed FrogFS within your project binary with the folowing CMake function:
 
-    target_add_frogfs(<target> <path> [NAME name] [CONFIG yaml])
+    target_add_frogfs(<target> [CONFIG yaml] [NAME name])
 
-If **NAME** is not specified, it will default to the basename of **path**. If
-**CONFIG** is not specified, `default_config.yaml` will be used.
+If **CONFIG** is not specified, `frogfs.yaml` will be used. If **NAME** is not
+specified, it will default to `frogfs`.
 
 As an example for ESP-IDF, in your project's toplevel CMakeLists.txt:
 
@@ -59,7 +59,7 @@ cmake_minimum_required(VERSION 3.16)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(my_project)
 
-target_add_frogfs(my_project.elf files NAME frogfs CONFIG frogfs.yaml)
+target_add_frogfs(my_project.elf)
 ```
 
 Where **target** `my_project.elf` must match your project's name and
@@ -79,21 +79,23 @@ You have the option of creating a binary without linking it with your
 application. A CMake function is provided to output a binary with target
 `generate_${name}`.
 
-    declare_frogfs_bin(path [NAME name] [CONFIG yaml])
+    declare_frogfs_bin(path [CONFIG yaml] [NAME name])
 
-If **NAME** is not specifed the default is the basename of **path**.
+If **CONFIG** is not specified, `frogfs.yaml` is used. If **NAME** is not
+specifed, `frogfs` is used.
 
-Here's an example of what you can add to your toplevel CMakeLists.txt, with a
-directory named files:
+Here's an example of what you can add to your toplevel CMakeLists.txt:
 
 ```cmake
-declare_frogfs_bin(files NAME frogfs)
+set(FROGFS_NAME frogfs)
+declare_frogfs_bin(NAME ${FROGFS_NAME})
 
 idf_component_get_property(main_args esptool_py FLASH_ARGS)
 idf_component_get_property(sub_args esptool_py FLASH_SUB_ARGS)
-esptool_py_flash_target(frogfs-flash "${main_args}" "${sub_args}" ALWAYS_PLAINTEXT)
-esptool_py_flash_to_partition(frogfs-flash storage ${BUILD_DIR}/CMakeFiles/frogfs.dir/frogfs.bin)
-add_dependencies(frogfs-flash generate_${name}_bin)
+esptool_py_flash_target(${FROGFS_NAME}-flash "${main_args}" "${sub_args}" ALWAYS_PLAINTEXT)
+
+esptool_py_flash_to_partition(${FROGFS_NAME}-flash storage ${BUILD_DIR}/CMakeFiles/${FROGFS_NAME}.bin)
+add_dependencies(${FROGFS_NAME}-flash generate_${FROGFS_NAME}_bin)
 ```
 
 In this case, **files** is the source directory to build the file system from,
@@ -103,18 +105,31 @@ invoke the flash process by running `idf.py frogfs-flash`.
 
 ## Configuration
 
-In the root of `frogfs` there is a `default_config.yaml` file that has sane
-defaults for HTTP usage. The yaml file is a bunch of filters that are applied
-top down to apply various actions. First, all transforms are applied, then a
-compressor is applied as an optional last step. Transforms and compressors can
-take optional command line arguments. Included transforms are found in the
-`frogs/tools` directory, and you can optionally supplement and/or override
-existing transforms.
+FrogFS expects a yaml configuration file.  There are 3 different sections:
+define, collect and filter. All but collect is optional.
 
-Transforms are applied in descending order. You can prefix a transforms or the
+Define is a list or dict of variable definitions. There are 2 predefined
+variables: $cwd and $frogfs. You can also reference envronment variables with
+the \${ENV:varname} syntax.
+
+Collect 'gathers' up files and directories and places them in the frogfs root.
+Glob patterns are allowed in the 'basename' component of the path. There are 3
+ways to specify sources; they cn be a string, list, or dictionary. If it's a
+string, the path(s) become the root directory. If a list, the paths are merged
+in order and become the root directory. If a dict is used, the paths are
+merged into the destination of choice; empty string being the root directory.
+Variables are expanded for both source and destination.
+
+Filter allows you to do post-processing on the files before they are
+integrated. Filter is a list or dict of dicts; with a glob pattern to a list
+of verbs. Varibales are expanded and all patterns are evaluated for each file
+or directory, top down. Transforms are applied first, then an optional final
+compression before caching the file.
+
+Verbs are applied in descending order. You can prefix a transforms or the
 `compress` verb with `no` to disable it. There are a couple of special verbs:
 `discard` which prevents inclusion and `cache` (default), which caches the
-file in the build cache.
+file in the build cache. See `frogfs_example.yaml` for example usage.
 
 ## Usage
 
@@ -224,8 +239,8 @@ add your own transforms by creating a `tools` directory in your projects root
 directory, with a filename starting with `transform-` and ending with `.js` or
 `.py`. Transform tools take data on stdin and produce output on stdout.
 
-Both transform and compresors can accept arguments. Look at
-`examples/standalone/frogfs.yaml` for an example.
+Both transform and compresors can accept arguments. See `frogfs_example.yaml`
+for an example.
 
 # History and Acknowledgements
 

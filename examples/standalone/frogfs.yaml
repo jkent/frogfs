@@ -1,23 +1,7 @@
-filters:
-  - '*':
-    - compress heatshrink:
-        window: 11
-        lookahead: 4
+collect:
+  - $frogfs/examples/files
+  - $frogfs/README.md: readme.md
 
-  - '*.css':
-    - uglifycss
-    - compress deflate:
-        level: 9
-
-  - '*.html':
-    - html-minifier
+filter:
+  '*':
     - compress deflate
-
-  - '*.js':
-    - compress deflate
-
-  - '*.svg':
-    - compress deflate
-
-  - 'fruits':
-    - discard

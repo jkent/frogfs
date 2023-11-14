@@ -3,7 +3,7 @@ import os
 import zlib
 from argparse import ArgumentParser
 from fnmatch import fnmatch
-from shutil import rmtree
+from glob import glob
 from sys import stderr
 from zlib import crc32
 
@@ -11,13 +11,148 @@ import format
 import heatshrink2
 import yaml
 
-from frogfs import align, djb2_hash, pad, pipe_script
+from frogfs import align, djb2_hash, expand_variables, pad, pipe_script
 
 
-def collect_transforms() -> dict:
+def load_config() -> dict:
+    '''Loads and normalizes configuration yaml file'''
+    with open(config_file, 'r') as f:
+        doc = yaml.safe_load(f)
+
+    config = {'define': {}, 'collect': {}, 'filter': []}
+
+    def add_define(name, value):
+        value = expand_variables(value, config['define'])
+        config['define'][name] = value
+
+    def add_collect(pattern, destination):
+        pattern = expand_variables(pattern, config['define'])
+        destination = expand_variables(destination or '', config['define'])
+        config['collect'][pattern] = destination
+
+    def add_filter(pattern, actions):
+        pattern = expand_variables(pattern, config['define'])
+        normalized_actions = []
+        for action in actions:
+            if isinstance(action, dict):
+                action = tuple(next(iter(action.items())))
+            if isinstance(action, str):
+                action = (action, {})
+            normalized_actions.append(action)
+        config['filter'].append((pattern, normalized_actions))
+
+    add_define('cwd', os.getcwd())
+    add_define('frogfs', os.path.abspath(frogfs_dir))
+
+    defines = doc.get('define', {})
+    if isinstance(defines, list):
+        for define in defines:
+            for name, value in define.items():
+                add_define(name, value)
+    elif isinstance(defines, dict):
+        for name, value in defines.items():
+            add_define(name, value)
+    else:
+        raise Exception('unexpected type for define')
+
+    collects = doc.get('collect', {})
+    if isinstance(collects, str):
+        add_collect(collects, '')
+    elif isinstance(collects, list):
+        for collect in collects:
+            if isinstance(collect, str):
+                add_collect(collect, '')
+            else:
+                for source, destination in collect.items():
+                    add_collect(source, destination)
+    elif isinstance(collects, dict):
+        for source, destination in collects.items():
+            add_collect(source, destination)
+    else:
+        raise Exception('unexpected type for collect')
+
+    filters = doc.get('filter', {})
+    if isinstance(filters, list):
+        for filter in filters:
+            for pattern, actions in filter.items():
+                add_filter(pattern, actions)
+    elif isinstance(filters, dict):
+        for pattern, actions in filters.items():
+            add_filter(pattern, actions)
+    else:
+        raise Exception('unexpected type for filter')
+
+    return config
+
+def collect_entries() -> dict:
+    '''Collects all the path entries'''
+
+    entries = {}
+    def add_file(src, dest):
+        src = os.path.abspath(src)
+        if not os.path.isfile(src):
+            raise Exception(f'"{src}" is not a file')
+
+        if dest == '':
+            dest = os.path.basename(src)
+        dest = os.path.join(os.sep, dest).replace('\\', '/').lstrip('/')
+        ent = {
+            'type': 'file',
+            'name': os.path.basename(dest.rstrip('/')),
+            'path': src,
+            'dest': dest,
+            'skip': True,
+        }
+        entries[dest] = ent
+
+    for pattern, dest in config['collect'].items():
+        base, name = os.path.split(pattern)
+        base = os.path.normpath(base)
+
+        if '*' in name or '?' in name:
+            for path in glob(name, root_dir=base):
+                src = os.path.join(base, path)
+                if os.path.isdir(src):
+                    for dir, _, files in os.walk(src, followlinks=True):
+                        reldir = dir[len(base) + 1:]
+                        for file in files:
+                            add_file(os.path.join(dir, file),
+                                    os.path.join(dest, reldir, file))
+                else:
+                    file = src[len(base) + 1:]
+                    add_file(src, os.path.join(dest, file))
+
+        elif os.path.isdir(pattern):
+            for dir, _, files in os.walk(os.path.join(base, name),
+                        followlinks=True):
+                reldir = dir[len(base) + 1:]
+                for file in files:
+                    add_file(os.path.join(dir, file),
+                            os.path.join(dest, reldir, file))
+
+        else:
+            if dest.endswith('/'):
+                dest = os.path.join(dest, name)
+            add_file(pattern, dest)
+
+    for dest in entries.copy().keys():
+        while True:
+            dest = os.path.dirname(dest)
+            entries[dest] = {
+                'type': 'dir',
+                'name': os.path.basename(dest),
+                'dest': dest,
+                'skip': True,
+            }
+            if not dest.rstrip('/'):
+                break
+
+    return dict(sorted(entries.items()))
+
+def load_transforms() -> dict:
     '''Find transforms in frogfs' tools directory and in ${CWD}/tools'''
     xforms = {}
-    for dir in (default_tools_dir, 'tools'):
+    for dir in tools_dirs:
         if not os.path.exists(dir):
             continue
 
@@ -28,54 +163,10 @@ def collect_transforms() -> dict:
                 xforms[name] = {'path': path}
     return xforms
 
-def collect_entries() -> dict:
-    '''Collects all the path items from root directory'''
-    entries = {}
-    for dir, _, files in os.walk(root_dir, followlinks=True):
-        reldir = os.path.relpath(dir, root_dir).replace('\\', '/')
-        if reldir == '.' or reldir.startswith('./'):
-            reldir = reldir[2:]
-        ent = {
-            'path': reldir,
-            'seg': os.path.basename(reldir),
-            'type': 'dir',
-        }
-        entries[reldir] = ent
-
-        for file in files:
-            relfile = os.path.join(reldir, file).replace('\\', '/')
-            ent = {
-                'path': relfile,
-                'seg': file,
-                'type': 'file',
-            }
-            entries[relfile] = ent
-
-    return dict(sorted(entries.items()))
-
-def load_config() -> dict:
-    '''Loads and normalizes configuration yaml file'''
-    with open(config_file, 'r') as f:
-        doc = yaml.safe_load(f)
-
-    config = {'filters': []}
-    for filter in doc['filters']:
-        for pattern, actions in filter.items():
-            normalized_actions = []
-            for action in actions:
-                if isinstance(action, dict):
-                    action = tuple(next(iter(action.items())))
-                if isinstance(action, str):
-                    action = (action, {})
-                normalized_actions.append(action)
-            config['filters'].append((pattern, normalized_actions))
-
-    return config
-
 ### Stage 1 ###
 
 def clean_removed() -> None:
-    '''Check if files have been removed from root directory'''
+    '''Check if any files have been removed'''
     global dirty
 
     removed = False
@@ -105,27 +196,30 @@ def load_state() -> None:
     except:
         dirty |= True
 
-    for path, state in paths.items():
-        if path not in entries:
+    for dest, state in paths.items():
+        if dest not in entries:
             continue
-        ent = entries[path]
-        ent['comp'] = state.get('comp')
+
+        ent = entries[dest]
         ent['discard'] = state.get('discard')
-        ent['real_sz'] = state.get('real_sz')
-        ent['skip'] = True
-        ent['xforms'] = state.get('xforms', {})
+        #ent['skip'] = True
+
+        if ent['type'] == 'file':
+            ent['compress'] = state.get('compress')
+            ent['real_size'] = state.get('real_size')
+            ent['transform'] = state.get('transform', {})
 
 def apply_rules() -> None:
     '''Applies preprocessing rules for entries'''
     global dirty
 
     for ent in tuple(entries.values()):
-        path = ent['path']
+        dest = ent['dest']
         xforms = {}
-        comp = None
+        compress = None
 
-        for filter, actions in config['filters']:
-            if not fnmatch(path, filter):
+        for filter, actions in config['filter']:
+            if not fnmatch(dest, filter):
                 continue
             for action, args in actions:
                 parts = action.split()
@@ -137,7 +231,7 @@ def apply_rules() -> None:
 
                 verb = parts[0]
                 if verb == 'discard' and enable:
-                    discards[path] = ent
+                    discards[dest] = ent
                     continue
 
                 if verb == 'cache':
@@ -148,63 +242,65 @@ def apply_rules() -> None:
                     if ent['type'] == 'dir':
                         continue
                     if not enable:
-                        comp = None
+                        compress = None
                         continue
                     if parts[1] in ('deflate', 'heatshrink'):
-                        comp = [parts[1], args]
+                        compress = [parts[1], args]
                         continue
                     raise Exception(f'{parts[1]} is not a valid compress type')
 
-
                 if verb in transforms:
+                    if ent['type'] == 'dir':
+                        continue
                     xforms[verb] = args if enable else False
                     continue
 
                 raise Exception(f'{verb} is not a known transform')
 
-        # if never seen before, preprocess
-        if ent.get('xforms') is None:
-            ent['xforms'] = {}
-            ent['skip'] = False
+        if ent['type'] == 'file':
+            # if never seen before, preprocess
+            if ent.get('transform') is None:
+                ent['transform'] = {}
+                ent['skip'] = False
 
-        # if transforms changed, apply and preprocess
-        if ent['xforms'] != xforms or ent['xforms'].keys() != xforms.keys():
-            ent['xforms'] = xforms
-            ent['skip'] = False
+            if ent['transform'].keys() != xforms.keys():
+                # if transforms changed, apply and preprocess
+                ent['transform'] = xforms
+                ent['skip'] = False
 
-        # if is file and compression changed, apply and preprocess
-        if ent['type'] == 'file' and ent.setdefault('comp', None) != comp:
-            ent['comp'] = comp
-            ent['skip'] = False
+            # if is file and compression changed, apply and preprocess
+            if ent.setdefault('compress', None) != compress:
+                ent['compress'] = compress
+                ent['skip'] = False
 
 def preprocess(ent: dict) -> None:
     '''Run preprocessors for a given entry'''
     global dirty
 
-    path = ent['path']
+    dest = ent['dest']
 
     for discard in discards.values():
-        if path == discard['path']:
+        if dest == discard['dest']:
             return
         if discard['type'] != 'dir':
             continue
-        if path.startswith(discard['path'] + '/'):
+        if dest.startswith(discard['dest'] + '/'):
             return
 
     if ent['type'] == 'file':
-        print(f'         - {ent["path"]}', file=stderr)
+        print(f'         - {dest}', file=stderr)
 
-        with open(os.path.join(root_dir, path), 'rb') as f:
+        with open(ent['path'], 'rb') as f:
             data = f.read()
 
-        for name, args in ent['xforms'].items():
+        for name, args in ent['transform'].items():
             print(f'           - {name}... ', file=stderr, end='', flush=True)
             transform = transforms[name]
             data = pipe_script(transform['path'], args, data)
             print('done', file=stderr)
 
-        if ent['comp']:
-            name, args = ent['comp']
+        if ent['compress']:
+            name, args = ent['compress']
             print(f'           - compress {name}... ', file=stderr, end='',
                     flush=True)
 
@@ -218,22 +314,22 @@ def preprocess(ent: dict) -> None:
 
             if len(data) < len(compressed):
                 print('skipped', file=stderr)
-                ent['real_sz'] = None
+                ent['real_size'] = None
             else:
                 percent = 0
-                size = os.path.getsize(os.path.join(root_dir, path))
+                size = os.path.getsize(ent['path'])
                 if size != 0:
                     percent = len(compressed) / size
                 print(f'done ({percent * 100:.1f}%)', file=stderr)
-                ent['real_sz'] = len(data)
+                ent['real_size'] = len(data)
                 data = compressed
 
-        with open(os.path.join(cache_dir, path), 'wb') as f:
+        with open(os.path.join(cache_dir, dest), 'wb') as f:
             f.write(data)
 
     elif ent['type'] == 'dir':
-        if not os.path.exists(os.path.join(cache_dir, path)):
-            os.mkdir(os.path.join(cache_dir, path))
+        if not os.path.exists(os.path.join(cache_dir, dest)):
+            os.mkdir(os.path.join(cache_dir, dest))
 
     dirty |= True
 
@@ -242,20 +338,20 @@ def run_preprocessors() -> None:
     global dirty
 
     for ent in entries.values():
-        path = ent['path']
+        dest = ent['dest']
 
         # if file is not in cache, preprocess
-        if ent['skip'] and not os.path.exists(os.path.join(cache_dir, path)):
+        if ent['skip'] and not os.path.exists(os.path.join(cache_dir, dest)):
             ent['skip'] = False
 
-        # if file marked to be cached (default), preprocess
+        # if file marked not to be cached, preprocess
         if ent['skip'] and ent.get('cache') == False:
             ent['skip'] = False
 
         # if a file, check that the file is not newer
         if ent['skip'] and ent['type'] == 'file':
-            root_mtime = os.path.getmtime(os.path.join(root_dir, path))
-            cache_mtime = os.path.getmtime(os.path.join(cache_dir, path))
+            root_mtime = os.path.getmtime(ent['path'])
+            cache_mtime = os.path.getmtime(os.path.join(cache_dir, dest))
             if root_mtime > cache_mtime:
                 ent['skip'] = False
 
@@ -264,7 +360,7 @@ def run_preprocessors() -> None:
             preprocess(ent)
 
         # mark dirty if something has been marked discard
-        if path in discards.keys() and not ent.get('discard'):
+        if dest in discards.keys() and not ent.get('discard'):
             dirty |= True
 
 def check_output() -> None:
@@ -286,13 +382,13 @@ def save_state() -> None:
     paths = {}
 
     for ent in entries.values():
-        path = ent['path']
+        dest = ent['dest']
 
         skip = False
         for discard in discards.values():
             if discard['type'] != 'dir':
                 continue
-            if path.startswith(discard['path'] + '/'):
+            if dest.startswith(discard['dest'] + '/'):
                 skip = True
                 break
         if skip:
@@ -301,37 +397,37 @@ def save_state() -> None:
         state = {
             'type': ent['type'],
         }
-        if path in discards.keys():
+        if dest in discards.keys():
             state['discard'] = True
         else:
-            if ent['xforms'] != {}:
-                state['xforms'] = ent['xforms']
             if ent['type'] == 'file':
-                if ent['comp'] is not None:
-                    state['comp'] = ent['comp']
-                if ent.get('real_sz') is not None:
-                    state['real_sz'] = ent['real_sz']
-        paths[path] = state
+                if ent['transform'] != {}:
+                    state['transform'] = ent['transform']
+                if ent['compress'] is not None:
+                    state['compress'] = ent['compress']
+                if ent.get('real_size') is not None:
+                    state['real_size'] = ent['real_size']
+        paths[dest] = state
 
     for ent in tuple(entries.values()):
-        path = ent['path']
+        dest = ent['dest']
         for discard in discards.values():
-            if path == discard['path']:
-                del entries[path]
+            if dest == discard['dest']:
+                del entries[dest]
             if discard['type'] == 'dir':
-                if path.startswith(discard['path'] + '/'):
-                    del entries[path]
+                if dest.startswith(discard['dest'] + '/'):
+                    del entries[dest]
 
     with open(state_file, 'w') as f:
         json.dump(paths, f, indent=4)
 
 def generate_file_header(ent) -> None:
     '''Generate header and load data for a file entry'''
-    seg = ent['seg'].encode('utf-8')
+    name = ent['name'].encode('utf-8')
 
-    data_sz = os.path.getsize(os.path.join(cache_dir, ent['path']))
-    if ent.get('comp') and ent.get('real_sz') is not None:
-        method, args = ent['comp']
+    data_size = os.path.getsize(os.path.join(cache_dir, ent['dest']))
+    if ent.get('compress') and ent.get('real_size') is not None:
+        method, args = ent['compress']
         if method == 'deflate':
             comp = 1
             opts = args.get('level', 9)
@@ -341,36 +437,36 @@ def generate_file_header(ent) -> None:
             lookahead = args.get('lookahead', 4)
             opts = lookahead << 4 | window
 
-        header = bytearray(format.comp.size + len(seg))
-        format.comp.pack_into(header, 0, 0, 0xFF00 | comp, len(seg), opts, 0,
-                data_sz, ent['real_sz'])
-        header[format.comp.size:] = seg
+        header = bytearray(format.comp.size + len(name))
+        format.comp.pack_into(header, 0, 0, 0xFF00 | comp, len(name), opts, 0,
+                data_size, ent['real_size'])
+        header[format.comp.size:] = name
     else:
-        header = bytearray(format.file.size + len(seg))
-        format.file.pack_into(header, 0, 0, 0xFF00, len(seg), 0, 0, data_sz)
-        header[format.file.size:] = seg
+        header = bytearray(format.file.size + len(name))
+        format.file.pack_into(header, 0, 0, 0xFF00, len(name), 0, 0, data_size)
+        header[format.file.size:] = name
 
     ent['header'] = header
-    ent['data_sz'] = data_sz
+    ent['data_size'] = data_size
 
 def generate_dir_header(dirent: dict) -> None:
     '''Generate header and data for a directory entry'''
-    if dirent['path'] == '':
+    if dirent['dest'] == '':
         dirent['parent'] = None
         depth = 0
     else:
-        depth = dirent['path'].count('/') + 1
+        depth = dirent['dest'].count('/') + 1
 
-    seg = dirent['seg'].encode('utf-8')
+    seg = dirent['name'].encode('utf-8')
 
     children = []
     for path, ent in entries.items():
         count = path.count('/')
-        if count != depth or not ent['path']:
+        if count != depth or not ent['dest']:
             continue
-        if (count == 0 and depth == 0) or path.startswith(dirent['path'] + '/'):
+        if (count == 0 and depth == 0) or path.startswith(dirent['dest'] + '/'):
             children.append(ent)
-            if ent['path']:
+            if ent['dest']:
                 ent['parent'] = dirent
 
     dirent['children'] = children
@@ -380,7 +476,7 @@ def generate_dir_header(dirent: dict) -> None:
     format.dir.pack_into(header, 0, 0, child_count, len(seg), 0)
     header[format.dir.size + (4 * child_count):] = seg
     dirent['header'] = header
-    dirent['data_sz'] = 0
+    dirent['data_size'] = 0
 
 def generate_entry_headers() -> None:
     '''Iterate entries and call their respective generate header funciton'''
@@ -396,19 +492,19 @@ def append_frogfs_header() -> None:
 
     num_ent = len(entries)
 
-    bin_sz = align(format.head.size) + align(format.hash.size * num_ent)
+    bin_size = align(format.head.size) + align(format.hash.size * num_ent)
     for ent in entries.values():
-        ent['header_offs'] = bin_sz
-        bin_sz += align(len(ent['header']))
+        ent['header_offs'] = bin_size
+        bin_size += align(len(ent['header']))
 
     for ent in entries.values():
-        ent['data_offs'] = bin_sz
-        bin_sz += align(ent['data_sz'])
+        ent['data_offs'] = bin_size
+        bin_size += align(ent['data_size'])
 
-    bin_sz += format.foot.size
+    bin_size += format.foot.size
 
     data += format.head.pack(format.FROGFS_MAGIC, format.FROGFS_VER_MAJOR,
-                             format.FROGFS_VER_MINOR, num_ent, bin_sz)
+                             format.FROGFS_VER_MINOR, num_ent, bin_size)
 
 def apply_fixups() -> None:
     '''Insert offsets in dir and file headers'''
@@ -444,7 +540,7 @@ def append_headers_and_files() -> None:
     # then append the file data
     for ent in entries.values():
         if ent['type'] == 'file':
-            with open(os.path.join(cache_dir, ent['path']), 'rb') as f:
+            with open(os.path.join(cache_dir, ent['dest']), 'rb') as f:
                 data += pad(f.read())
 
 def append_footer() -> None:
@@ -461,35 +557,46 @@ def write_output() -> None:
     print("         - Output file written", file=stderr)
 
 if __name__ == '__main__':
-    # Get and setup environment
     frogfs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    default_config_file = os.path.join(frogfs_dir, 'default_config.yaml')
     default_tools_dir = os.path.join(frogfs_dir, 'tools')
-    os.environ['FROGFS_DIR'] = frogfs_dir
-    cmakefiles_dir = os.environ.get('CMAKEFILES_DIR', os.getcwd())
-    os.environ['NODE_PREFIX'] = cmakefiles_dir
-    os.environ['NODE_PATH'] = os.path.join(cmakefiles_dir, 'node_modules') + \
-                              os.pathsep + default_tools_dir
 
     # Get arguments
     argparse = ArgumentParser()
-    argparse.add_argument('--config', metavar='CONFIG',
-                        help='YAML configuration file',
-                        default=default_config_file)
-    argparse.add_argument('root', metavar='ROOT', help='input root directory')
-    argparse.add_argument('output', metavar='OUTPUT', help='output binary file')
+    argparse.add_argument('-C', dest='work_dir', metavar='WORKDIR',
+                          help='change working directory')
+    argparse.add_argument('--tools', metavar='TOOLSDIR', action='append',
+                          help='specify additional tools directories',
+                          default=[default_tools_dir])
+    argparse.add_argument('config_file', metavar='CONFIGFILE',
+                          help='YAML configuration file')
+    argparse.add_argument('build_dir', metavar='BUILDDIR',
+                          help='intermediary artifact path')
+    argparse.add_argument('output_file', metavar='OUTPUTFILE',
+                          help='output binary file')
+
     args = argparse.parse_args()
-    config_file = args.config
-    root_dir = args.root
-    output_file = args.output
+    if args.work_dir:
+        os.makedirs(args.work_dir, exist_ok=True)
+        os.chdir(args.work_dir)
+    tools_dirs = args.tools
+    config_file = args.config_file
+    build_dir = args.build_dir
+    output_file = args.output_file
+
     output_name, _ = os.path.splitext(os.path.basename(output_file))
-    cache_dir = os.path.join(cmakefiles_dir, output_name + '-cache')
-    state_file = os.path.join(cmakefiles_dir, output_name + '-cache-state.json')
+    cache_dir = os.path.join(build_dir, output_name + '-cache')
+    state_file = os.path.join(build_dir, output_name + '-cache-state.json')
+
+    # setup environment
+    os.environ['FROGFS_DIR'] = frogfs_dir
+    os.environ['NODE_PREFIX'] = build_dir
+    os.environ['NODE_PATH'] = os.path.join(build_dir, 'node_modules') + \
+                              os.pathsep + default_tools_dir
 
     # Initial setup
-    transforms = collect_transforms()
-    entries = collect_entries()
     config  = load_config()
+    entries = collect_entries()
+    transforms = load_transforms()
     discards = {}
     dirty = False
     data = b''

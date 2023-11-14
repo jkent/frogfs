@@ -15,4 +15,5 @@ add_executable(example
 target_link_libraries(example
     frogfs
 )
-target_add_frogfs(example ../files NAME frogfs CONFIG frogfs.yaml)
+
+target_add_frogfs(example)

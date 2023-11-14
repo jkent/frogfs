@@ -1,0 +1,33 @@
+define:
+  files: $frogfs/examples/files
+  home: ${ENV:HOME}
+
+collect:
+  - $files
+  - $frogfs/docs/_build/html: docs
+  - $frogfs/README.md: docs/readme.md
+
+filter:
+  '*':
+    - compress heatshrink:
+        window: 11
+        lookahead: 4
+
+  '*.css':
+    - uglifycss
+    - compress deflate:
+        level: 9
+
+  '*.html':
+    - html-minifier:
+        arg: value
+    - compress deflate
+
+  '*.js':
+    - compress deflate
+
+  '*.svg':
+    - compress deflate
+
+  '*.woff*':
+    - no compress

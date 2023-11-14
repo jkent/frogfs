@@ -4,6 +4,7 @@ from shutil import which
 from subprocess import DEVNULL, PIPE, Popen, call
 from sys import executable, stderr
 from typing import Union
+from re import findall
 
 
 def align(n: int) -> int:
@@ -16,6 +17,18 @@ def djb2_hash(s: str) -> int:
     for c in s.encode('utf-8'):
         hash = ((hash << 5) + hash ^ c) & 0xFFFFFFFF
     return hash
+
+def expand_variables(s, defines={}):
+    matches = findall(r'(?<!\\)\$[\w]+|(?<!\\)\$\{[:\w]+\}', s)
+    for match in matches:
+        if match.startswith('${ENV:'):
+            value = os.environ.get(match[6:-1], '')
+        elif match.startswith('${'):
+            value = defines.get(match[2:-1], '')
+        else:
+            value = defines.get(match[1:], '')
+        s = s.replace(match, value, 1)
+    return s
 
 def needs(module):
     try:
