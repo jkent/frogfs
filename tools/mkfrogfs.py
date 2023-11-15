@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import json
 import os
 import zlib
@@ -8,8 +10,12 @@ from sys import stderr
 from zlib import crc32
 
 import format
-import heatshrink2
 import yaml
+
+try:
+    import heatshrink2
+except:
+    heatshrink2 = None
 
 from frogfs import align, djb2_hash, expand_variables, pad, pipe_script
 
@@ -244,7 +250,11 @@ def apply_rules() -> None:
                     if not enable:
                         compress = None
                         continue
-                    if parts[1] in ('deflate', 'heatshrink'):
+
+                    compressors = ['deflate']
+                    if heatshrink2:
+                        compressors += 'heatshrink'
+                    if parts[1] in compressors:
                         compress = [parts[1], args]
                         continue
                     raise Exception(f'{parts[1]} is not a valid compress type')
@@ -307,7 +317,7 @@ def preprocess(ent: dict) -> None:
             if name == 'deflate':
                 level = args.get('level', 9)
                 compressed = zlib.compress(data, level)
-            elif name == 'heatshrink':
+            elif heatshrink2 and name == 'heatshrink':
                 window = args.get('window', 11)
                 lookahead = args.get('lookahead', 4)
                 compressed = heatshrink2.compress(data, window, lookahead)
@@ -431,7 +441,7 @@ def generate_file_header(ent) -> None:
         if method == 'deflate':
             comp = 1
             opts = args.get('level', 9)
-        elif method == 'heatshrink':
+        elif heatshrink2 and method == 'heatshrink':
             comp = 2
             window = args.get('window', 11)
             lookahead = args.get('lookahead', 4)
