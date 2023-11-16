@@ -109,8 +109,8 @@ FrogFS expects a yaml configuration file.  There are 3 different sections:
 define, collect and filter. All but collect is optional.
 
 Define is a list or dict of variable definitions. There are 2 predefined
-variables: $cwd and $frogfs. You can also reference envronment variables with
-the \${ENV:varname} syntax.
+variables: `$cwd` and `$frogfs`. You can also reference environment variables
+with the `${ENV:varname}` syntax.
 
 Collect 'gathers' up files and directories and places them in the frogfs root.
 Glob patterns are allowed in the 'basename' component of the path. There are 3
