@@ -15,7 +15,7 @@ Functions
 .. doxygenfunction:: frogfs_init
 .. doxygenfunction:: frogfs_deinit
 .. doxygenfunction:: frogfs_get_entry
-.. doxytenfunction:: frogfs_get_name
+.. doxygenfunction:: frogfs_get_name
 .. doxygenfunction:: frogfs_get_path
 .. doxygenfunction:: frogfs_stat
 .. doxygenfunction:: frogfs_open
