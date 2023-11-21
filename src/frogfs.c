@@ -182,7 +182,7 @@ const frogfs_entry_t *frogfs_get_entry(const frogfs_fs_t *fs, const char *path)
     return NULL;
 }
 
-static const char *get_segment(const frogfs_entry_t *entry)
+const char *frogfs_get_name(const frogfs_entry_t *entry)
 {
     if (FROGFS_ISDIR(entry)) {
         return (const void *) entry + 8 + (entry->child_count * 4);
@@ -211,13 +211,13 @@ char *frogfs_get_path(const frogfs_fs_t *fs, const frogfs_entry_t *entry)
         const frogfs_entry_t *parent = (const void *) fs->head + entry->parent;
         if ((const void *) parent == (const void *) fs->root) {
             memmove(path + entry->seg_sz, path, len);
-            memcpy(path, get_segment(entry), entry->seg_sz);
+            memcpy(path, frogfs_get_name(entry), entry->seg_sz);
             len += entry->seg_sz;
             break;
         } else {
             memmove(path + entry->seg_sz + 1, path, len + 1);
             path[0] = '/';
-            memcpy(path + 1, get_segment(entry), entry->seg_sz);
+            memcpy(path + 1, frogfs_get_name(entry), entry->seg_sz);
             len += entry->seg_sz + 1;
         }
         entry = parent;

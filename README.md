@@ -204,6 +204,7 @@ frogfs_vfs_register(&frogfs_vfs_conf);
 #### Object functions:
 
   * const frogfs_entry_t *[frogfs_get_entry](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_get_entry)(const frogfs_fs_t *fs, const char *path)
+  * const char *[frogfs_get_name](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_get_name)(const frogfs_entry_t *entry)
   * const char *[frogfs_get_path](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_get_path)(const frogfs_entry_t *entry)
   * void [frogfs_stat](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_stat)(const frogfs_fs_t *fs, const frogfs_entry_t *entry, frogfs_stat_t *st)
   * frogfs_f_t *[frogfs_open](https://frogfs.readthedocs.io/en/next/api-reference/frogfs.html#c.frogfs_open)(const frogfs_fs_t *fs, const frogfs_entry_t *entry, unsigned int flags)
