@@ -21,20 +21,20 @@ extern "C" {
 
 
 /**
- * \brief Flag for \a frogfs_open to open any file as raw. Useful to pass
- *        compressed data over a transport such as HTTP.
+ * \brief       Flag for \a frogfs_open to open any file as raw. Useful to pass
+ *              compressed data over a transport such as HTTP.
  */
 #define FROGFS_OPEN_RAW (1 << 0)
 
 /**
- * \brief Maximum recursion depth for flat directory traversal. Uses
- *        sizeof(uint16_t) * n per open directory. Set to 1 to disable flat
- *        directory traversal.
+ * \brief       Maximum recursion depth for flat directory traversal. Uses
+ *              sizeof(uint16_t) * n per open directory. Set to 1 to disable
+ *              flat directory traversal.
  */
 #define FROGFS_MAX_FLAT_DEPTH 8
 
 /**
- * \brief Configuration for the \a frogfs_init function
+ * \brief       Configuration for the \a frogfs_init function
  */
 typedef struct frogfs_config_t {
     const void *addr; /**< address of an frogfs filesystem in memory */
@@ -45,7 +45,7 @@ typedef struct frogfs_config_t {
 } frogfs_config_t;
 
 /**
- * \brief Structure describing a frogfs filesystem
+ * \brief       Structure describing a frogfs filesystem
  */
 typedef struct frogfs_fs_t {
 #if defined(ESP_PLATFORM)
@@ -63,7 +63,7 @@ typedef enum frogfs_entry_type_t {
 } frogfs_entry_type_t;
 
 /**
- * \brief Structure filled by the \a frogfs_stat function
+ * \brief       Structure filled by the \a frogfs_stat function
  */
 typedef struct frogfs_stat_t {
     frogfs_entry_type_t type; /**< entry type */
@@ -75,7 +75,7 @@ typedef struct frogfs_stat_t {
 typedef struct frogfs_decomp_funcs_t frogfs_decomp_funcs_t;
 
 /**
- * \brief Structure describing a frogfs file entry
+ * \brief       Structure describing a frogfs file entry
  */
 typedef struct frogfs_f_t {
     const frogfs_fs_t *fs; /**< frogfs fs pointer */
@@ -90,7 +90,7 @@ typedef struct frogfs_f_t {
 } frogfs_f_t;
 
 /**
- * \brief Structure describing a frogfs directory entry
+ * \brief       Structure describing a frogfs directory entry
  */
 typedef struct frogfs_d_t {
     const frogfs_fs_t *fs; /**< frogfs fs pointer */
@@ -101,7 +101,7 @@ typedef struct frogfs_d_t {
 } frogfs_d_t;
 
 /**
- * \brief Structure of function pointers that describe a decompressor
+ * \brief       Structure of function pointers that describe a decompressor
  */
 typedef struct frogfs_decomp_funcs_t {
     int (*open)(frogfs_f_t *f, unsigned int flags);
@@ -112,148 +112,157 @@ typedef struct frogfs_decomp_funcs_t {
 } frogfs_decomp_funcs_t;
 
 /**
- * \brief Raw decompressor functions
+ * \brief       Raw decompressor functions
  */
 extern const frogfs_decomp_funcs_t frogfs_decomp_raw;
 
 /**
- * \brief Deflate decompressor functions
+ * \brief       Deflate decompressor functions
  */
 extern const frogfs_decomp_funcs_t frogfs_decomp_deflate;
 
 /**
- * \brief Heatshrink decompressor functions
+ * \brief       Heatshrink decompressor functions
  */
 extern const frogfs_decomp_funcs_t frogfs_decomp_heatshrink;
 
 /**
  * \brief      Initialize and return a \a frogfs_fs_t instance
- * \param[in]  config frogfs configuration
- * \return     \a frogfs_fs_t pointer or \a NULL on error
+ * \param[in]  config   frogfs configuration
+ * \return              \a frogfs_fs_t pointer or \a NULL on error
  */
 frogfs_fs_t *frogfs_init(frogfs_config_t *conf);
 
 /**
  * \brief      Tear down a \a frogfs_fs_t instance
- * \param[in]  fs \a frogfs_fs_t pointer
+ * \param[in]  fs       \a frogfs_fs_t pointer
  */
 void frogfs_deinit(frogfs_fs_t *fs);
 
 /**
- * \brief      Get frogfs entry for path
- * \param[in]  fs   \a frogfs_fs_t pointer
- * \param[in]  path path string
- * \return     \a frogfs_obj_t pointer or \a NULL if the path is not found
+ * \brief       Get frogfs entry for path
+ * \param[in]   fs      \a frogfs_fs_t pointer
+ * \param[in]   path    path string
+ * \return              \a frogfs_entry_t pointer or \a NULL if path was not
+ *                      found
  */
 const frogfs_entry_t *frogfs_get_entry(const frogfs_fs_t *fs,
         const char *path);
 
 /**
- * \brief      Get path for frogfs entry
- * \param[in]  fs  \a frogfs_fs_t pointer
- * \param[in]  obj \a frogfs_obj_t pointer
- * \return     path string or \a NULL if entry is NULL
+ * \brief       Get name for frogfs entry
+ * \param[in]   entry   \a frogfs_entry_t pointer
+ * \return              name string
+ */
+const char *frogfs_get_name(const frogfs_entry_t *entry);
+
+/**
+ * \brief       Get full path for frogfs entry
+ * \param[in]   fs      \a frogfs_fs_t pointer
+ * \param[in]   entry   \a frogfs_entry_t pointer
+ * \return              full path string or \a NULL if entry is NULL
  */
 char *frogfs_get_path(const frogfs_fs_t *fs, const frogfs_entry_t *entry);
 
 /**
- * \brief      Get information about a frogfs entry
- * \param[in]  fs  \a frogfs_fs_t pointer
- * \param[in]  obj \a frogfs_obj_t pointer
- * \param[out] st  \a frogfs_stat_t structure
+ * \brief       Get information about a frogfs entry
+ * \param[in]   fs      \a frogfs_fs_t pointer
+ * \param[in]   entry   \a frogfs_entry_t pointer
+ * \param[out]  st      \a frogfs_stat_t structure
  */
 void frogfs_stat(const frogfs_fs_t *fs, const frogfs_entry_t *entry,
         frogfs_stat_t *st);
 
 /**
- * \brief      Open a frogfs entry as a file from a \a frogfs_fs_t instance
- * \param[in]  fs    \a frogfs_fs_t poitner
- * \param[in]  obj   \a frogfs_obj_t pointer
- * \param[in]  flags \a open flags
- * \return     \a frogfs_f_t or \a NULL if not found
+ * \brief       Open a frogfs entry as a file from a \a frogfs_fs_t instance
+ * \param[in]   fs      \a frogfs_fs_t poitner
+ * \param[in]   entry   \a frogfs_entry_t pointer
+ * \param[in]   flags   open flags
+ * \return              \a frogfs_f_t or \a NULL if not found
  */
 frogfs_f_t *frogfs_open(const frogfs_fs_t *fs, const frogfs_entry_t *entry,
         unsigned int flags);
 
 /**
  * \brief Close an open file entry
- * \param[in]  f \a frogfs_f_t pointer
+ * \param[in]   f       \a frogfs_f_t pointer
  */
 void frogfs_close(frogfs_f_t *f);
 
 /**
- * \brief      Read data from an open file entry
- * \param[in]  f   \a frogfs_f_t pointer
- * \param[out] buf write buffer
- * \param[in]  len maximum number of bytes to read
- * \return         actual number of bytes read, zero if end of file reached
+ * \brief       Read data from an open file entry
+ * \param[in]   f       \a frogfs_f_t pointer
+ * \param[out]  buf     buffer to read into
+ * \param[in]   len     maximum number of bytes to read
+ * \return              actual number of bytes read, zero if end of file
+ *                      reached
  */
 ssize_t frogfs_read(frogfs_f_t *f, void *buf, size_t len);
 
 /**
- * \brief      Seek to a position within an open file entry
- * \param[in]  f      \a frogfs_f_t pointer
- * \param[in]  offset file position (relative or absolute)
- * \param[in]  mode   \a SEEK_SET, \a SEEK_CUR, or \a SEEK_END
- * \return     current position in file or < 0 upon error
+ * \brief       Seek to a position within an open file entry
+ * \param[in]   f       \a frogfs_f_t pointer
+ * \param[in]   offset  file position (relative or absolute)
+ * \param[in]   mode    \a SEEK_SET, \a SEEK_CUR, or \a SEEK_END
+ * \return              current position in file or < 0 upon error
  */
 ssize_t frogfs_seek(frogfs_f_t *f, long offset, int mode);
 
 /**
- * \brief      Get the current position in an open file entry
- * \param[in]  f \a frogfs_f_t pointer
- * \return     current position in file or < 0 upon error
+ * \brief       Get the current position in an open file entry
+ * \param[in]   f       \a frogfs_f_t pointer
+ * \return              current position in file or < 0 upon error
  */
 size_t frogfs_tell(frogfs_f_t *f);
 
 /**
- * \brief      Get raw memory for raw file entry
- * \param[in]  f   \a frogfs_f_t pointer
- * \param[out] buf pointer pointer to buf
- * \return     length of raw data
+ * \brief       Get raw memory for raw file entry
+ * \param[in]   f       \a frogfs_f_t pointer
+ * \param[out]  buf     pointer pointer to buf
+ * \return              length of raw data
  */
 size_t frogfs_access(frogfs_f_t *f, const void **buf);
 
 /**
- * \brief      Open a directory for reading child entrys
- * \param[in]  fs  \a frogfs_fs_t pointer
- * \param[in]  obj \a frogfs_obj_t pointer to root director
- * \return     \a frogfs_d_t pointer or \a NULL if invalid
+ * \brief       Open a directory for reading child entrys
+ * \param[in]   fs      \a frogfs_fs_t pointer
+ * \param[in]   entry   \a frogfs_entry_t pointer to root director
+ * \return              \a frogfs_d_t pointer or \a NULL if invalid
  */
 frogfs_d_t *frogfs_opendir(frogfs_fs_t *fs, const frogfs_entry_t *entry);
 
 /**
- * \brief      Close a directory
- * \param[in]  d \a frogfs_d_t pointer
+ * \brief       Close a directory
+ * \param[in]   d       \a frogfs_d_t pointer
  */
 void frogfs_closedir(frogfs_d_t *d);
 
 /**
- * \brief      Get the next child entry in directory
- * \param[in]  d \a frogfs_d_t pointer
- * \return     \a frogfs_obj_t pointer or \a NULL if end has been reached
+ * \brief       Get the next child entry in directory
+ * \param[in]   d       \a frogfs_d_t pointer
+ * \return              \a frogfs_entry_t pointer or \a NULL if end has been reached
  */
 const frogfs_entry_t *frogfs_readdir(frogfs_d_t *d);
 
 /**
- * \brief      Rewind to the first entry in the directory
- * \param[in]  d \a frogfs_d_t pointer
+ * \brief       Rewind to the first entry in the directory
+ * \param[in]   d       \a frogfs_d_t pointer
  */
 void frogfs_rewinddir(frogfs_d_t *d);
 
 /**
- * \brief      Set dir entry index to a value returned by \a frogfs_telldir
- *             for the current \a frogfs_d_t pointer; any other values are
- *             undefined
- * \param[in]  d   \a frogfs_d_t pointer
- * \param[in]  loc entry index
+ * \brief       Set dir entry index to a value returned by \a frogfs_telldir
+ *              for the current \a frogfs_d_t pointer; any other values are
+ *              undefined
+ * \param[in]   d       \a frogfs_d_t pointer
+ * \param[in]   loc     entry index
  */
 void frogfs_seekdir(frogfs_d_t *d, uint16_t loc);
 
 /**
- * \brief      Return the current entry index for a directory
- * \param[in]  d   \a frogfs_d_t pointer
- * \return     entry index
+ * \brief       Return the current entry index for a directory
+ * \param[in]   d       \a frogfs_d_t pointer
+ * \return              entry index
  */
 uint16_t frogfs_telldir(frogfs_d_t *d);
 

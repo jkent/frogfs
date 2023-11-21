@@ -119,8 +119,7 @@ void frogfs_deinit(frogfs_fs_t *fs)
     free(fs);
 }
 
-const frogfs_entry_t *frogfs_get_entry(const frogfs_fs_t *fs,
-        const char *path)
+const frogfs_entry_t *frogfs_get_entry(const frogfs_fs_t *fs, const char *path)
 {
     assert(fs != NULL);
     assert(path != NULL);
