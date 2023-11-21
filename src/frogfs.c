@@ -36,7 +36,7 @@ static inline size_t align(size_t n)
 }
 
 // String hashing function.
-static uint32_t djb2_hash(const char *s)
+static inline uint32_t djb2_hash(const char *s)
 {
     unsigned long hash = 5381;
 
