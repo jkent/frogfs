@@ -411,11 +411,14 @@ const frogfs_entry_t *frogfs_readdir(frogfs_d_t *d)
         return NULL;
     }
 
+    if (d->index == 0) {
+        d->pos[0] = 0;
+    }
+
     if (IS_FLAT) {
         if (d->index == 0) {
             d->depth = 0;
             d->dir = d->fs->root;
-            d->pos[0] = 0;
         }
 again:
         if (d->pos[d->depth] < d->dir->entry.child_count) {
@@ -425,6 +428,7 @@ again:
                 d->dir = (const void *) entry;
                 d->pos[++d->depth] = 0;
             }
+            d->index++;
         } else if (d->depth == 0) {
             entry = NULL;
         } else {
@@ -434,9 +438,9 @@ again:
         }
     } else if (d->pos[0] != d->dir->entry.child_count) {
         entry = (const void *) d->fs->head + d->dir->children[d->pos[0]++];
+        d->index++;
     }
 
-    d->index++;
     return entry;
 }
 
