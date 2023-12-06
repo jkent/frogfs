@@ -1,4 +1,0 @@
-{
-    "idf.adapterTargetName": "esp32",
-    "idf.flashType": "UART"
-}
