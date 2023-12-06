@@ -253,7 +253,7 @@ def apply_rules() -> None:
 
                     compressors = ['deflate']
                     if heatshrink2:
-                        compressors += 'heatshrink'
+                        compressors += ['heatshrink']
                     if parts[1] in compressors:
                         compress = [parts[1], args]
                         continue
