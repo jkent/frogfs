@@ -3,8 +3,11 @@
 FrogFS (Fast Read-Only General-purpose File System) is a read-only filesystem
 designed for embedded use. It can be easily used with a CMake project &mdash;
 including [ESP-IDF](https://github.com/espressif/esp-idf). It has built-in
-filters to save space; preprocessed files in the `examples/files` directory are
-reduced by 52.2% with the default filters.
+filters to save space. Files in `frogfs-clockwise-demo` are reduced by about
+half using the default filters. Here are links to the example repositories:
+
+  * [frogfs-standalone-demo](https://github.com/jkent/frogfs-standalone-demo)
+  * [frogfs-clockwise-demo](https://github.com/jkent/frogfs-clockwise-demo)
 
 Transforms include:
   * babel-convert
