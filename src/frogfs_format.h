@@ -12,37 +12,22 @@
 
 
 /**
- * \brief Magic number used in the frogfs file header
- */
-#define FROGFS_MAGIC 0x474F5246 /** FROG */
-
-/**
- * \brief Major version this source distribution supports
- */
-#define FROGFS_VER_MAJOR 1
-
-/**
- * \brief Minor version this source distribution supports
- */
-#define FROGFS_VER_MINOR 0
-
-/**
- * \brief Is entry a directory?
+ * \brief       Is entry a directory?
  */
 #define FROGFS_IS_DIR(e) (e->child_count < 0xFF00)
 
 /**
- * \brief Is entry a file?
+ * \brief       Is entry a file?
  */
 #define FROGFS_IS_FILE(e) (e->child_count >= 0xFF00)
 
 /**
- * \brief Is entry a compressed file?
+ * \brief       Is entry a compressed file?
  */
 #define FROGFS_IS_COMP(e) (e->child_count > 0xFF00)
 
 /**
- * \brief Filesystem header
+ * \brief       Filesystem header
  */
 typedef struct __attribute__((packed)) frogfs_head_t {
     uint32_t magic; /**< filesystem magic */
@@ -53,7 +38,7 @@ typedef struct __attribute__((packed)) frogfs_head_t {
 } frogfs_head_t;
 
 /**
- * \brief Hash table entry
+ * \brief       Hash table entry
  */
 typedef struct __attribute__((packed)) frogfs_hash_t {
     uint32_t hash; /**< path hash */
@@ -61,7 +46,7 @@ typedef struct __attribute__((packed)) frogfs_hash_t {
 } frogfs_hash_t;
 
 /**
- * \brief Entry header
+ * \brief       Entry header
  */
 typedef struct __attribute__((packed)) frogfs_entry_t {
     uint32_t parent; /**< parent entry offset */
@@ -77,7 +62,7 @@ typedef struct __attribute__((packed)) frogfs_entry_t {
 } frogfs_entry_t;
 
 /**
- * \brief Directory object header
+ * \brief       Directory object header
  */
 typedef struct __attribute__((packed)) frogfs_dir_t {
     const frogfs_entry_t entry;
@@ -85,7 +70,7 @@ typedef struct __attribute__((packed)) frogfs_dir_t {
 } frogfs_dir_t;
 
 /**
- * \brief File object header
+ * \brief       File object header
  */
 typedef struct __attribute__((packed)) frogfs_file_t {
     const frogfs_entry_t entry;
@@ -94,7 +79,7 @@ typedef struct __attribute__((packed)) frogfs_file_t {
 } frogfs_file_t;
 
 /**
- * \brief Compressed file object header
+ * \brief       Compressed file object header
  */
 typedef struct __attribute__((packed)) frogfs_comp_t {
     const frogfs_entry_t entry;
@@ -104,7 +89,7 @@ typedef struct __attribute__((packed)) frogfs_comp_t {
 } frogfs_comp_t;
 
 /**
- * \brief Filesystem footer
+ * \brief       Filesystem footer
  */
 typedef struct __attribute__((packed)) frogfs_foot_t {
     uint32_t crc32; /**< crc32 of entire file without this field */

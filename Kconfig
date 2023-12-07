@@ -26,6 +26,13 @@ config FROGFS_LOG_LEVEL_VERBOSE
 
 endchoice # "Log level"
 
+config FROGFS_MAX_FLAT_DEPTH
+	int "Maximum recursion depth for flat directory traversal"
+	default 8
+	help
+		Uses sizeof(uint16_t) * n per open directory. Set to 1 to disable
+		flat directory traversal.
+
 config FROGFS_OVERLAY_DIR
 	bool "Merge overlay with dir functions"
 	depends on VFS_SUPPORT_DIR

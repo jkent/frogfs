@@ -19,26 +19,25 @@ extern "C" {
 
 
 /**
+ * \brief       Magic number used in the frogfs file header
+ */
+#define FROGFS_MAGIC 0x474F5246 /** FROG */
+
+/**
+ * \brief       Major version this source distribution supports
+ */
+#define FROGFS_VER_MAJOR 1
+
+/**
+ * \brief       Minor version this source distribution supports
+ */
+#define FROGFS_VER_MINOR 0
+
+/**
  * \brief       Flag for \a frogfs_open to open any file as raw. Useful to
  *              pass compressed data over a transport such as HTTP.
  */
 #define FROGFS_OPEN_RAW (1 << 0)
-
-/**
- * \brief       Configuration for the \a frogfs_init function
- */
-typedef struct frogfs_config_t {
-    const void *addr; /**< address of an frogfs filesystem in memory */
-#if defined(__DOXYGEN__) || defined(ESP_PLATFORM)
-    const char *part_label; /**< name of a partition to use as an frogfs
-                filesystem. \a addr should be \a NULL if used */
-#endif
-} frogfs_config_t;
-
-/**
- * \brief       A frogfs filesystem handle
- */
-typedef struct frogfs_fs_t frogfs_fs_t;
 
 /**
  * \brief       Enum of frogfs entry types
@@ -58,6 +57,22 @@ typedef enum frogfs_comp_algo_t {
 } frogfs_comp_algo_t;
 
 /**
+ * \brief       Configuration for the \a frogfs_init function
+ */
+typedef struct frogfs_config_t {
+    const void *addr; /**< address of an frogfs filesystem in memory */
+#if defined(__DOXYGEN__) || defined(ESP_PLATFORM)
+    const char *part_label; /**< name of a partition to use as an frogfs
+                filesystem. \a addr should be \a NULL if used */
+#endif
+} frogfs_config_t;
+
+/**
+ * \brief       A frogfs filesystem handle
+ */
+typedef struct frogfs_fs_t frogfs_fs_t;
+
+/**
  * \brief       Structure filled by the \a frogfs_stat function
  */
 typedef struct frogfs_stat_t {
@@ -67,7 +82,9 @@ typedef struct frogfs_stat_t {
     size_t compressed_sz; /**< compressed file size */
 } frogfs_stat_t;
 
-typedef struct frogfs_decomp_funcs_t frogfs_decomp_funcs_t;
+/**
+ * \brief       Fiilesystem entry pointer
+*/
 typedef struct frogfs_entry_t frogfs_entry_t;
 typedef struct frogfs_dh_t frogfs_dh_t;
 typedef struct frogfs_fh_t frogfs_fh_t;
@@ -89,21 +106,6 @@ typedef struct frogfs_fh_t {
     frogfs_entry_t *entry; /**< file entry */
 } frogfs_fh_t;
 #endif
-
-/**
- * \brief       Raw decompressor functions
- */
-extern const frogfs_decomp_funcs_t frogfs_decomp_raw;
-
-/**
- * \brief       Deflate decompressor functions
- */
-extern const frogfs_decomp_funcs_t frogfs_decomp_deflate;
-
-/**
- * \brief       Heatshrink decompressor functions
- */
-extern const frogfs_decomp_funcs_t frogfs_decomp_heatshrink;
 
 /**
  * \brief      Initialize and return a \a frogfs_fs_t instance
@@ -177,10 +179,17 @@ frogfs_fh_t *frogfs_open(const frogfs_fs_t *fs, const frogfs_entry_t *entry,
         unsigned int flags);
 
 /**
- * \brief Close an open file entry
+ * \brief       Close an open file entry
  * \param[in]   f       \a frogfs_fh_t pointer
  */
 void frogfs_close(frogfs_fh_t *fh);
+
+/**
+ * \brief       Determine if file handle is opened raw.
+ * \param[in]   f       \a frogfs_fh_t pointer
+ * \return              1 if file is open raw, 0 otherwise
+*/
+int frogfs_is_raw(frogfs_fh_t *fh);
 
 /**
  * \brief       Read data from an open file entry

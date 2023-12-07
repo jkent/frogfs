@@ -16,17 +16,17 @@ extern "C" {
  *************************/
 
 /**
- * \brief Frogfs GET route handler
+ * \brief       Frogfs GET route handler
  */
 cwhttpd_status_t frogfs_route_get(cwhttpd_conn_t *conn);
 
 /**
- * \brief Frogfs template route handler
+ * \brief       Frogfs template route handler
  */
 cwhttpd_status_t frogfs_route_tpl(cwhttpd_conn_t *conn);
 
 /**
- * \brief Frogfs index route handler
+ * \brief       Frogfs index route handler
  */
 cwhttpd_status_t frogfs_route_index(cwhttpd_conn_t *conn);
 

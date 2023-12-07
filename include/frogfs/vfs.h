@@ -15,7 +15,7 @@ extern "C" {
 #define F_REOPEN_RAW 1000
 
 /**
- * \brief Configuration structure for the \a frogfs_vfs_register function
+ * \brief       Configuration structure for the \a frogfs_vfs_register function
  */
 typedef struct frogfs_vfs_conf_t {
     const char *base_path; /**< vfs path to mount the filesystem */

@@ -350,6 +350,11 @@ void frogfs_close(frogfs_fh_t *fh)
     free(fh);
 }
 
+int frogfs_is_raw(frogfs_fh_t *fh)
+{
+    return !!(fh->flags & FROGFS_OPEN_RAW);
+}
+
 ssize_t frogfs_read(frogfs_fh_t *fh, void *buf, size_t len)
 {
     assert(fh != NULL);

@@ -6,6 +6,5 @@ API Reference
    :maxdepth: 2
 
    bare
-   format
    vfs
    route
