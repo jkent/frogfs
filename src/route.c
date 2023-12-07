@@ -131,7 +131,7 @@ cwhttpd_status_t frogfs_route_get(cwhttpd_conn_t *conn)
         return status;
     }
 
-    frogfs_f_t *f = frogfs_open(conn->inst->frogfs, buf);
+    frogfs_fh_t *f = frogfs_open(conn->inst->frogfs, buf);
     if (f == NULL) {
         return CWHTTPD_STATUS_NOTFOUND;
     }
@@ -204,7 +204,7 @@ cwhttpd_status_t frogfs_route_tpl(cwhttpd_conn_t *conn)
 
     const char *mimetype = cwhttpd_get_mimetype(buf);
 
-    frogfs_f_t *f = frogfs_open(conn->inst->frogfs, buf);
+    frogfs_fh_t *f = frogfs_open(conn->inst->frogfs, buf);
     if (f == NULL) {
         return CWHTTPD_STATUS_NOTFOUND;
     }

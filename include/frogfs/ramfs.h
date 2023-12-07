@@ -12,12 +12,12 @@ extern "C" {
 #include <sys/types.h>
 
 /**
- * \brief A ramfs filesystem handle
+ * \brief       A ramfs filesystem handle
  */
 typedef struct ramfs_fs_t ramfs_fs_t;
 
 /**
- * \brief Entry type
+ * \brief       Entry type
  */
 typedef enum ramfs_entry_type_t {
     RAMFS_ENTRY_TYPE_DIR,
@@ -25,12 +25,12 @@ typedef enum ramfs_entry_type_t {
 } ramfs_entry_type_t;
 
 /**
- * \brief A ramfs filesystem entry
+ * \brief       A ramfs filesystem entry
  */
 typedef struct ramfs_entry_t ramfs_entry_t;
 
 /**
- * \brief Structure filled by the \a ramfs_stat function
+ * \brief       Structure filled by the \a ramfs_stat function
  */
 typedef struct ramfs_stat_t {
     ramfs_entry_type_t type; /**< entry type */
@@ -39,17 +39,19 @@ typedef struct ramfs_stat_t {
 
 #if defined(__DOXYGEN__) || !defined(RAMFS_PRIVATE_STRUCTS)
 /**
- * \brief A ramfs directory handle
+ * \brief       A ramfs directory handle
  */
 typedef struct ramfs_dh_t {
-    ramfs_entry_t *entry;
+    ramfs_fs_t *fs; /**< filesystem handle */
+    ramfs_entry_t *entry; /**< directory >entry */
 } ramfs_dh_t;
 
 /**
- * \brief A ramfs file handle
+ * \brief       A ramfs file handle
  */
 typedef struct ramfs_fh_t {
-    ramfs_entry_t *entry;
+    ramfs_fs_t *fs; /**< filesystem handle */
+    ramfs_entry_t *entry;  /**< file entry */
 } ramfs_fh_t;
 #endif
 
@@ -83,18 +85,18 @@ ramfs_entry_t *ramfs_get_parent(ramfs_fs_t *fs, const char *path);
 ramfs_entry_t *ramfs_get_entry(ramfs_fs_t *fs, const char *path);
 
 /**
- * \brief       Get path for ramfs entry
- * \param[in]   entry   \a ramfs_entry_t pointer
- * \return              path string or \a NULL if entry is NULL
- */
-char *ramfs_get_path(const ramfs_entry_t *entry);
-
-/**
  * \brief       Return entry name component
  * \param[in]   entry   \a ramfs_entry_t pointer
  * \return              the entry name string
  */
 const char *ramfs_get_name(const ramfs_entry_t *entry);
+
+/**
+ * \brief       Get path for ramfs entry
+ * \param[in]   entry   \a ramfs_entry_t pointer
+ * \return              path string or \a NULL if entry is NULL
+ */
+char *ramfs_get_path(const ramfs_entry_t *entry);
 
 /**
  * \brief       Return if entry is a directory
@@ -129,11 +131,13 @@ ramfs_entry_t *ramfs_create(ramfs_fs_t *fs, const char *path, int flags);
 
 /**
  * \brief       Open a ramfs file object and return a file handle
+ * \param[in]   fs      \a ramfs_fs_t pointer
  * \param[in]   entry   \a ramfs_entry_t pointer
  * \param[in]   flags   open flags
  * \return              opened file handle or \a NULL if entry is NULL
  */
-ramfs_fh_t *ramfs_open(ramfs_entry_t *entry, int flags);
+ramfs_fh_t *ramfs_open(ramfs_fs_t *fs, ramfs_entry_t *entry,
+        unsigned int flags);
 
 /**
  * \brief       Close an open file entry
@@ -149,7 +153,7 @@ void ramfs_close(ramfs_fh_t *fh);
  * \return              actual number of bytes read, zero if the end of file
  *                      reached, or < 0 on error
  */
-ssize_t ramfs_read(ramfs_fh_t *fh, char *buf, size_t nbyte);
+ssize_t ramfs_read(ramfs_fh_t *fh, char *buf, size_t len);
 
 /**
  * \brief       Write data to an open file
@@ -158,7 +162,7 @@ ssize_t ramfs_read(ramfs_fh_t *fh, char *buf, size_t nbyte);
  * \param[in]   len     number of bytes to write
  * \return              number of bytes written, or < 0 on error
  */
-ssize_t ramfs_write(ramfs_fh_t *fh, const char *buf, size_t nbyte);
+ssize_t ramfs_write(ramfs_fh_t *fh, const char *buf, size_t len);
 
 /**
  * \brief       Seek to a position within a file
@@ -201,10 +205,11 @@ int ramfs_rename(ramfs_fs_t *fs, const char *src, const char *dst);
 
 /**
  * \brief       Open a directory
+ * \param[in]   fs      \a ramfs_fs_t pointer
  * \param[in]   entry   \a ramfs_entry_t pointer
  * \return              directory handle or \a NULL on error
  */
-ramfs_dh_t *ramfs_opendir(const ramfs_entry_t *entry);
+ramfs_dh_t *ramfs_opendir(ramfs_fs_t *fs, const ramfs_entry_t *entry);
 
 /**
  * \brief       Close a directory
@@ -256,7 +261,7 @@ int ramfs_rmdir(ramfs_entry_t *entry);
 
 /**
  * \brief       Delete and free a directory tree
- * \param       entry   directory entry handle to remove
+ * \param       entry   root entry to remove
  */
 void ramfs_rmtree(ramfs_entry_t *entry);
 

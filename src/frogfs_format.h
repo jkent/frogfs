@@ -29,26 +29,17 @@
 /**
  * \brief Is entry a directory?
  */
-#define FROGFS_ISDIR(e) (e->child_count < 0xFF00)
+#define FROGFS_IS_DIR(e) (e->child_count < 0xFF00)
 
 /**
  * \brief Is entry a file?
  */
-#define FROGFS_ISFILE(e) (e->child_count >= 0xFF00)
+#define FROGFS_IS_FILE(e) (e->child_count >= 0xFF00)
 
 /**
  * \brief Is entry a compressed file?
  */
-#define FROGFS_ISCOMP(e) (e->child_count > 0xFF00)
-
-/**
- * \brief Known compression ids
- */
-typedef enum frogfs_comp_algo_t {
-    FROGFS_COMP_ALGO_NONE,
-    FROGFS_COMP_ALGO_DEFLATE,
-    FROGFS_COMP_ALGO_HEATSHRINK,
-} frogfs_comp_algo_t;
+#define FROGFS_IS_COMP(e) (e->child_count > 0xFF00)
 
 /**
  * \brief Filesystem header

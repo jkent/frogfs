@@ -42,11 +42,13 @@ typedef struct ramfs_fs_t {
 } ramfs_fs_t;
 
 typedef struct ramfs_dh_t {
+    ramfs_fs_t *fs;
     ramfs_dir_t *dir;
     size_t loc;
 } ramfs_dh_t;
 
 typedef struct ramfs_fh_t {
+    ramfs_fs_t *fs;
     ramfs_file_t *file;
     int flags;
     size_t pos;
@@ -225,6 +227,11 @@ ramfs_entry_t *ramfs_get_entry(ramfs_fs_t *fs, const char *path)
     return parent->children[i];
 }
 
+const char *ramfs_get_name(const ramfs_entry_t *entry)
+{
+    return entry->name;
+}
+
 char *ramfs_get_path(const ramfs_entry_t *entry)
 {
     assert(entry != NULL);
@@ -250,11 +257,6 @@ char *ramfs_get_path(const ramfs_entry_t *entry)
     }
 
     return path;
-}
-
-const char *ramfs_get_name(const ramfs_entry_t *entry)
-{
-    return entry->name;
 }
 
 int ramfs_is_dir(const ramfs_entry_t *entry)
@@ -337,7 +339,8 @@ ramfs_entry_t *ramfs_create(ramfs_fs_t *fs, const char *path, int flags)
     return &file->entry;
 }
 
-ramfs_fh_t *ramfs_open(ramfs_entry_t *entry, int flags)
+ramfs_fh_t *ramfs_open(ramfs_fs_t *fs, ramfs_entry_t *entry,
+        unsigned int flags)
 {
     assert(entry != NULL);
 
@@ -362,6 +365,7 @@ ramfs_fh_t *ramfs_open(ramfs_entry_t *entry, int flags)
         fh->pos = file->size;
     }
 
+    fh->fs = fs;
     fh->file = file;
     fh->flags = flags;
     return fh;
@@ -372,7 +376,7 @@ void ramfs_close(ramfs_fh_t *fh)
     free(fh);
 }
 
-ssize_t ramfs_read(ramfs_fh_t *fh, char *buf, size_t nbyte)
+ssize_t ramfs_read(ramfs_fh_t *fh, char *buf, size_t len)
 {
     assert(fh != NULL);
     assert(buf != NULL);
@@ -381,16 +385,16 @@ ssize_t ramfs_read(ramfs_fh_t *fh, char *buf, size_t nbyte)
         return 0;
     }
 
-    if (nbyte > fh->file->size - fh->pos) {
-        nbyte = fh->file->size - fh->pos;
+    if (len > fh->file->size - fh->pos) {
+        len = fh->file->size - fh->pos;
     }
 
-    memcpy(buf, fh->file->data + fh->pos, nbyte);
-    fh->pos += nbyte;
-    return nbyte;
+    memcpy(buf, fh->file->data + fh->pos, len);
+    fh->pos += len;
+    return len;
 }
 
-ssize_t ramfs_write(ramfs_fh_t *fh, const char *buf, size_t nbyte)
+ssize_t ramfs_write(ramfs_fh_t *fh, const char *buf, size_t len)
 {
     assert(fh != NULL);
     assert(buf != NULL);
@@ -400,8 +404,8 @@ ssize_t ramfs_write(ramfs_fh_t *fh, const char *buf, size_t nbyte)
         return -1;
     }
 
-    if (fh->pos + nbyte > fh->file->size) {
-        size_t new_size = fh->pos + nbyte;
+    if (fh->pos + len > fh->file->size) {
+        size_t new_size = fh->pos + len;
         uint8_t *p = realloc(fh->file->data, new_size);
         if (new_size != 0 && p == NULL) {
             return -1;
@@ -411,12 +415,12 @@ ssize_t ramfs_write(ramfs_fh_t *fh, const char *buf, size_t nbyte)
             memset(fh->file->data + fh->file->size, 0,
                     fh->pos - fh->file->size);
         }
-        fh->file->size = fh->pos + nbyte;
+        fh->file->size = fh->pos + len;
     }
 
-    memcpy(fh->file->data + fh->pos, buf, nbyte);
-    fh->pos += nbyte;
-    return nbyte;
+    memcpy(fh->file->data + fh->pos, buf, len);
+    fh->pos += len;
+    return len;
 }
 
 ssize_t ramfs_seek(ramfs_fh_t *fh, off_t offset, int whence)
@@ -542,7 +546,7 @@ int ramfs_rename(ramfs_fs_t *fs, const char *src, const char *dst)
     return 0;
 }
 
-ramfs_dh_t *ramfs_opendir(const ramfs_entry_t *entry)
+ramfs_dh_t *ramfs_opendir(ramfs_fs_t *fs, const ramfs_entry_t *entry)
 {
     assert(entry != NULL);
 
@@ -552,6 +556,7 @@ ramfs_dh_t *ramfs_opendir(const ramfs_entry_t *entry)
     }
 
     ramfs_dh_t *dh = calloc(1, sizeof(*dh));
+    dh->fs = fs;
     dh->dir = (ramfs_dir_t *) entry;
     return dh;
 }

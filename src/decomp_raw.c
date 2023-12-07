@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "frogfs_priv.h"
+#include "frogfs_format.h"
 #include "frogfs/frogfs.h"
-#include "frogfs/format.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -12,7 +13,7 @@
 #include <sys/types.h>
 
 
-static ssize_t read_raw(frogfs_f_t *f, void *buf, size_t len)
+static ssize_t read_raw(frogfs_fh_t *f, void *buf, size_t len)
 {
     size_t remaining = f->data_sz - (f->data_ptr - f->data_start);
 
@@ -28,7 +29,7 @@ static ssize_t read_raw(frogfs_f_t *f, void *buf, size_t len)
     return len;
 }
 
-static ssize_t seek_raw(frogfs_f_t *f, long offset, int mode)
+static ssize_t seek_raw(frogfs_fh_t *f, long offset, int mode)
 {
     ssize_t new_pos = f->data_ptr - f->data_start;
 
@@ -64,7 +65,7 @@ static ssize_t seek_raw(frogfs_f_t *f, long offset, int mode)
     return new_pos;
 }
 
-static size_t tell_raw(frogfs_f_t *f)
+static size_t tell_raw(frogfs_fh_t *f)
 {
     return f->data_ptr - f->data_start;
 }

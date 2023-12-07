@@ -251,7 +251,7 @@ for an example.
 FrogFS was split off of Chris Morgan (chmorgan)'s
 [libesphttpd](https://github.com/chmorgan/libesphttpd/) project (MPL 2.0),
 which is a fork of Jeroen Domburg (Sprite_tm)'s
-[libesphttpd](https://github.com/spritetm/libesphttpd/) (BEER-WARE). This project
-would never have existed without them.
+[libesphttpd](https://github.com/spritetm/libesphttpd/) (BEER-WARE). This
+project would never have existed without them.
 
 Thank you to all the contributors to this project!

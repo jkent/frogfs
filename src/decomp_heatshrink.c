@@ -3,8 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "log.h"
+#include "frogfs_priv.h"
+#include "frogfs_format.h"
 #include "frogfs/frogfs.h"
-#include "frogfs/format.h"
 
 #include "heatshrink_decoder.h"
 
@@ -24,7 +25,7 @@ typedef struct {
     size_t file_pos;
 } decomp_priv_t;
 
-static int open_heatshrink(frogfs_f_t *f, unsigned int flags)
+static int open_heatshrink(frogfs_fh_t *f, unsigned int flags)
 {
     const frogfs_comp_t *comp = (const frogfs_comp_t *) f->file;
 
@@ -50,14 +51,14 @@ static int open_heatshrink(frogfs_f_t *f, unsigned int flags)
     return 0;
 }
 
-static void close_heatshrink(frogfs_f_t *f)
+static void close_heatshrink(frogfs_fh_t *f)
 {
     heatshrink_decoder_free(PRIV(f)->hsd);
     free(PRIV(f));
     f->decomp_priv = NULL;
 }
 
-static ssize_t read_heatshrink(frogfs_f_t *f, void *buf, size_t len)
+static ssize_t read_heatshrink(frogfs_fh_t *f, void *buf, size_t len)
 {
     size_t rlen, decoded = 0;
 
@@ -103,7 +104,7 @@ static ssize_t read_heatshrink(frogfs_f_t *f, void *buf, size_t len)
     return len;
 }
 
-static ssize_t seek_heatshrink(frogfs_f_t *f, long offset, int mode)
+static ssize_t seek_heatshrink(frogfs_fh_t *f, long offset, int mode)
 {
     const frogfs_comp_t *comp = (const frogfs_comp_t *) f->file;
     ssize_t new_pos = PRIV(f)->file_pos;
@@ -157,7 +158,7 @@ static ssize_t seek_heatshrink(frogfs_f_t *f, long offset, int mode)
     return PRIV(f)->file_pos;
 }
 
-static size_t tell_heatshrink(frogfs_f_t *f)
+static size_t tell_heatshrink(frogfs_fh_t *f)
 {
     return PRIV(f)->file_pos;
 }

@@ -9,8 +9,10 @@
  */
 
 #include "log.h"
+#include "frogfs_config.h"
+#include "frogfs_priv.h"
+#include "frogfs_format.h"
 #include "frogfs/frogfs.h"
-#include "frogfs/format.h"
 
 #if defined(ESP_PLATFORM)
 # include "esp_partition.h"
@@ -27,7 +29,17 @@
 #include <string.h>
 
 
-#define IS_FLAT (d->depth != 0xFF)
+typedef struct frogfs_fs_t {
+#if defined(ESP_PLATFORM)
+    spi_flash_mmap_handle_t mmap_handle;
+#endif
+    const frogfs_head_t *head; /**< fs header pointer */
+    const frogfs_hash_t *hash; /**< hash table pointer */
+    const frogfs_dir_t *root; /**< root directory entry */
+    int num_entries; /**< total number of file system entries */
+} frogfs_fs_t;
+
+#define IS_FLAT (dh->depth != 0xFF)
 
 // Returns the current or next highest multiple of 4.
 static inline size_t align(size_t n)
@@ -184,9 +196,9 @@ const frogfs_entry_t *frogfs_get_entry(const frogfs_fs_t *fs, const char *path)
 
 const char *frogfs_get_name(const frogfs_entry_t *entry)
 {
-    if (FROGFS_ISDIR(entry)) {
+    if (FROGFS_IS_DIR(entry)) {
         return (const void *) entry + 8 + (entry->child_count * 4);
-    } else if (FROGFS_ISFILE(entry) && !FROGFS_ISCOMP(entry)) {
+    } else if (FROGFS_IS_FILE(entry) && !FROGFS_IS_COMP(entry)) {
         return (const void *) entry + 16;
     } else {
         return (const void *) entry + 20;
@@ -226,6 +238,16 @@ char *frogfs_get_path(const frogfs_fs_t *fs, const frogfs_entry_t *entry)
     return path;
 }
 
+int frogfs_is_dir(const frogfs_entry_t *entry)
+{
+    return FROGFS_IS_DIR(entry);
+}
+
+int frogfs_is_file(const frogfs_entry_t *entry)
+{
+    return FROGFS_IS_FILE(entry);
+}
+
 void frogfs_stat(const frogfs_fs_t *fs, const frogfs_entry_t *entry,
         frogfs_stat_t *st)
 {
@@ -233,7 +255,7 @@ void frogfs_stat(const frogfs_fs_t *fs, const frogfs_entry_t *entry,
     assert(entry != NULL);
 
     memset(st, 0, sizeof(*st));
-    if (FROGFS_ISDIR(entry)) {
+    if (FROGFS_IS_DIR(entry)) {
         st->type = FROGFS_ENTRY_TYPE_DIR;
     } else {
         st->type = FROGFS_ENTRY_TYPE_FILE;
@@ -241,56 +263,56 @@ void frogfs_stat(const frogfs_fs_t *fs, const frogfs_entry_t *entry,
         st->compression = entry->compression;
         if (st->compression) {
             const frogfs_comp_t *comp = (const void *) entry;
-            st->data_sz = comp->data_sz;
-            st->real_sz = comp->real_sz;
+            st->compressed_sz = comp->data_sz;
+            st->size = comp->real_sz;
         } else {
-            st->data_sz = file->data_sz;
-            st->real_sz = file->data_sz;
+            st->compressed_sz = file->data_sz;
+            st->size = file->data_sz;
         }
     }
 }
 
-frogfs_f_t *frogfs_open(const frogfs_fs_t *fs, const frogfs_entry_t *entry,
+frogfs_fh_t *frogfs_open(const frogfs_fs_t *fs, const frogfs_entry_t *entry,
         unsigned int flags)
 {
     assert(fs != NULL);
     assert(entry != NULL);
 
-    if (FROGFS_ISDIR(entry)) {
+    if (FROGFS_IS_DIR(entry)) {
         return NULL;
     }
 
     const frogfs_file_t *file = (const void *) entry;
 
-    frogfs_f_t *f = calloc(1, sizeof(frogfs_f_t));
-    if (f == NULL) {
+    frogfs_fh_t *fh = calloc(1, sizeof(frogfs_fh_t));
+    if (fh == NULL) {
         LOGE("calloc failed");
         goto err_out;
     }
 
-    LOGV("%p", f);
+    LOGV("%p", fh);
 
-    f->fs = fs;
-    f->file = file;
-    f->data_start = (const void *) fs->head + file->data_offs;
-    f->data_ptr = f->data_start;
-    f->data_sz = file->data_sz;
-    f->flags = flags;
+    fh->fs = fs;
+    fh->file = file;
+    fh->data_start = (const void *) fs->head + file->data_offs;
+    fh->data_ptr = fh->data_start;
+    fh->data_sz = file->data_sz;
+    fh->flags = flags;
 
     if (entry->compression == 0 || flags & FROGFS_OPEN_RAW) {
-        f->real_sz = file->data_sz;
-        f->decomp_funcs = &frogfs_decomp_raw;
+        fh->real_sz = file->data_sz;
+        fh->decomp_funcs = &frogfs_decomp_raw;
     }
-#if defined(CONFIG_FROGFS_USE_DEFLATE)
+#if CONFIG_FROGFS_USE_DEFLATE == 1
     else if (entry->compression == FROGFS_COMP_ALGO_DEFLATE) {
-        f->real_sz = ((frogfs_comp_t *) file)->real_sz;
-        f->decomp_funcs = &frogfs_decomp_deflate;
+        fh->real_sz = ((frogfs_comp_t *) file)->real_sz;
+        fh->decomp_funcs = &frogfs_decomp_deflate;
     }
 #endif
-#if defined(CONFIG_FROGFS_USE_HEATSHRINK)
+#if CONFIG_FROGFS_USE_HEATSHRINK == 1
     else if (entry->compression == FROGFS_COMP_ALGO_HEATSHRINK) {
-        f->real_sz = ((frogfs_comp_t *) file)->real_sz;
-        f->decomp_funcs = &frogfs_decomp_heatshrink;
+        fh->real_sz = ((frogfs_comp_t *) file)->real_sz;
+        fh->decomp_funcs = &frogfs_decomp_heatshrink;
     }
 #endif
     else {
@@ -298,172 +320,172 @@ frogfs_f_t *frogfs_open(const frogfs_fs_t *fs, const frogfs_entry_t *entry,
         goto err_out;
     }
 
-    if (f->decomp_funcs->open) {
-        if (f->decomp_funcs->open(f, flags) < 0) {
+    if (fh->decomp_funcs->open) {
+        if (fh->decomp_funcs->open(fh, flags) < 0) {
             LOGE("decomp_funcs->fopen");
             goto err_out;
         }
     }
 
-    return f;
+    return fh;
 
 err_out:
-    frogfs_close(f);
+    frogfs_close(fh);
     return NULL;
 }
 
-void frogfs_close(frogfs_f_t *f)
+void frogfs_close(frogfs_fh_t *fh)
 {
-    if (f == NULL) {
+    if (fh == NULL) {
         /* do nothing */
         return;
     }
 
-    if (f->decomp_funcs && f->decomp_funcs->close) {
-        f->decomp_funcs->close(f);
+    if (fh->decomp_funcs && fh->decomp_funcs->close) {
+        fh->decomp_funcs->close(fh);
     }
 
-    LOGV("%p", f);
+    LOGV("%p", fh);
 
-    free(f);
+    free(fh);
 }
 
-ssize_t frogfs_read(frogfs_f_t *f, void *buf, size_t len)
+ssize_t frogfs_read(frogfs_fh_t *fh, void *buf, size_t len)
 {
-    assert(f != NULL);
+    assert(fh != NULL);
 
-    if (f->decomp_funcs->read) {
-        return f->decomp_funcs->read(f, buf, len);
-    }
-
-    return -1;
-}
-
-ssize_t frogfs_seek(frogfs_f_t *f, long offset, int mode)
-{
-    assert(f != NULL);
-
-    if (f->decomp_funcs->seek) {
-        return f->decomp_funcs->seek(f, offset, mode);
+    if (fh->decomp_funcs->read) {
+        return fh->decomp_funcs->read(fh, buf, len);
     }
 
     return -1;
 }
 
-size_t frogfs_tell(frogfs_f_t *f)
+ssize_t frogfs_seek(frogfs_fh_t *fh, long offset, int mode)
 {
-    assert(f != NULL);
+    assert(fh != NULL);
 
-    if (f->decomp_funcs->tell) {
-        return f->decomp_funcs->tell(f);
+    if (fh->decomp_funcs->seek) {
+        return fh->decomp_funcs->seek(fh, offset, mode);
     }
 
     return -1;
 }
 
-size_t frogfs_access(frogfs_f_t *f, const void **buf)
+size_t frogfs_tell(frogfs_fh_t *fh)
 {
-    assert(f != NULL);
+    assert(fh != NULL);
 
-    *buf = f->data_start;
-    return f->data_sz;
+    if (fh->decomp_funcs->tell) {
+        return fh->decomp_funcs->tell(fh);
+    }
+
+    return -1;
 }
 
-frogfs_d_t *frogfs_opendir(frogfs_fs_t *fs, const frogfs_entry_t *entry)
+size_t frogfs_access(frogfs_fh_t *fh, const void **buf)
+{
+    assert(fh != NULL);
+
+    *buf = fh->data_start;
+    return fh->data_sz;
+}
+
+frogfs_dh_t *frogfs_opendir(frogfs_fs_t *fs, const frogfs_entry_t *entry)
 {
     assert(fs != NULL);
 
-    if (entry != NULL && FROGFS_ISFILE(entry)) {
+    if (entry != NULL && FROGFS_IS_FILE(entry)) {
         return NULL;
     }
 
-    frogfs_d_t *d = calloc(1, sizeof(frogfs_d_t));
-    if (d == NULL) {
+    frogfs_dh_t *dh = calloc(1, sizeof(frogfs_dh_t));
+    if (dh == NULL) {
         LOGE("calloc failed");
         return NULL;
     }
 
-    d->fs = fs;
+    dh->fs = fs;
     if (entry == NULL) {
-        d->dir = fs->root;
+        dh->dir = fs->root;
     } else {
-        d->dir = (const void *) entry;
-        d->depth = 0xFF;
+        dh->dir = (const void *) entry;
+        dh->depth = 0xFF;
     }
 
-    return d;
+    return dh;
 }
 
-void frogfs_closedir(frogfs_d_t *d)
+void frogfs_closedir(frogfs_dh_t *dh)
 {
-    if (d == NULL) {
+    if (dh == NULL) {
         return;
     }
 
-    free(d);
+    free(dh);
 }
 
-const frogfs_entry_t *frogfs_readdir(frogfs_d_t *d)
+const frogfs_entry_t *frogfs_readdir(frogfs_dh_t *dh)
 {
     const frogfs_entry_t *entry = NULL;
 
-    if (d->dir == NULL) {
+    if (dh->dir == NULL) {
         return NULL;
     }
 
-    if (d->index == 0) {
-        d->pos[0] = 0;
+    if (dh->index == 0) {
+        dh->pos[0] = 0;
     }
 
     if (IS_FLAT) {
-        if (d->index == 0) {
-            d->depth = 0;
-            d->dir = d->fs->root;
+        if (dh->index == 0) {
+            dh->depth = 0;
+            dh->dir = dh->fs->root;
         }
 again:
-        if (d->pos[d->depth] < d->dir->entry.child_count) {
-            entry = (const void *) d->fs->head +
-                    d->dir->children[d->pos[d->depth]++];
+        if (dh->pos[dh->depth] < dh->dir->entry.child_count) {
+            entry = (const void *) dh->fs->head +
+                    dh->dir->children[dh->pos[dh->depth]++];
             if (entry->child_count < 0xFF00) {
-                d->dir = (const void *) entry;
-                d->pos[++d->depth] = 0;
+                dh->dir = (const void *) entry;
+                dh->pos[++dh->depth] = 0;
             }
-            d->index++;
-        } else if (d->depth == 0) {
+            dh->index++;
+        } else if (dh->depth == 0) {
             entry = NULL;
         } else {
-            d->dir = (const void *) d->fs->head + d->dir->entry.parent;
-            d->depth--;
+            dh->dir = (const void *) dh->fs->head + dh->dir->entry.parent;
+            dh->depth--;
             goto again;
         }
-    } else if (d->pos[0] != d->dir->entry.child_count) {
-        entry = (const void *) d->fs->head + d->dir->children[d->pos[0]++];
-        d->index++;
+    } else if (dh->pos[0] != dh->dir->entry.child_count) {
+        entry = (const void *) dh->fs->head + dh->dir->children[dh->pos[0]++];
+        dh->index++;
     }
 
     return entry;
 }
 
-void frogfs_rewinddir(frogfs_d_t *d)
+void frogfs_rewinddir(frogfs_dh_t *dh)
 {
-    assert(d != NULL);
+    assert(dh != NULL);
 
-    d->index = 0;
+    dh->index = 0;
 }
 
-void frogfs_seekdir(frogfs_d_t *d, uint16_t loc)
+void frogfs_seekdir(frogfs_dh_t *dh, uint16_t loc)
 {
-    assert(d != NULL);
+    assert(dh != NULL);
 
-    frogfs_rewinddir(d);
-    while (d->index < loc) {
-        frogfs_readdir(d);
+    frogfs_rewinddir(dh);
+    while (dh->index < loc) {
+        frogfs_readdir(dh);
     }
 }
 
-uint16_t frogfs_telldir(frogfs_d_t *d)
+uint16_t frogfs_telldir(frogfs_dh_t *dh)
 {
-    assert(d != NULL);
+    assert(dh != NULL);
 
-    return d->index;
+    return dh->index;
 }

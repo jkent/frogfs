@@ -36,7 +36,7 @@
 
 typedef struct {
     int fd;
-    frogfs_f_t *f;
+    frogfs_fh_t *f;
 } frogfs_vfs_f_t;
 
 #ifdef CONFIG_VFS_SUPPORT_DIR
@@ -45,7 +45,7 @@ typedef struct {
     DIR *overlay_dir;
     struct dirent overlay_ent;
     char overlay_path[PATH_MAX];
-    frogfs_d_t *frogfs_dir;
+    frogfs_dh_t *frogfs_dir;
     long offset;
 } frogfs_vfs_d_t;
 #endif
@@ -119,7 +119,7 @@ static off_t frogfs_vfs_lseek(void *ctx, int fd, off_t size, int mode)
     }
 
     if (vfs->files[fd].f != NULL) {
-        frogfs_f_t *f = vfs->files[fd].f;
+        frogfs_fh_t *f = vfs->files[fd].f;
         return frogfs_seek(f, size, mode);
     }
 
@@ -139,7 +139,7 @@ static ssize_t frogfs_vfs_read(void *ctx, int fd, void *data, size_t size)
     }
 
     if (vfs->files[fd].f != NULL) {
-        frogfs_f_t *f = vfs->files[fd].f;
+        frogfs_fh_t *f = vfs->files[fd].f;
         return frogfs_read(f, data, size);
     }
 
@@ -205,7 +205,7 @@ static int frogfs_vfs_close(void *ctx, int fd)
     }
 
     if (vfs->files[fd].f) {
-        frogfs_f_t *f = vfs->files[fd].f;
+        frogfs_fh_t *f = vfs->files[fd].f;
         frogfs_close(f);
         vfs->files[fd].f = NULL;
         return 0;
@@ -227,14 +227,14 @@ static int frogfs_vfs_fstat(void *ctx, int fd, struct stat *st)
     }
 
     if (vfs->files[fd].f != NULL) {
-        frogfs_f_t *f = vfs->files[fd].f;
+        frogfs_fh_t *f = vfs->files[fd].f;
         memset(st, 0, sizeof(struct stat));
         st->st_mode = S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH |
                 S_IXOTH | S_IFREG;
 
         frogfs_stat_t fst;
         frogfs_stat(vfs->fs, (void *) f->file, &fst);
-        st->st_size = f->flags & FROGFS_OPEN_RAW ? fst.data_sz : fst.real_sz;
+        st->st_size = f->flags & FROGFS_OPEN_RAW ? fst.compressed_sz : fst.size;
         st->st_spare4[0] = FROGFS_MAGIC;
         st->st_spare4[1] = fst.compression;
         return 0;
@@ -267,7 +267,7 @@ static int frogfs_vfs_stat(void *ctx, const char *path, struct stat *st)
     memset(st, 0, sizeof(struct stat));
     st->st_mode = S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
     st->st_mode |= (s.type == FROGFS_ENTRY_TYPE_FILE) ? S_IFREG : S_IFDIR;
-    st->st_size = s.real_sz;
+    st->st_size = s.size;
     st->st_spare4[0] = FROGFS_MAGIC;
     st->st_spare4[1] = s.compression;
     return 0;
@@ -336,7 +336,7 @@ static int frogfs_vfs_rename(void *ctx, const char *src, const char *dst)
         goto out;
     }
 
-    frogfs_f_t *src_file = frogfs_open(vfs->fs, entry, 0);
+    frogfs_fh_t *src_file = frogfs_open(vfs->fs, entry, 0);
     if (src_file == NULL) {
         ret = -1;
         goto out;
@@ -659,7 +659,7 @@ static int frogfs_vfs_truncate(void *ctx, const char *path, off_t length)
             return -1;
         }
 
-        frogfs_f_t *f = frogfs_open(vfs->fs, entry, 0);
+        frogfs_fh_t *f = frogfs_open(vfs->fs, entry, 0);
         if (!f) {
             close(overlay_fd);
             truncate(overlay, length);
@@ -724,7 +724,7 @@ static int frogfs_vfs_ftruncate(void *ctx, int fd, off_t length)
     }
 
     if (vfs->files[fd].f != NULL) {
-        frogfs_f_t *f = vfs->files[fd].f;
+        frogfs_fh_t *f = vfs->files[fd].f;
         char *path = frogfs_get_path(vfs->fs, &f->file->entry);
         char *overlay = frogfs_get_overlay(vfs, path);
         free(path);
