@@ -52,7 +52,8 @@ config FROGFS_VFS_SUPPORT_DIR
 	default y
 	depends on VFS_SUPPORT_DIR
 	help
-		This includes functions for opendir, readdir, seekdir, telldir, and
-		closedir
+		This option if enabled includes the following VFS functions:
+
+		stat, opendir, readdir, telldir, seekdir, closedir, and access
 
 endmenu

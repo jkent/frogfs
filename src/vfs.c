@@ -149,6 +149,7 @@ static int frogfs_vfs_fstat(void *ctx, int fd, struct stat *st)
     return 0;
 }
 
+#if defined(CONFIG_FROGFS_VFS_SUPPORT_DIR)
 static int frogfs_vfs_stat(void *ctx, const char *path, struct stat *st)
 {
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
@@ -169,7 +170,6 @@ static int frogfs_vfs_stat(void *ctx, const char *path, struct stat *st)
     return 0;
 }
 
-#if defined(CONFIG_FROGFS_VFS_SUPPORT_DIR)
 static DIR* frogfs_vfs_opendir(void *ctx, const char *path)
 {
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
@@ -266,6 +266,7 @@ static int frogfs_vfs_fcntl(void *ctx, int fd, int cmd, int arg)
     return -1;
 }
 
+#if defined(CONFIG_FROGFS_VFS_SUPPORT_DIR)
 static int frogfs_vfs_access(void *ctx, const char *path, int amode)
 {
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
@@ -283,6 +284,7 @@ static int frogfs_vfs_access(void *ctx, const char *path, int amode)
 
     return -1;
 }
+#endif
 
 esp_err_t frogfs_vfs_register(const frogfs_vfs_conf_t *conf)
 {
@@ -297,8 +299,8 @@ esp_err_t frogfs_vfs_register(const frogfs_vfs_conf_t *conf)
         .open_p = &frogfs_vfs_open,
         .close_p = &frogfs_vfs_close,
         .fstat_p = &frogfs_vfs_fstat,
-        .stat_p = &frogfs_vfs_stat,
 #if defined(CONFIG_FROGFS_VFS_SUPPORT_DIR)
+        .stat_p = &frogfs_vfs_stat,
         .opendir_p = &frogfs_vfs_opendir,
         .readdir_p = &frogfs_vfs_readdir,
         .readdir_r_p = &frogfs_vfs_readdir_r,
@@ -307,7 +309,9 @@ esp_err_t frogfs_vfs_register(const frogfs_vfs_conf_t *conf)
         .closedir_p = &frogfs_vfs_closedir,
 #endif
         .fcntl_p = &frogfs_vfs_fcntl,
+#if defined(CONFIG_FROGFS_VFS_SUPPORT_DIR)
         .access_p = &frogfs_vfs_access,
+#endif
     };
 
     int index;
