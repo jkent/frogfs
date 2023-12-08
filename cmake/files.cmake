@@ -21,5 +21,7 @@ if ("${CONFIG_FROGFS_USE_HEATSHRINK}" STREQUAL "y")
 endif()
 
 if(ESP_PLATFORM)
-    list(APPEND libfrogfs_SRC ${frogfs_DIR}/src/vfs.c)
+    list(APPEND libfrogfs_SRC
+        ${frogfs_DIR}/src/vfs.c
+    )
 endif()

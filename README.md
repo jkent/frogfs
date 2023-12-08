@@ -25,20 +25,6 @@ Compression options include:
 For an HTTP server, deflate compressed files can even be passed through
 untouched! This saves both processing time and bandwidth.
 
-With the ESP-IDF [VFS Interface](#vfs-interface), you can use FrogFS as a
-base file system &mdash; you can overlay a different file system such as FAT
-or SPIFFS to create a hybrid file system. To explain better, when opening a
-file for reading it will search the overlay file system, and then fall back
-to FrogFS. The overlay is an optional feature of course; and IDF's VFS lets
-you mount filesystems to any prefix path of your choosing.
-
-Included is a standalone demo with an embedded filesystem to test and verify
-functionality and a clockwise HTTPd demo using the VFS system with a SPIFFS
-overlay. Be warned however, merged directory listings are slow due to the
-nature of the spiffs stat vfs function. In most applications, however, this is
-a non-issue. There is a configuration option to turn off the vfs directory
-merging, which only list files that are on FrogFS.
-
 # Getting started with ESP-IDF
 
 To use this component with ESP-IDF, within your projects directory run
@@ -183,7 +169,6 @@ The VFS interface has a similar method of initialization; you define a
 `frogfs_vfs_conf_t` structure:
 
   * **base_path** - path to mount FrogFS
-  * **overlay_path** - an optional path to search before FrogFS
   * **fs** - a `frogfs_fs_t` instance
   * **max_files** - max number of files that can be open at a time
   * **flat** - flattened directory structure, similar to spiffs

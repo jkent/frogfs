@@ -33,16 +33,6 @@ config FROGFS_MAX_FLAT_DEPTH
 		Uses sizeof(uint16_t) * n per open directory. Set to 1 to disable
 		flat directory traversal.
 
-config FROGFS_OVERLAY_DIR
-	bool "Merge overlay with dir functions"
-	depends on VFS_SUPPORT_DIR
-	default n
-	help
-		This option enables slower directory scanning by first running
-		readdir on the overlay and then doing readdir on frogfs, using stat
-		to determine if the file exists on the overlay or frogfs. Its
-		generally best to not use it unless you need it.
-
 config FROGFS_USE_DEFLATE
 	bool "Use zlib deflate"
 	default y
@@ -63,5 +53,13 @@ config FROGFS_MAX_PARTITIONS
 	help
 		This option specifies the number of partitions that can be mounted
 		using VFS at the same time.
+
+config FROGFS_VFS_SUPPORT_DIR
+	bool "Compile in VFS directory functions"
+	default y
+	depends on VFS_SUPPORT_DIR
+	help
+		This includes functions for opendir, readdir, seekdir, telldir, and
+		closedir
 
 endmenu
