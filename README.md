@@ -171,7 +171,6 @@ The VFS interface has a similar method of initialization; you define a
   * **base_path** - path to mount FrogFS
   * **fs** - a `frogfs_fs_t` instance
   * **max_files** - max number of files that can be open at a time
-  * **flat** - flattened directory structure, similar to spiffs
 
 ```C
 frogfs_vfs_conf_t frogfs_vfs_conf = {

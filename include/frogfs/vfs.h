@@ -22,7 +22,6 @@ typedef struct frogfs_vfs_conf_t {
     const char *base_path; /**< vfs path to mount the filesystem */
     frogfs_fs_t *fs; /**< the frogfs instance */
     size_t max_files; /**< maximum open files */
-    bool flat; /**< opendir/readdir returns full file paths, like spiffs */
 } frogfs_vfs_conf_t;
 
 /**

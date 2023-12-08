@@ -39,8 +39,6 @@ typedef struct frogfs_fs_t {
     int num_entries; /**< total number of file system entries */
 } frogfs_fs_t;
 
-#define IS_FLAT (dh->depth != 0xFF)
-
 // Returns the current or next highest multiple of 4.
 static inline size_t align(size_t n)
 {
@@ -415,7 +413,6 @@ frogfs_dh_t *frogfs_opendir(frogfs_fs_t *fs, const frogfs_entry_t *entry)
         dh->dir = fs->root;
     } else {
         dh->dir = (const void *) entry;
-        dh->depth = 0xFF;
     }
 
     return dh;
@@ -438,33 +435,8 @@ const frogfs_entry_t *frogfs_readdir(frogfs_dh_t *dh)
         return NULL;
     }
 
-    if (dh->index == 0) {
-        dh->pos[0] = 0;
-    }
-
-    if (IS_FLAT) {
-        if (dh->index == 0) {
-            dh->depth = 0;
-            dh->dir = dh->fs->root;
-        }
-again:
-        if (dh->pos[dh->depth] < dh->dir->entry.child_count) {
-            entry = (const void *) dh->fs->head +
-                    dh->dir->children[dh->pos[dh->depth]++];
-            if (entry->child_count < 0xFF00) {
-                dh->dir = (const void *) entry;
-                dh->pos[++dh->depth] = 0;
-            }
-            dh->index++;
-        } else if (dh->depth == 0) {
-            entry = NULL;
-        } else {
-            dh->dir = (const void *) dh->fs->head + dh->dir->entry.parent;
-            dh->depth--;
-            goto again;
-        }
-    } else if (dh->pos[0] != dh->dir->entry.child_count) {
-        entry = (const void *) dh->fs->head + dh->dir->children[dh->pos[0]++];
+    if (dh->index < dh->dir->entry.child_count) {
+        entry = (const void *) dh->fs->head + dh->dir->children[dh->index];
         dh->index++;
     }
 

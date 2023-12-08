@@ -26,13 +26,6 @@ config FROGFS_LOG_LEVEL_VERBOSE
 
 endchoice # "Log level"
 
-config FROGFS_MAX_FLAT_DEPTH
-	int "Maximum recursion depth for flat directory traversal"
-	default 8
-	help
-		Uses sizeof(uint16_t) * n per open directory. Set to 1 to disable
-		flat directory traversal.
-
 config FROGFS_USE_DEFLATE
 	bool "Use zlib deflate"
 	default y

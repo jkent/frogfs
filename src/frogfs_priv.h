@@ -37,8 +37,6 @@ typedef struct frogfs_dh_t {
     const frogfs_fs_t *fs; /**< frogfs fs pointer */
     const frogfs_dir_t *dir; /**< frogfs entry */
     uint16_t index; /**< current index */
-    uint16_t pos[CONFIG_FROGFS_MAX_FLAT_DEPTH]; /**< current pos at depth */
-    uint8_t depth; /**< current depth */
 } frogfs_dh_t;
 
 /**
