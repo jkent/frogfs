@@ -32,7 +32,6 @@ Functions
 .. doxygenfunction:: frogfs_opendir
 .. doxygenfunction:: frogfs_closedir
 .. doxygenfunction:: frogfs_readdir
-.. doxygenfunction:: frogfs_rewinddir
 .. doxygenfunction:: frogfs_seekdir
 .. doxygenfunction:: frogfs_telldir
 

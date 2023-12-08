@@ -443,20 +443,14 @@ const frogfs_entry_t *frogfs_readdir(frogfs_dh_t *dh)
     return entry;
 }
 
-void frogfs_rewinddir(frogfs_dh_t *dh)
-{
-    assert(dh != NULL);
-
-    dh->index = 0;
-}
-
 void frogfs_seekdir(frogfs_dh_t *dh, uint16_t loc)
 {
     assert(dh != NULL);
 
-    frogfs_rewinddir(dh);
-    while (dh->index < loc) {
-        frogfs_readdir(dh);
+    if (loc < dh->dir->entry.child_count) {
+        dh->index = loc;
+    } else {
+        dh->index = dh->dir->entry.child_count;
     }
 }
 

@@ -209,7 +209,6 @@ frogfs_vfs_register(&frogfs_vfs_conf);
   * frogfs_d_t *[frogfs_opendir](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_opendir)(frogfs_fs_t *fs, const frogfs_entry_t *entry)
   * void [frogfs_closedir](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_closedir)(frogfs_d_t *d)
   * const frogfs_entry_t *[frogfs_readdir](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_readdir)(frogfs_d_t *d)
-  * void [frogfs_rewinddir](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_rewinddir)(frogfs_d_t *d)
   * void [frogfs_seekdir](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_seekdir)(frogfs_d_t *d, uint16_t loc)
   * uint16_t [frogfs_telldir](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_telldir)(frogfs_d_t *d)
 

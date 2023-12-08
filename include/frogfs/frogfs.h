@@ -248,12 +248,6 @@ void frogfs_closedir(frogfs_dh_t *dh);
 const frogfs_entry_t *frogfs_readdir(frogfs_dh_t *dh);
 
 /**
- * \brief       Rewind to the first entry in the directory
- * \param[in]   d       \a frogfs_dh_t pointer
- */
-void frogfs_rewinddir(frogfs_dh_t *dh);
-
-/**
  * \brief       Set dir entry index to a value returned by \a frogfs_telldir
  *              for the current \a frogfs_dh_t pointer; any other values are
  *              undefined
