@@ -12,7 +12,6 @@ extern "C" {
 #include "spi_flash_mmap.h"
 #endif
 
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
@@ -249,19 +248,18 @@ const frogfs_entry_t *frogfs_readdir(frogfs_dh_t *dh);
 
 /**
  * \brief       Set dir entry index to a value returned by \a frogfs_telldir
- *              for the current \a frogfs_dh_t pointer; any other values are
- *              undefined
+ *              for the current \a frogfs_dh_t pointer
  * \param[in]   d       \a frogfs_dh_t pointer
  * \param[in]   loc     entry index
  */
-void frogfs_seekdir(frogfs_dh_t *dh, uint16_t loc);
+void frogfs_seekdir(frogfs_dh_t *dh, long loc);
 
 /**
  * \brief       Return the current entry index for a directory
  * \param[in]   d       \a frogfs_dh_t pointer
  * \return              entry index
  */
-uint16_t frogfs_telldir(frogfs_dh_t *dh);
+long frogfs_telldir(frogfs_dh_t *dh);
 
 #ifdef __cplusplus
 } /* extern "C" */

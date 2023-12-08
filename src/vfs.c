@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "log.h"
 #include "frogfs/frogfs.h"
 #include "frogfs/vfs.h"
 
@@ -11,13 +10,9 @@
 
 #include <dirent.h>
 #include <errno.h>
-#include <limits.h>
-#include <stdbool.h>
-#include <stdint.h>
+#include <stddef.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
-#include <sys/ioctl.h>
 #include <sys/fcntl.h>
 #include <sys/stat.h>
 
@@ -198,7 +193,6 @@ static struct dirent *frogfs_vfs_readdir(void *ctx, DIR *pdir)
 
     int err = frogfs_vfs_readdir_r(ctx, pdir, &dh->dirent, &out_ent);
     if (err != 0) {
-        errno = err;
         return NULL;
     }
 
@@ -324,7 +318,6 @@ esp_err_t frogfs_vfs_register(const frogfs_vfs_conf_t *conf)
     frogfs_vfs_t *vfs = calloc(1, sizeof(*vfs) +
             (sizeof(frogfs_fh_t *) * conf->max_files));
     if (vfs == NULL) {
-        LOGE("vfs could not be alloc'd");
         return ESP_ERR_NO_MEM;
     }
 

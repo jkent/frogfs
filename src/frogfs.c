@@ -443,9 +443,10 @@ const frogfs_entry_t *frogfs_readdir(frogfs_dh_t *dh)
     return entry;
 }
 
-void frogfs_seekdir(frogfs_dh_t *dh, uint16_t loc)
+void frogfs_seekdir(frogfs_dh_t *dh, long loc)
 {
     assert(dh != NULL);
+    assert(loc >= 0);
 
     if (loc < dh->dir->entry.child_count) {
         dh->index = loc;
@@ -454,7 +455,7 @@ void frogfs_seekdir(frogfs_dh_t *dh, uint16_t loc)
     }
 }
 
-uint16_t frogfs_telldir(frogfs_dh_t *dh)
+long frogfs_telldir(frogfs_dh_t *dh)
 {
     assert(dh != NULL);
 

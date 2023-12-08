@@ -209,8 +209,8 @@ frogfs_vfs_register(&frogfs_vfs_conf);
   * frogfs_dh_t *[frogfs_opendir](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_opendir)(frogfs_fs_t *fs, const frogfs_entry_t *entry)
   * void [frogfs_closedir](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_closedir)(frogfs_dh_t *dh)
   * const frogfs_entry_t *[frogfs_readdir](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_readdir)(frogfs_dh_t *dh)
-  * void [frogfs_seekdir](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_seekdir)(frogfs_dh_t *dh, uint16_t loc)
-  * uint16_t [frogfs_telldir](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_telldir)(frogfs_dh_t *dh)
+  * void [frogfs_seekdir](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_seekdir)(frogfs_dh_t *dh, long loc)
+  * long [frogfs_telldir](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_telldir)(frogfs_dh_t *dh)
 
 # How it works
 
