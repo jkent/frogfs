@@ -185,32 +185,32 @@ frogfs_vfs_register(&frogfs_vfs_conf);
 
 #### Filesystem functions:
 
-  * frogfs_fs_t *[frogfs_init](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_init)(const frogfs_config_t *conf)
-  * void [frogfs_deinit](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_deinit)(frogfs_fs_t *fs)
+  * frogfs_fs_t *[frogfs_init](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_init)(const frogfs_config_t *conf)
+  * void [frogfs_deinit](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_deinit)(frogfs_fs_t *fs)
 
 #### Object functions:
 
-  * const frogfs_entry_t *[frogfs_get_entry](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_get_entry)(const frogfs_fs_t *fs, const char *path)
-  * const char *[frogfs_get_name](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_get_name)(const frogfs_entry_t *entry)
-  * const char *[frogfs_get_path](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_get_path)(const frogfs_entry_t *entry)
-  * int [frogfs_is_dir](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_is_dir)(const frogfs_entry_t *entry)
-  * int [frogfs_is_file](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_is_file)(const frogfs_entry_t *entry)
-  * void [frogfs_stat](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_stat)(const frogfs_fs_t *fs, const frogfs_entry_t *entry, frogfs_stat_t *st)
-  * frogfs_f_t *[frogfs_open](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_open)(const frogfs_fs_t *fs, const frogfs_entry_t *entry, unsigned int flags)
-  * void [frogfs_close](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_close)(frogfs_f_t *f)
-  * int [frogfs_is_raw](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_is_raw)(frogfs_fh_t *fh)
-  * size_t [frogfs_read](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_read)(frogfs_f_t *f, void *buf, size_t len)
-  * ssize_t [frogfs_seek](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_seek)(frogfs_f_t *f, long offset, int mode)
-  * size_t [frogfs_tell](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_tell)(frogfs_f_t *f)
-  * size_t [frogfs_access](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_access)(frogfs_f_t *f, void **buf)
+  * const frogfs_entry_t *[frogfs_get_entry](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_get_entry)(const frogfs_fs_t *fs, const char *path)
+  * const char *[frogfs_get_name](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_get_name)(const frogfs_entry_t *entry)
+  * char *[frogfs_get_path](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_get_path)(const frogfs_fs_t *fs, const frogfs_entry_t *entry)
+  * int [frogfs_is_dir](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_is_dir)(const frogfs_entry_t *entry)
+  * int [frogfs_is_file](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_is_file)(const frogfs_entry_t *entry)
+  * void [frogfs_stat](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_stat)(const frogfs_fs_t *fs, const frogfs_entry_t *entry, frogfs_stat_t *st)
+  * frogfs_fh_t *[frogfs_open](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_open)(const frogfs_fs_t *fs, const frogfs_entry_t *entry, unsigned int flags)
+  * void [frogfs_close](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_close)(frogfs_fh_t *fh)
+  * int [frogfs_is_raw](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_is_raw)(frogfs_fh_t *fh)
+  * size_t [frogfs_read](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_read)(frogfs_fh_t *fh, void *buf, size_t len)
+  * ssize_t [frogfs_seek](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_seek)(frogfs_fh_t *fh, long offset, int mode)
+  * size_t [frogfs_tell](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_tell)(frogfs_fh_t *fh)
+  * size_t [frogfs_access](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_access)(frogfs_fh_t *fh, void **buf)
 
 #### Directory Functions:
 
-  * frogfs_d_t *[frogfs_opendir](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_opendir)(frogfs_fs_t *fs, const frogfs_entry_t *entry)
-  * void [frogfs_closedir](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_closedir)(frogfs_d_t *d)
-  * const frogfs_entry_t *[frogfs_readdir](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_readdir)(frogfs_d_t *d)
-  * void [frogfs_seekdir](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_seekdir)(frogfs_d_t *d, uint16_t loc)
-  * uint16_t [frogfs_telldir](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_telldir)(frogfs_d_t *d)
+  * frogfs_dh_t *[frogfs_opendir](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_opendir)(frogfs_fs_t *fs, const frogfs_entry_t *entry)
+  * void [frogfs_closedir](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_closedir)(frogfs_dh_t *dh)
+  * const frogfs_entry_t *[frogfs_readdir](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_readdir)(frogfs_dh_t *dh)
+  * void [frogfs_seekdir](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_seekdir)(frogfs_dh_t *dh, uint16_t loc)
+  * uint16_t [frogfs_telldir](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_telldir)(frogfs_dh_t *dh)
 
 # How it works
 
