@@ -58,7 +58,7 @@ static inline uint32_t djb2_hash(const char *s)
     return hash;
 }
 
-frogfs_fs_t *frogfs_init(frogfs_config_t *conf)
+frogfs_fs_t *frogfs_init(const frogfs_config_t *conf)
 {
     frogfs_fs_t *fs = calloc(1, sizeof(frogfs_fs_t));
     if (fs == NULL) {

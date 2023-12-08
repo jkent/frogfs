@@ -185,7 +185,7 @@ frogfs_vfs_register(&frogfs_vfs_conf);
 
 #### Filesystem functions:
 
-  * frogfs_fs_t *[frogfs_init](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_init)(frogfs_config_t *conf)
+  * frogfs_fs_t *[frogfs_init](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_init)(const frogfs_config_t *conf)
   * void [frogfs_deinit](https://frogfs.readthedocs.io/en/next/api-reference/bare.html#c.frogfs_deinit)(frogfs_fs_t *fs)
 
 #### Object functions:

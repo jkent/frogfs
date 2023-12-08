@@ -112,7 +112,7 @@ typedef struct frogfs_fh_t {
  * \param[in]  config   frogfs configuration
  * \return              \a frogfs_fs_t pointer or \a NULL on error
  */
-frogfs_fs_t *frogfs_init(frogfs_config_t *conf);
+frogfs_fs_t *frogfs_init(const frogfs_config_t *conf);
 
 /**
  * \brief      Tear down a \a frogfs_fs_t instance
