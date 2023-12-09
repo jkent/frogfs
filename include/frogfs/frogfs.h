@@ -132,15 +132,16 @@ const frogfs_entry_t *frogfs_get_entry(const frogfs_fs_t *fs,
 /**
  * \brief       Get name for frogfs entry
  * \param[in]   entry   \a frogfs_entry_t pointer
- * \return              name string
+ * \return              name string, caller is expected to free
  */
-const char *frogfs_get_name(const frogfs_entry_t *entry);
+char *frogfs_get_name(const frogfs_entry_t *entry);
 
 /**
  * \brief       Get full path for frogfs entry
  * \param[in]   fs      \a frogfs_fs_t pointer
  * \param[in]   entry   \a frogfs_entry_t pointer
- * \return              full path string or \a NULL if entry is NULL
+ * \return              full path string or \a NULL if entry is NULL, caller is
+ *                      expected to free
  */
 char *frogfs_get_path(const frogfs_fs_t *fs, const frogfs_entry_t *entry);
 

@@ -213,6 +213,7 @@ static int frogfs_vfs_readdir_r(void *ctx, DIR *pdir, struct dirent *ent,
     ent->d_ino = frogfs_telldir(dh->dh);
     const char *name = frogfs_get_name(entry);
     strlcpy(ent->d_name, name, sizeof(ent->d_name));
+    free(name);
     ent->d_type = DT_UNKNOWN;
     if (frogfs_is_dir(entry)) {
         ent->d_type = DT_DIR;

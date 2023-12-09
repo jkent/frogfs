@@ -191,7 +191,7 @@ frogfs_vfs_register(&frogfs_vfs_conf);
 #### Object functions:
 
   * const frogfs_entry_t *[frogfs_get_entry](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_get_entry)(const frogfs_fs_t *fs, const char *path)
-  * const char *[frogfs_get_name](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_get_name)(const frogfs_entry_t *entry)
+  * char *[frogfs_get_name](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_get_name)(const frogfs_entry_t *entry)
   * char *[frogfs_get_path](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_get_path)(const frogfs_fs_t *fs, const frogfs_entry_t *entry)
   * int [frogfs_is_dir](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_is_dir)(const frogfs_entry_t *entry)
   * int [frogfs_is_file](https://frogfs.readthedocs.io/en/latest/api-reference/bare.html#c.frogfs_is_file)(const frogfs_entry_t *entry)

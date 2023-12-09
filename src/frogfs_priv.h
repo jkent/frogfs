@@ -36,7 +36,7 @@ typedef struct frogfs_fh_t {
 typedef struct frogfs_dh_t {
     const frogfs_fs_t *fs; /**< frogfs fs pointer */
     const frogfs_dir_t *dir; /**< frogfs entry */
-    uint16_t index; /**< current index */
+    long index; /**< current index */
 } frogfs_dh_t;
 
 /**
