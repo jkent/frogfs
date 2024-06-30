@@ -39,7 +39,7 @@ macro(generate_frogfs_rules)
     set(OUTPUT ${BUILD_DIR}/CMakeFiles/${ARG_NAME})
 
     add_custom_target(frogfs_preprocess_${ARG_NAME}
-        COMMAND ${Python3_VENV_EXECUTABLE} ${frogfs_DIR}/tools/mkfrogfs.py -C ${CMAKE_SOURCE_DIR} ${TOOLS} ${ARG_CONFIG} ${BUILD_DIR} ${OUTPUT}.bin
+        COMMAND ${Python3_VENV_EXECUTABLE} -B ${frogfs_DIR}/tools/mkfrogfs.py -C ${CMAKE_SOURCE_DIR} ${TOOLS} ${ARG_CONFIG} ${BUILD_DIR} ${OUTPUT}.bin
         DEPENDS ${Python3_VENV}_requirements.stamp ${ARG_CONFIG}
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         BYPRODUCTS ${BUILD_DIR}/node_modules ${BUILD_DIR}/${ARG_NAME}-cache ${BUILD_DIR}/${ARG_NAME}-cache-state.json ${OUTPUT}.bin
@@ -53,7 +53,7 @@ function(target_add_frogfs target)
     generate_frogfs_rules(${ARGV})
 
     add_custom_command(OUTPUT ${OUTPUT}_bin.c
-        COMMAND ${Python3_VENV_EXECUTABLE} ${frogfs_DIR}/tools/bin2c.py ${OUTPUT}.bin ${OUTPUT}_bin.c
+        COMMAND ${Python3_VENV_EXECUTABLE} -B ${frogfs_DIR}/tools/bin2c.py ${OUTPUT}.bin ${OUTPUT}_bin.c
         DEPENDS ${OUTPUT}.bin
         COMMENT "Generating frogfs source file ${ARG_NAME}_bin.c"
     )
