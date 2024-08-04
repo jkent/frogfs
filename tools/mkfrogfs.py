@@ -167,6 +167,10 @@ def load_transforms() -> dict:
                 name, _ = os.path.splitext(file[10:]) # strip off 'transform-'
                 path = os.path.join(dir, file)
                 xforms[name] = {'path': path}
+            if file.startswith('meta-transform-'):
+                name, _ = os.path.splitext(file[15:]) # strip off 'meta-transform-'
+                path = os.path.join(dir, file)
+                xforms[name] = {'path': path, 'meta':True}
     return xforms
 
 ### Stage 1 ###
@@ -306,8 +310,13 @@ def preprocess(ent: dict) -> None:
         for name, args in ent['transform'].items():
             print(f'           - {name}... ', file=stderr, end='', flush=True)
             transform = transforms[name]
-            data = pipe_script(transform['path'], args, data)
-            print('done', file=stderr)
+            if 'meta' in transform:
+                dest = pipe_script(transform['path'], args, str.encode(ent['dest'])).decode()
+                ent['dest'] = dest
+                print(f'done as {dest}', file=stderr)
+            else:
+                data = pipe_script(transform['path'], args, data)
+                print('done', file=stderr)
 
         if ent['compress']:
             name, args = ent['compress']
