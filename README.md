@@ -9,20 +9,27 @@ half using the default filters. Here are links to the example repositories:
   * [frogfs-standalone-demo](https://github.com/jkent/frogfs-standalone-demo)
   * [frogfs-clockwise-demo](https://github.com/jkent/frogfs-clockwise-demo)
 
-Transforms include:
+Transform filters include:
   * babel-convert
   * babel-minify
+  * deflate
+  * gzip
   * html-minifier
+  * rename
   * terminate
   * uglify-js
   * uglifycss
 
-Compression options include:
+Compression filters include:
   * none
   * [zlib deflate](https://www.zlib.net/) (best compression)
   * [heatshrink](https://github.com/atomicobject/heatshrink) (best speed)
 
-For an HTTP server, deflate compressed files can even be passed through
+Transform filters are intended to be _compile-time_ operations that do not
+incur a run-time cost while compression filters are **expected** to incur a
+_run-time_ cost.
+
+For an HTTP server, deflate or gzip compressed files be passed through
 untouched! This saves both processing time and bandwidth.
 
 # Getting started with ESP-IDF
