@@ -12,7 +12,7 @@ PUBLIC
     ${libfrogfs_INC}
 )
 
-if("${CONFIG_FROGFS_USE_DEFLATE}" STREQUAL "y")
+if("${CONFIG_FROGFS_USE_ZLIB}" STREQUAL "y")
 target_link_libraries(frogfs
     z
 )
