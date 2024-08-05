@@ -22,15 +22,16 @@ Transform filters include:
 
 Compression filters include:
   * none
-  * [zlib deflate](https://www.zlib.net/) (best compression)
-  * [heatshrink](https://github.com/atomicobject/heatshrink) (best speed)
+  * gzip
+  * [heatshrink](https://github.com/atomicobject/heatshrink)
+  * zlib
 
 Transform filters are intended to be _compile-time_ operations that do not
 incur a run-time cost while compression filters are **expected** to incur a
-_run-time_ cost.
+_run-time_ decompression cost.
 
-For an HTTP server, deflate or gzip compressed files be passed through
-untouched! This saves both processing time and bandwidth.
+This means for an HTTP server, zlib (deflate) or gzip compressed files can be
+passed through untouched! This saves processing time and bandwidth.
 
 # Getting started with ESP-IDF
 

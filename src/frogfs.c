@@ -309,10 +309,18 @@ frogfs_fh_t *frogfs_open(const frogfs_fs_t *fs, const frogfs_entry_t *entry,
         fh->real_sz = file->data_sz;
         fh->decomp_funcs = &frogfs_decomp_raw;
     }
-#if CONFIG_FROGFS_USE_DEFLATE == 1
-    else if (entry->compression == FROGFS_COMP_ALGO_DEFLATE) {
+#if CONFIG_FROGFS_USE_MINIZ == 1
+    else if ((entry->compression == FROGFS_COMP_ALGO_GZIP) ||
+            (entry->compression == FROGFS_COMP_ALGO_ZLIB)) {
         fh->real_sz = ((frogfs_comp_t *) file)->real_sz;
-        fh->decomp_funcs = &frogfs_decomp_deflate;
+        fh->decomp_funcs = &frogfs_decomp_miniz;
+    }
+#endif
+#if CONFIG_FROGFS_USE_ZLIB == 1
+    else if ((entry->compression == FROGFS_COMP_ALGO_GZIP) ||
+            (entry->compression == FROGFS_COMP_ALGO_ZLIB)) {
+        fh->real_sz = ((frogfs_comp_t *) file)->real_sz;
+        fh->decomp_funcs = &frogfs_decomp_zlib;
     }
 #endif
 #if CONFIG_FROGFS_USE_HEATSHRINK == 1
@@ -322,7 +330,7 @@ frogfs_fh_t *frogfs_open(const frogfs_fs_t *fs, const frogfs_entry_t *entry,
     }
 #endif
     else {
-        LOGE("unknown compression type %d", entry->compression)
+        LOGE("unsupported compression type %d", entry->compression)
         goto err_out;
     }
 

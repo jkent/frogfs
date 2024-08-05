@@ -51,8 +51,9 @@ typedef enum frogfs_entry_type_t {
  */
 typedef enum frogfs_comp_algo_t {
     FROGFS_COMP_ALGO_NONE,
-    FROGFS_COMP_ALGO_DEFLATE,
+    FROGFS_COMP_ALGO_ZLIB,
     FROGFS_COMP_ALGO_HEATSHRINK,
+    FROGFS_COMP_ALGO_GZIP,
 } frogfs_comp_algo_t;
 
 /**

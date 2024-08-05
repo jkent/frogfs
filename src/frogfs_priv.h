@@ -56,13 +56,18 @@ typedef struct frogfs_decomp_funcs_t {
 extern const frogfs_decomp_funcs_t frogfs_decomp_raw;
 
 /**
- * \brief       Deflate decompressor functions
- */
-extern const frogfs_decomp_funcs_t frogfs_decomp_deflate;
-
-/**
  * \brief       Heatshrink decompressor functions
  */
 extern const frogfs_decomp_funcs_t frogfs_decomp_heatshrink;
+
+/**
+ * \brief       Miniz decompressor functions
+ */
+extern const frogfs_decomp_funcs_t frogfs_decomp_miniz;
+
+/**
+ * \brief       Zlib decompressor functions
+ */
+extern const frogfs_decomp_funcs_t frogfs_decomp_zlib;
 
 #include "frogfs/frogfs.h"

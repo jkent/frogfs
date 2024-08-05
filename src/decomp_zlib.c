@@ -21,7 +21,7 @@
 #define BUFFER_LEN 16
 #define STREAM(f) ((z_stream *)(f->decomp_priv))
 
-static int open_deflate(frogfs_fh_t *f, unsigned int flags)
+static int open_zlib(frogfs_fh_t *f, unsigned int flags)
 {
     int ret;
 
@@ -32,9 +32,9 @@ static int open_deflate(frogfs_fh_t *f, unsigned int flags)
     }
     memset(stream, 0, sizeof(*stream));
 
-    ret = inflateInit(stream);
+    ret = inflateInit2(stream, MAX_WBITS | 32);
     if (ret != Z_OK) {
-        LOGE("error allocating deflate stream");
+        LOGE("error allocating zlib stream");
         return -1;
     }
 
@@ -42,7 +42,7 @@ static int open_deflate(frogfs_fh_t *f, unsigned int flags)
     return 0;
 }
 
-static void close_deflate(frogfs_fh_t *f)
+static void close_zlib(frogfs_fh_t *f)
 {
     z_stream *stream = STREAM(f);
     inflateEnd(stream);
@@ -50,7 +50,7 @@ static void close_deflate(frogfs_fh_t *f)
     f->decomp_priv = NULL;
 }
 
-static ssize_t read_deflate(frogfs_fh_t *f, void *buf, size_t len)
+static ssize_t read_zlib(frogfs_fh_t *f, void *buf, size_t len)
 {
     size_t start_in, start_out;
     int ret;
@@ -84,7 +84,7 @@ static ssize_t read_deflate(frogfs_fh_t *f, void *buf, size_t len)
     return STREAM(f)->total_out - start_out;
 }
 
-static ssize_t seek_deflate(frogfs_fh_t *f, long offset, int mode)
+static ssize_t seek_zlib(frogfs_fh_t *f, long offset, int mode)
 {
     const frogfs_comp_t *comp = (const void *) f->file;
     ssize_t new_pos = STREAM(f)->total_out;
@@ -137,15 +137,15 @@ static ssize_t seek_deflate(frogfs_fh_t *f, long offset, int mode)
     return STREAM(f)->total_out;
 }
 
-static size_t tell_deflate(frogfs_fh_t *f)
+static size_t tell_zlib(frogfs_fh_t *f)
 {
     return STREAM(f)->total_out;
 }
 
-const frogfs_decomp_funcs_t frogfs_decomp_deflate = {
-    .open = open_deflate,
-    .close = close_deflate,
-    .read = read_deflate,
-    .seek = seek_deflate,
-    .tell = tell_deflate,
+const frogfs_decomp_funcs_t frogfs_decomp_zlib = {
+    .open = open_zlib,
+    .close = close_zlib,
+    .read = read_zlib,
+    .seek = seek_zlib,
+    .tell = tell_zlib,
 };

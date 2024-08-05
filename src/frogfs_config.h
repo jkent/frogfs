@@ -5,8 +5,12 @@
 #pragma once
 
 
-#if !defined(CONFIG_FROGFS_USE_DEFLATE)
-#define CONFIG_FROGFS_USE_DEFLATE 0
+#if !defined(CONFIG_FROGFS_USE_MINIZ)
+#define CONFIG_FROGFS_USE_MINIZ 0
+#endif
+
+#if !defined(CONFIG_FROGFS_USE_ZLIB)
+#define CONFIG_FROGFS_USE_ZLIB 0
 #endif
 
 #if !defined(CONFIG_FROGFS_USE_HEATSHRINK)

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import gzip
 import json
 import os
 import zlib
@@ -18,6 +19,10 @@ except:
     heatshrink2 = None
 
 from frogfs import align, djb2_hash, expand_variables, pad, pipe_script
+
+COMP_ALGO_ZLIB = 1
+COMP_ALGO_HEATSHRINK = 2
+COMP_ALGO_GZIP = 3
 
 
 def load_config() -> dict:
@@ -255,7 +260,7 @@ def apply_rules() -> None:
                         compress = None
                         continue
 
-                    compressors = ['deflate']
+                    compressors = ['deflate', 'gzip', 'zlib']
                     if heatshrink2:
                         compressors += ['heatshrink']
                     if parts[1] in compressors:
@@ -320,16 +325,24 @@ def preprocess(ent: dict) -> None:
 
         if ent['compress']:
             name, args = ent['compress']
-            print(f'           - compress {name}... ', file=stderr, end='',
-                    flush=True)
-
             if name == 'deflate':
+                print(f'           - compress {name} (deprecated, please use zlib)... ',
+                        file=stderr, end='', flush=True)
+                name = 'zlib'
+            else:
+                print(f'           - compress {name}... ', file=stderr, end='',
+                        flush=True)
+
+            if name == 'zlib':
                 level = args.get('level', 9)
                 compressed = zlib.compress(data, level)
             elif heatshrink2 and name == 'heatshrink':
                 window = args.get('window', 11)
                 lookahead = args.get('lookahead', 4)
                 compressed = heatshrink2.compress(data, window, lookahead)
+            elif name == 'gzip':
+                level = args.get('level', 9)
+                compressed = gzip.compress(data, level)
 
             if len(data) < len(compressed):
                 print('skipped', file=stderr)
@@ -447,14 +460,17 @@ def generate_file_header(ent) -> None:
     data_size = os.path.getsize(os.path.join(cache_dir, ent['dest']))
     if ent.get('compress') and ent.get('real_size') is not None:
         method, args = ent['compress']
-        if method == 'deflate':
-            comp = 1
+        if method in ('deflate', 'zlib'):
+            comp = COMP_ALGO_ZLIB
             opts = args.get('level', 9)
         elif heatshrink2 and method == 'heatshrink':
-            comp = 2
+            comp = COMP_ALGO_HEATSHRINK,
             window = args.get('window', 11)
             lookahead = args.get('lookahead', 4)
             opts = lookahead << 4 | window
+        elif method == 'gzip':
+            comp = COMP_ALGO_GZIP
+            opts = args.get('level', 9)
 
         header = bytearray(format.comp.size + len(name))
         format.comp.pack_into(header, 0, 0, 0xFF00 | comp, len(name), opts, 0,
