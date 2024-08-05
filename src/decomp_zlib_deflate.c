@@ -117,19 +117,19 @@ static ssize_t seek_deflate(frogfs_fh_t *f, long offset, int mode)
         return -1;
     }
 
-    if (STREAM(f)->total_out > new_pos) {
+    if (new_pos < STREAM(f)->total_out) {
         f->data_ptr = f->data_start;
         inflateReset(STREAM(f));
     }
 
-    while (STREAM(f)->total_out < new_pos) {
+    while (new_pos > STREAM(f)->total_out) {
         uint8_t buf[BUFFER_LEN];
         size_t len = new_pos - STREAM(f)->total_out < BUFFER_LEN ?
                 new_pos - STREAM(f)->total_out : BUFFER_LEN;
 
         ssize_t res = frogfs_read(f, buf, len);
         if (res < 0) {
-            LOGE("frogfs_fread");
+            LOGE("frogfs_read");
             return -1;
         }
     }

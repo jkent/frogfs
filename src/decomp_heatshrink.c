@@ -137,20 +137,20 @@ static ssize_t seek_heatshrink(frogfs_fh_t *f, long offset, int mode)
         return -1;
     }
 
-    if (PRIV(f)->file_pos > new_pos) {
+    if (new_pos < PRIV(f)->file_pos) {
         f->data_ptr = f->data_start;
         PRIV(f)->file_pos = 0;
         heatshrink_decoder_reset(PRIV(f)->hsd);
     }
 
-    while (PRIV(f)->file_pos < new_pos) {
+    while (new_pos > PRIV(f)->file_pos) {
         uint8_t buf[BUFFER_LEN];
         size_t len = new_pos - PRIV(f)->file_pos < BUFFER_LEN ?
                 new_pos - PRIV(f)->file_pos : BUFFER_LEN;
 
         ssize_t res = frogfs_read(f, buf, len);
         if (res < 0) {
-            LOGE("frogfs_fread");
+            LOGE("frogfs_read");
             return -1;
         }
     }

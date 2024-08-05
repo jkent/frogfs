@@ -4,4 +4,3 @@ url: https://github.com/jkent/frogfs
 dependencies:
   idf:
     version: ">=5.0.0"
-  zlib: "~1.2"

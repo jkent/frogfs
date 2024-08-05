@@ -10,7 +10,11 @@ set(libfrogfs_INC
 )
 
 if ("${CONFIG_FROGFS_USE_DEFLATE}" STREQUAL "y")
-    list(APPEND libfrogfs_SRC ${frogfs_DIR}/src/decomp_deflate.c)
+    if(ESP_PLATFORM)
+        list(APPEND libfrogfs_SRC ${frogfs_DIR}/src/decomp_miniz_deflate.c)
+    else()
+        list(APPEND libfrogfs_SRC ${frogfs_DIR}/src/decomp_zlib_deflate.c)
+    endif()
 endif()
 
 if ("${CONFIG_FROGFS_USE_HEATSHRINK}" STREQUAL "y")
