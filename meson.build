@@ -65,3 +65,7 @@ meson.override_dependency('frogfs', frogfs_dep)
 
 mkfrogfs_py = find_program('tools' / 'mkfrogfs.py')
 bin2c_py = find_program('tools' / 'bin2c.py')
+
+# silence language server unused variable warnings
+mkfrogfs_py = mkfrogfs_py
+bin2c_py = bin2c_py
