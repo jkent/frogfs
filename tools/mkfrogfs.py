@@ -464,7 +464,7 @@ def generate_file_header(ent) -> None:
             comp = COMP_ALGO_ZLIB
             opts = args.get('level', 9)
         elif heatshrink2 and method == 'heatshrink':
-            comp = COMP_ALGO_HEATSHRINK,
+            comp = COMP_ALGO_HEATSHRINK
             window = args.get('window', 11)
             lookahead = args.get('lookahead', 4)
             opts = lookahead << 4 | window
