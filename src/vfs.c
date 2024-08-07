@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "frogfs/frogfs.h"
-#include "frogfs/vfs.h"
-
-#include "esp_err.h"
-#include "esp_vfs.h"
-
 #include <dirent.h>
 #include <errno.h>
 #include <stddef.h>
@@ -15,6 +9,13 @@
 #include <string.h>
 #include <sys/fcntl.h>
 #include <sys/stat.h>
+
+#include "esp_err.h"
+#include "esp_vfs.h"
+
+#include "frogfs_config.h"
+#include "frogfs/vfs.h"
+#include "frogfs/frogfs.h"
 
 
 #ifndef CONFIG_FROGFS_MAX_PARTITIONS

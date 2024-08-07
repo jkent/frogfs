@@ -5,9 +5,8 @@
 #pragma once
 
 #include <stdio.h>
-#if defined(ESP_PLATFORM)
-# include <sdkconfig.h>
-#endif
+
+#include "frogfs_config.h"
 
 
 #if defined(CONFIG_FROGFS_LOG_LEVEL_NONE)

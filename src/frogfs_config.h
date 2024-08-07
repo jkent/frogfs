@@ -5,6 +5,10 @@
 #pragma once
 
 
+#if defined(ESP_PLATFORM)
+# include "sdkconfig.h"
+#endif
+
 #if !defined(CONFIG_FROGFS_USE_MINIZ)
 #define CONFIG_FROGFS_USE_MINIZ 0
 #endif

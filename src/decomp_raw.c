@@ -2,15 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "frogfs_priv.h"
-#include "frogfs_format.h"
-#include "frogfs/frogfs.h"
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
+
+#include "frogfs_priv.h"
+#include "frogfs_format.h"
+#include "frogfs/frogfs.h"
 
 
 static ssize_t read_raw(frogfs_fh_t *f, void *buf, size_t len)

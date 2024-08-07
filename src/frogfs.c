@@ -8,17 +8,6 @@
  * tool that comes with this source distribution.
  */
 
-#include "log.h"
-#include "frogfs_config.h"
-#include "frogfs_priv.h"
-#include "frogfs_format.h"
-#include "frogfs/frogfs.h"
-
-#if defined(ESP_PLATFORM)
-# include "esp_partition.h"
-# include "spi_flash_mmap.h"
-#endif
-
 #include <assert.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -27,6 +16,16 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "frogfs_config.h" 
+#if defined(ESP_PLATFORM)
+# include "spi_flash_mmap.h"
+#endif
+
+#include "log.h"
+#include "frogfs_priv.h"
+#include "frogfs_format.h"
+#include "frogfs/frogfs.h"
 
 
 typedef struct frogfs_fs_t {

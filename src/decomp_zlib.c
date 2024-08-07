@@ -2,20 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "log.h"
-#include "frogfs_priv.h"
-#include "frogfs_format.h"
-#include "frogfs/frogfs.h"
-
-#define ZLIB_CONST
-#include "zlib.h"
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+
+#define ZLIB_CONST
+#include "zlib.h"
+
+#include "frogfs_priv.h"
+#include "log.h"
+#include "frogfs_format.h"
+#include "frogfs/frogfs.h"
 
 
 #define BUFFER_LEN 16

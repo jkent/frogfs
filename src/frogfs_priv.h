@@ -7,9 +7,9 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
+#include "frogfs_config.h"
 #define FROGFS_PRIVATE_STRUCTS
 #include "frogfs_format.h"
-#include "frogfs_config.h"
 
 
 typedef struct frogfs_fs_t frogfs_fs_t;

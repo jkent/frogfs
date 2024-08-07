@@ -2,15 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "frogfs/frogfs.h"
-#include "frogfs/route.h"
-#include "log.h"
-#include "cwhttpd/route.h"
-#include "cwhttpd/httpd.h"
-
 #include <string.h>
 #include <stddef.h>
 #include <stdlib.h>
+
+#include "frogfs/route.h"
+#include "frogfs/frogfs.h"
+#include "log.h"
+#include "cwhttpd/route.h"
+#include "cwhttpd/httpd.h"
 
 
 #define TRY(X) ({ \

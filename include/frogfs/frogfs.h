@@ -8,13 +8,13 @@
 extern "C" {
 #endif
 
-#if defined(ESP_PLATFORM)
-#include "spi_flash_mmap.h"
-#endif
-
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
+
+#if defined(ESP_PLATFORM)
+# include "spi_flash_mmap.h"
+#endif
 
 
 /**
