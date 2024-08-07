@@ -59,10 +59,7 @@ project(my_project)
 target_add_frogfs(${PROJECT_NAME}.elf)
 ```
 
-Where **target** `my_project.elf` must match your project's name and
-**path** `files` is either an absolute path or a path relative to your
-project's root. It should contain the files to embed in the resulting frogfs
-binary. In C, this results in these two global symbols being available to your
+In C, this results in these two global symbols being available to your
 application:
 
 ```C
@@ -95,10 +92,7 @@ esptool_py_flash_to_partition(${FROGFS_NAME}-flash storage ${BUILD_DIR}/CMakeFil
 add_dependencies(${FROGFS_NAME}-flash generate_${FROGFS_NAME}_bin)
 ```
 
-In this case, **files** is the source directory to build the file system from,
-**frogfs** is the target prefix and binary filename (without the .bin) and
-**storage** is the name of the partition where the binary is flashed. You can
-invoke the flash process by running `idf.py frogfs-flash`.
+You can invoke the flash process by running `idf.py frogfs-flash`.
 
 ## Configuration
 
