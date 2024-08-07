@@ -28,7 +28,7 @@ endchoice # "Log level"
 
 config FROGFS_USE_MINIZ
 	bool "Use miniz for gzip and zlib compression"
-	default y
+	default y if !IDF_TARGET_ESP8266
 	help
 		If enabled, this will enable support for decompressing files using
 		miniz for gzip and zlib formats using the deflate algorithm.
@@ -45,6 +45,7 @@ config FROGFS_USE_ZLIB
 config FROGFS_USE_HEATSHRINK
 	bool "Use heatshrink"
 	default n
+	default y if IDF_TARGET_ESP8266
 	help
 		If enabled, this will enable support for decompressing files using
 		the heatshrink algorithm.

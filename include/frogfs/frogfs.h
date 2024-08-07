@@ -13,7 +13,10 @@ extern "C" {
 #include <sys/types.h>
 
 #if defined(ESP_PLATFORM)
-# include "spi_flash_mmap.h"
+# include "sdkconfig.h"
+# if !defined(CONFIG_IDF_TARGET_ESP8266)
+#  include "spi_flash_mmap.h"
+# endif
 #endif
 
 

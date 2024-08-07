@@ -19,7 +19,10 @@
 
 #include "frogfs_config.h" 
 #if defined(ESP_PLATFORM)
-# include "spi_flash_mmap.h"
+# if !defined(CONFIG_IDF_TARGET_ESP8266)
+#  include "esp_partition.h"
+#  include "spi_flash_mmap.h"
+# endif
 #endif
 
 #include "log.h"
@@ -29,7 +32,7 @@
 
 
 typedef struct frogfs_fs_t {
-#if defined(ESP_PLATFORM)
+#if defined(ESP_PLATFORM) && !defined(CONFIG_IDF_TARGET_ESP8266)
     spi_flash_mmap_handle_t mmap_handle;
 #endif
     const frogfs_head_t *head; /**< fs header pointer */
@@ -80,7 +83,7 @@ frogfs_fs_t *frogfs_init(const frogfs_config_t *conf)
 
     fs->head = (const void *) conf->addr;
     if (fs->head == NULL) {
-#if defined (ESP_PLATFORM)
+#if defined(ESP_PLATFORM) && !defined(CONFIG_IDF_TARGET_ESP8266)
         esp_partition_subtype_t subtype = conf->part_label ?
                 ESP_PARTITION_SUBTYPE_ANY :
                 ESP_PARTITION_SUBTYPE_DATA_ESPHTTPD;
@@ -131,7 +134,7 @@ void frogfs_deinit(frogfs_fs_t *fs)
 {
     LOGV("%p", fs);
 
-#if defined(ESP_PLATFORM)
+#if defined(ESP_PLATFORM) && !defined(CONFIG_IDF_TARGET_ESP8266)
     if (fs->mmap_handle) {
         spi_flash_munmap(fs->mmap_handle);
     }
