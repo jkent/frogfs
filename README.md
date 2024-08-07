@@ -56,7 +56,7 @@ cmake_minimum_required(VERSION 3.16)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(my_project)
 
-target_add_frogfs(my_project.elf)
+target_add_frogfs(${PROJECT_NAME}.elf)
 ```
 
 Where **target** `my_project.elf` must match your project's name and
