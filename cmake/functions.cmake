@@ -32,7 +32,7 @@ macro(generate_frogfs_rules)
             COMMENT "Initializing Python virtualenv"
             BYPRODUCTS ${Python3_VENV}
         )
-        file(GLOB_RECURSE venv LIST_DIRECTORIES true CONFIGURE_DEPENDS "${Python3_VENV}/*")
+        file(GLOB_RECURSE venv FOLLOW_SYMLINKS LIST_DIRECTORIES true CONFIGURE_DEPENDS "${Python3_VENV}/*")
         set_property(TARGET frogfs_venv PROPERTY ADDITIONAL_CLEAN_FILES "${venv}")
     endif()
 
@@ -58,7 +58,7 @@ macro(generate_frogfs_rules)
 
     file(GLOB_RECURSE cache LIST_DIRECTORIES true CONFIGURE_DEPENDS "${BUILD_DIR}/${ARG_NAME}-cache/*")
     set_property(TARGET frogfs_preprocess_${ARG_NAME} PROPERTY ADDITIONAL_CLEAN_FILES "${cache}")
-    file(GLOB_RECURSE node_modules LIST_DIRECTORIES true CONFIGURE_DEPENDS "${BUILD_DIR}/node_modules/*")
+    file(GLOB_RECURSE node_modules FOLLOW_SYMLINKS LIST_DIRECTORIES true CONFIGURE_DEPENDS "${BUILD_DIR}/node_modules/*")
     set_property(TARGET frogfs_preprocess_${ARG_NAME} APPEND PROPERTY ADDITIONAL_CLEAN_FILES "${node_modules};${BUILD_DIR}/node_modules")
 
     if (${frogfs_DIR}/requirements.txt IS_NEWER_THAN ${Python3_VENV}.stamp)
