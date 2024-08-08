@@ -121,7 +121,15 @@ def collect_entries() -> dict:
         base = os.path.normpath(base)
 
         if '*' in name or '?' in name:
-            for path in glob(name, root_dir=base):
+            try:
+                old_cwd = os.getcwd()
+                os.chdir(base)
+                paths = glob(name)
+                os.chdir(old_cwd)
+            except:
+                paths = ()
+
+            for path in paths:
                 src = os.path.join(base, path)
                 if os.path.isdir(src):
                     for dir, _, files in os.walk(src, followlinks=True):
