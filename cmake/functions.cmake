@@ -1,3 +1,4 @@
+cmake_minimum_required(VERSION 3.16)
 set(frogfs_DIR ${CMAKE_CURRENT_LIST_DIR}/..)
 
 macro(generate_frogfs_rules)
