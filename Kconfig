@@ -45,7 +45,6 @@ config FROGFS_USE_ZLIB
 config FROGFS_USE_HEATSHRINK
 	bool "Use heatshrink"
 	default n
-	default y if IDF_TARGET_ESP8266
 	help
 		If enabled, this will enable support for decompressing files using
 		the heatshrink algorithm.
