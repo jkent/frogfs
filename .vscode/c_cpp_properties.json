@@ -10,7 +10,8 @@
                 "${config:idf.espIdfPathWin}/components/**",
                 "${config:idf.espAdfPath}/components/**",
                 "${config:idf.espAdfPathWin}/components/**",
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/third-party/heatshrink",
+                "${workspaceFolder}/include"
             ],
             "browse": {
                 "path": [
@@ -27,10 +28,11 @@
                 "CONFIG_FREERTOS_HZ=100",
                 "CONFIG_VFS_SUPPORT_DIR=1",
                 "CONFIG_FROGFS_VFS_SUPPORT_DIR=1",
-                "CONFIG_FROGFS_USE_DEFLATE=1",
+                "CONFIG_FROGFS_USE_MINIZ=1",
+                "CONFIG_FROGFS_USE_ZLIB=1",
                 "CONFIG_FROGFS_USE_HEATSHRINK=1"
             ],
-            "cStandard": "c11",
+            "cStandard": "c17",
             "cppStandard": "c++17",
             "intelliSenseMode": "linux-gcc-x64"
         }
