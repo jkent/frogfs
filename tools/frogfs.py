@@ -55,7 +55,7 @@ def pipe_script(script: str, args: dict, data: Union[bytes, bytearray]) -> bytes
     elif ext == '.py':
         command = [executable]
     else:
-        raise Exception(f'unhndled file extension for {script}')
+        raise Exception(f'unhandled file extension for {script}')
 
     command.append(script)
     for arg, value in args.items():

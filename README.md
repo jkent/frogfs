@@ -14,6 +14,7 @@ Transform filters include:
   * babel-minify
   * deflate
   * gzip
+  * brotli
   * html-minifier
   * rename
   * terminate
@@ -30,8 +31,8 @@ Transform filters are intended to be _compile-time_ operations that do not
 incur a run-time cost while compression filters are **expected** to incur a
 _run-time_ decompression cost.
 
-This means for an HTTP server, zlib (deflate) or gzip compressed files can be
-passed through untouched! This saves processing time and bandwidth.
+This means for an HTTP server, zlib (deflate), brotli (br) or gzip compressed
+files can be passed through untouched! This saves processing time and bandwidth.
 
 # Getting started with ESP-IDF
 

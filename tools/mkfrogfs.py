@@ -232,6 +232,17 @@ def load_state() -> None:
             ent['real_size'] = state.get('real_size')
             ent['transform'] = state.get('transform', {})
 
+def filter_rank(filter) -> int:
+    '''Compute the rank for the filter. Filters with higher rank takes precedence over filters with lower rank'''
+
+    if filter == '*':
+         return 0
+
+    ext = len(filter.split('.'))
+    path = len(filter.split('/'))
+    return (ext - 1) + (path - 1) * 2
+
+
 def apply_rules() -> None:
     '''Applies preprocessing rules for entries'''
     global dirty
@@ -244,6 +255,16 @@ def apply_rules() -> None:
         for filter, actions in config['filter']:
             if not fnmatch(dest, filter):
                 continue
+
+            rank = filter_rank(filter)
+            if ent.get('rank') is not None:
+                if ent['rank'] > rank:
+                    continue
+                else:
+                    # A filter with a higher rank exists, clear previous transform to avoid mixing transforms order
+                    xforms = {}
+
+            ent['rank'] = rank
             for action, args in actions:
                 parts = action.split()
                 enable = True
@@ -328,7 +349,7 @@ def preprocess(ent: dict) -> None:
                 ent['dest'] = dest
                 print(f'done as {dest}', file=stderr)
             else:
-                data = pipe_script(transform['path'], args, data)
+                data = pipe_script(transform['path'], args, data) if isinstance(args, dict) else data
                 print('done', file=stderr)
 
         if ent['compress']:

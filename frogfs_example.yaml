@@ -25,6 +25,10 @@ filter:
   '*.html':
     - html-minifier:
         arg: value
+    - brotli
+    - rename
+        ext: br
+    - no compress
 
   '*.js':
     - gzip
