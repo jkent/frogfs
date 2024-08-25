@@ -347,6 +347,7 @@ def preprocess(ent: dict) -> None:
             if 'meta' in transform:
                 dest = pipe_script(transform['path'], args, str.encode(ent['dest'])).decode()
                 ent['dest'] = dest
+                ent['name'] = dest.split('/')[-1]
                 print(f'done as {dest}', file=stderr)
             else:
                 data = pipe_script(transform['path'], args, data) if isinstance(args, dict) else data
@@ -588,7 +589,7 @@ def append_hashtable() -> None:
     '''Generate hashtable for entries'''
     global data
 
-    hashed_entries = {djb2_hash(k): v for k,v in entries.items()}
+    hashed_entries = {djb2_hash(v['dest']): v for k,v in entries.items()}
     hashed_entries = dict(sorted(hashed_entries.items(), key=lambda e: e))
 
     for hash, ent in hashed_entries.items():
