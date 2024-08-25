@@ -33,6 +33,7 @@ _run-time_ decompression cost.
 
 This means for an HTTP server, zlib (deflate), brotli (br) or gzip compressed
 files can be passed through untouched! This saves processing time and bandwidth.
+Beware however that some browsers don't accept brotli content other HTTP (only HTTPS).
 
 # Getting started with ESP-IDF
 
