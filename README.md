@@ -73,7 +73,7 @@ extern const size_t frogfs_bin_len;
 
 You have the option of creating a binary without linking it with your
 application. A CMake function is provided to output a binary with target
-`generate_${name}`.
+`generate-${name}`.
 
     declare_frogfs_bin(path [CONFIG yaml] [NAME name])
 
@@ -91,7 +91,7 @@ idf_component_get_property(sub_args esptool_py FLASH_SUB_ARGS)
 esptool_py_flash_target(${FROGFS_NAME}-flash "${main_args}" "${sub_args}" ALWAYS_PLAINTEXT)
 
 esptool_py_flash_to_partition(${FROGFS_NAME}-flash storage ${BUILD_DIR}/CMakeFiles/${FROGFS_NAME}.bin)
-add_dependencies(${FROGFS_NAME}-flash generate_${FROGFS_NAME}_bin)
+add_dependencies(${FROGFS_NAME}-flash generate-${FROGFS_NAME}-bin)
 ```
 
 You can invoke the flash process by running `idf.py frogfs-flash`.
