@@ -1,5 +1,9 @@
 import sys
-import zlib
+# Try to use zopfli first, else fallback to zlib
+try:
+    import zopfli.zlib as zlib
+except:
+    import zlib
 
 if __name__ == '__main__':
     while True:

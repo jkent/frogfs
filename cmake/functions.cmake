@@ -24,7 +24,7 @@ macro(generate_frogfs_rules)
         set(Python3_VENV_EXECUTABLE ${Python3_VENV}/Scripts/python.exe)
     else()
         set(Python3_VENV_EXECUTABLE ${Python3_VENV}/bin/python)
-    endif()    
+    endif()
 
     if(NOT TARGET frogfs_venv)
         add_custom_target(frogfs_venv
@@ -81,7 +81,7 @@ endfunction()
 function(declare_frogfs_bin)
     generate_frogfs_rules(${ARGV})
 
-    add_custom_target(generate_${ARG_NAME}_bin
+    add_custom_target(generate-${ARG_NAME}-bin
         DEPENDS frogfs_preprocess_${ARG_NAME} ${OUTPUT}.bin
     )
 endfunction()
