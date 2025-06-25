@@ -32,6 +32,13 @@ typedef struct frogfs_vfs_conf_t {
  */
 esp_err_t frogfs_vfs_register(const frogfs_vfs_conf_t *conf);
 
+/**
+ * \brief      Unmount an frogfs fs handle under a vfs path
+ * \param[in]  base_path vfs path to unmount the filesystem
+ * \return     ESP_OK if successful, ESP_ERR_NOT_FOUND if the vfs path is not found
+ */
+esp_err_t frogfs_vfs_deregister(const char *base_path);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
