@@ -105,13 +105,26 @@ Define is a list or dict of variable definitions. There are 2 predefined
 variables: `$cwd` and `$frogfs`. You can also reference environment variables
 with the `${ENV:varname}` syntax.
 
-Collect 'gathers' up files and directories and places them in the frogfs root.
-Glob patterns are allowed in the 'basename' component of the path. There are 3
-ways to specify sources; they cn be a string, list, or dictionary. If it's a
-string, the path(s) become the root directory. If a list, the paths are merged
-in order and become the root directory. If a dict is used, the paths are
-merged into the destination of choice; empty string being the root directory.
-Variables are expanded for both source and destination.
+Collect 'gathers' up files and directories and places them in the frogfs
+filesystem. Glob patterns are allowed in paths. It is recommended to use a
+list, but a string can be used. If paths end with a slash, the contents of
+that path are placed in the destination. Otherwise, the path itself is placed
+in the destination. The destination defaults to the root directory, or in the
+case of a dictionary key, a root relative path is used.
+
+For exmple:
+
+```yaml
+collect:
+  - files/*        # everything in files except dotfiles in /
+  - files/         # everything in files in /
+  - files          # files directory in / (/files)
+  - files/*: dir   # everything in files except dotfiles in /dir
+  - files/: dir    # everything in files in /dir
+  - files: dir     # files directory in /dir (/dir/files)
+```
+
+Variables can be used on both source paths and destination paths.
 
 Filter allows you to do post-processing on the files before they are
 integrated. Filter is a list or dict of dicts; with a glob pattern to a list
