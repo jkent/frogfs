@@ -13,20 +13,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: Inject version into idf_component.yml on tag
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="${GITHUB_REF_NAME}"
-          echo "Injecting version ${VERSION} into idf_component.yml"
-          tmpfile="$(mktemp)"
-          # Remove any existing top-level version field, then prepend the new one
-          grep -v '^[[:space:]]*version:[[:space:]]*' idf_component.yml > "$tmpfile"
-          printf 'version: "%s"\n' "$VERSION" > idf_component.yml
-          cat "$tmpfile" >> idf_component.yml
-          rm -f "$tmpfile"
-          echo "Resulting idf_component.yml:" && cat idf_component.yml
       - name: Upload component to the registry
         uses: espressif/upload-components-ci-action@v1
         with:
