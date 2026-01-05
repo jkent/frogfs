@@ -16,7 +16,7 @@
 PROJECT_NAME = "FrogFS Programming Guide"
 
 ## The 'INPUT' statement below is used as input by script 'gen-df-input.py'
-## to automatically generate API reference list files heder_file.inc
+## to automatically generate API reference list files header_file.inc
 ## These files are placed in '_inc' directory
 ## and used to include in API reference documentation
 

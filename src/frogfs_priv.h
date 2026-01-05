@@ -26,7 +26,7 @@ typedef struct frogfs_fh_t {
     size_t data_sz; /**< data size */
     size_t real_sz; /**< real (expanded) size */
     unsigned int flags; /** open flags */
-    const frogfs_decomp_funcs_t *decomp_funcs; /**< decompresor funcs */
+    const frogfs_decomp_funcs_t *decomp_funcs; /**< decompressor funcs */
     void *decomp_priv; /**< decompressor private data */
 } frogfs_fh_t;
 

@@ -577,7 +577,7 @@ def generate_dir_header(dirent: dict) -> None:
     dirent['data_size'] = 0
 
 def generate_entry_headers() -> None:
-    '''Iterate entries and call their respective generate header funciton'''
+    '''Iterate entries and call their respective generate header function'''
     for ent in entries.values():
         if ent['type'] == 'file':
             generate_file_header(ent)

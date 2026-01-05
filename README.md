@@ -43,7 +43,7 @@ To use this component with ESP-IDF, within your projects directory run
 
 ## Embedding a FrogFS image
 
-Embed FrogFS within your project binary with the folowing CMake function:
+Embed FrogFS within your project binary with the following CMake function:
 
     target_add_frogfs(<target> [CONFIG yaml] [NAME name])
 
@@ -91,7 +91,7 @@ application. A CMake function is provided to output a binary with target
     declare_frogfs_bin(path [CONFIG yaml] [NAME name])
 
 If **CONFIG** is not specified, `frogfs.yaml` is used. If **NAME** is not
-specifed, `frogfs` is used.
+specified, `frogfs` is used.
 
 Here's an example of what you can add to your toplevel CMakeLists.txt:
 
@@ -125,7 +125,7 @@ that path are placed in the destination. Otherwise, the path itself is placed
 in the destination. The destination defaults to the root directory, or in the
 case of a dictionary key, a root relative path is used.
 
-For exmple:
+For example:
 
 ```yaml
 collect:
@@ -141,7 +141,7 @@ Variables can be used on both source paths and destination paths.
 
 Filter allows you to do post-processing on the files before they are
 integrated. Filter is a list or dict of dicts; with a glob pattern to a list
-of verbs. Varibales are expanded and all patterns are evaluated for each file
+of verbs. Variables are expanded and all patterns are evaluated for each file
 or directory, top down. Transforms are applied first, then an optional final
 compression before caching the file.
 
@@ -197,7 +197,7 @@ preventing you from mix and matching both at the same time, however.
 
 ### Shared initialization
 
-Configuration requries defining a `frogfs_config_t` structure and passing it
+Configuration requires defining a `frogfs_config_t` structure and passing it
 to `frogfs_init`. Two different ways to specify the filesystem:
 
   1. a memory address using the `addr` variable:
@@ -296,7 +296,7 @@ add your own transforms by creating a `tools` directory in your projects root
 directory, with a filename starting with `transform-` and ending with `.js` or
 `.py`. Transform tools take data on stdin and produce output on stdout.
 
-Both transform and compresors can accept arguments. See `frogfs_example.yaml`
+Both transform and compressors can accept arguments. See `frogfs_example.yaml`
 for an example.
 
 # History and Acknowledgements
