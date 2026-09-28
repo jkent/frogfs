@@ -4,9 +4,6 @@
 
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #include <stddef.h>
 #include <stdint.h>
@@ -19,6 +16,9 @@ extern "C" {
 # endif
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * \brief       Magic number used in the frogfs file header
