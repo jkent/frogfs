@@ -187,9 +187,13 @@ static DIR* frogfs_vfs_opendir(void *ctx, const char *path)
 {
     frogfs_vfs_t *vfs = (frogfs_vfs_t *) ctx;
     frogfs_vfs_dh_t *dh = malloc(sizeof(*dh));
+    if (!dh) {
+        return NULL;
+    }
 
     const frogfs_entry_t *entry = frogfs_get_entry(vfs->fs, path);
     if (entry == NULL) {
+        free(dh);
         return NULL;
     }
 

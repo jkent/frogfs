@@ -191,6 +191,10 @@ const frogfs_entry_t *frogfs_get_entry(const frogfs_fs_t *fs, const char *path)
     do {
         entry = (const void *) fs->head + e->offs;
         char *match = frogfs_get_path(fs, entry);
+        if (!match) {
+            /* out of memory */
+            return NULL;
+        }
         if (strcmp(path, match) == 0) {
             free(match);
             LOGV("entry %d", middle);

@@ -46,6 +46,7 @@ static int open_miniz(frogfs_fh_t *f, unsigned int flags)
         /* gzip */
         if (*(p + 2) != 8) {
             LOGE("unsupported gzip compression method");
+            free(priv);
             return -1;
         }
         priv->data += 10;
